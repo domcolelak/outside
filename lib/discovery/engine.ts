@@ -150,7 +150,9 @@ export async function runDemoScan(org: DemoOrg, scanId: string, emit: Emit): Pro
     await emit({ type: "log", level: "info", message: `Exposure score: ${result.score.value}/100` });
     await sleep(160);
   });
-  await emit({ type: "result", result });
+  if (org.changeSummary) result.changeSummary = org.changeSummary;
+  // The terminal `result` event is emitted by the caller after optional
+  // persistence + change detection, so the client receives history in one shot.
   return result;
 }
 
@@ -266,6 +268,6 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
   await stage(emit, "score", async () => {
     await emit({ type: "log", level: "info", message: `Exposure score: ${result.score.value}/100` });
   });
-  await emit({ type: "result", result });
+  // Terminal `result` event is emitted by the caller after persistence.
   return result;
 }

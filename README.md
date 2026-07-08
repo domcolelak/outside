@@ -26,16 +26,20 @@ differentiator: cinematic external-surface discovery and visualization. It runs 
 - **Shadow / non-production / auth-surface classification** — weighted **signal correlation** (not naive keyword matching), each with confidence and a plain-English rationale.
 - **Deterministic, explainable exposure score** — a 0–100 posture value with a full _"Why is my score X?"_ breakdown where every component sums to the total.
 - **Evidence-backed findings** — every finding separates **observed fact → inferred signal → possible concern**, with reasoning, recommendation, evidence, and discovery method.
-- **Demo mode** — three synthetic organizations (Northstar Labs, Velora Commerce, Atlas Financial) with a designed discovery storyline, clearly labeled as synthetic.
+- **Temporal tracking & change detection** — repeated scans of a target preserve a stable asset identity across gaps (appears → disappears → returns) and diff into change events (new / returned / disappeared / technology-changed). Works out of the box via a zero-config in-memory store; a **PostgreSQL (Prisma)** backend provides durability when `DATABASE_URL` is set. Real scans never fabricate changes — a stable surface reports zero.
+- **Demo mode** — three synthetic organizations (Northstar Labs, Velora Commerce, Atlas Financial) with a designed discovery storyline and change story, clearly labeled as synthetic.
 - **Security layer** — target normalization, SSRF/private-range/metadata guards, and rate limiting, all unit-tested.
 
 ### Documented roadmap (architected, not yet implemented)
 These are intentionally **not** shipped as broken stubs. The code is structured to accept them, and
-each is specified in [`docs/ROADMAP.md`](docs/ROADMAP.md): persistent temporal asset tracking &
-change detection (Postgres), accounts/organizations/RBAC, DNS-TXT domain verification, background
-workers & scheduled monitoring, PDF export, transactional email & alerting, Stripe billing, and the
-optional AI explanation layer. The domain model in [`lib/types.ts`](lib/types.ts) already reflects
-the temporal/evidence design these depend on.
+each is specified in [`docs/ROADMAP.md`](docs/ROADMAP.md): accounts/organizations/RBAC, DNS-TXT domain
+verification, background workers & scheduled monitoring, PDF export, transactional email & alerting,
+Stripe billing, and the optional AI explanation layer. The domain model in
+[`lib/types.ts`](lib/types.ts) and [`lib/persistence`](lib/persistence) already reflects the
+temporal/evidence design these depend on.
+
+To enable durable persistence: set `DATABASE_URL`, then `npm run db:push` (or `db:migrate`). Without
+it the app runs on the in-memory store — no database required.
 
 > This split is deliberate and honest: see [Technical honesty](#technical-honesty).
 

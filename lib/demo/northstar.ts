@@ -11,6 +11,7 @@
  */
 
 import type { AttackerBeat, Asset, Edge } from "@/lib/types";
+import type { ChangeSummary } from "@/lib/persistence/model";
 import { asset, edge, ev, resetSeq } from "./factory";
 
 export interface DemoOrg {
@@ -22,6 +23,8 @@ export interface DemoOrg {
   timeline: AttackerBeat[];
   /** Hostnames the primary site links to (for shadow-asset context). */
   linkedFromPrimary: string[];
+  /** Synthetic change story vs. a prior scan, for demonstrating change detection. */
+  changeSummary?: ChangeSummary;
 }
 
 export function buildNorthstar(): DemoOrg {
@@ -211,6 +214,36 @@ export function buildNorthstar(): DemoOrg {
     },
   ];
 
+  const changeSummary: ChangeSummary = {
+    previousScanId: "demo_prev",
+    events: [
+      {
+        type: "asset_appeared",
+        canonical: "test-api.northstarlabs.example",
+        label: "test-api.northstarlabs.example",
+        detail: "A new public API asset appeared, first observed two days ago.",
+        priority: "high",
+      },
+      {
+        type: "asset_returned",
+        canonical: "old-portal.northstarlabs.example",
+        label: "old-portal.northstarlabs.example",
+        detail: "A previously absent legacy hostname is publicly reachable again.",
+        priority: "high",
+      },
+      {
+        type: "technology_changed",
+        canonical: "api.northstarlabs.example",
+        label: "api.northstarlabs.example",
+        detail: "Observed technology signals changed since the previous scan.",
+        priority: "medium",
+        from: "nginx",
+        to: "nginx, Cloudflare",
+      },
+    ],
+    counts: { appeared: 1, returned: 1, disappeared: 0, changed: 1 },
+  };
+
   return {
     slug: "northstar",
     name: "Northstar Labs",
@@ -219,5 +252,6 @@ export function buildNorthstar(): DemoOrg {
     edges,
     timeline,
     linkedFromPrimary: ["www.northstarlabs.example", "api.northstarlabs.example"],
+    changeSummary,
   };
 }

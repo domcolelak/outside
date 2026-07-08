@@ -166,6 +166,8 @@ export interface ScanResult {
   timeline: AttackerBeat[];
   providerRuns: ProviderRun[];
   stats: ScanStats;
+  /** Diff against the target's previous scan, present once history exists. */
+  changeSummary?: import("@/lib/persistence/model").ChangeSummary;
 }
 
 export interface ScanStats {

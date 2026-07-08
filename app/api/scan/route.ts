@@ -3,6 +3,8 @@ import { runDemoScan, runPassiveScan, type Emit } from "@/lib/discovery/engine";
 import { findDemoOrg, isDemoDomain } from "@/lib/demo";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
 import { rateLimit } from "@/lib/security/ratelimit";
+import { getStore } from "@/lib/persistence";
+import { recordScan } from "@/lib/persistence/record";
 import type { ScanEvent } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -36,14 +38,19 @@ export async function GET(req: NextRequest) {
       };
       try {
         // Demo path: explicit demo mode, a known demo slug, or a demo domain.
-        const demoOrg = mode === "demo" ? findDemoOrg(rawTarget) : null;
-        if (demoOrg) {
-          await runDemoScan(demoOrg, scanId, emit);
-        } else if (isDemoDomain(rawTarget) || findDemoOrg(rawTarget)) {
-          await runDemoScan(findDemoOrg(rawTarget)!, scanId, emit);
+        // Demo scans carry a synthetic change story and are NOT persisted.
+        const demoOrg = mode === "demo" ? findDemoOrg(rawTarget) : findDemoOrg(rawTarget);
+        if (demoOrg || isDemoDomain(rawTarget)) {
+          const org = demoOrg ?? findDemoOrg(rawTarget)!;
+          const result = await runDemoScan(org, scanId, emit);
+          emit({ type: "result", result });
         } else {
           const domain = normalizeDomain(rawTarget);
-          await runPassiveScan(domain, scanId, emit);
+          const result = await runPassiveScan(domain, scanId, emit);
+          // Persist + derive change detection against this target's history.
+          const store = await getStore();
+          await recordScan(store, result);
+          emit({ type: "result", result });
         }
       } catch (error) {
         const message =
