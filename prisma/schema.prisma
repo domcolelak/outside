@@ -1,0 +1,76 @@
+// OUTSIDE persistence schema (PostgreSQL).
+//
+// Temporal design: a stable AssetIdentity per (target, canonical) survives an
+// asset disappearing and returning across scans; AssetSnapshot captures the
+// asset's observed state in each individual scan. Change detection is a diff of
+// consecutive snapshot sets (see lib/persistence/diff.ts).
+//
+// `prisma generate` runs offline from this file — no database is required to
+// build the app. A live DATABASE_URL is only needed to actually persist scans;
+// without it, OUTSIDE uses the in-memory store and everything still runs.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Target {
+  id         String          @id @default(cuid())
+  domain     String          @unique
+  createdAt  DateTime        @default(now())
+  scans      Scan[]
+  identities AssetIdentity[]
+
+  @@map("targets")
+}
+
+model Scan {
+  id         String         @id
+  target     Target         @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  targetId   String
+  finishedAt DateTime
+  mode       String
+  scoreValue Int
+  assetCount Int
+  snapshots  AssetSnapshot[]
+
+  @@index([targetId, finishedAt])
+  @@map("scans")
+}
+
+model AssetIdentity {
+  id          String          @id @default(cuid())
+  target      Target          @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  targetId    String
+  canonical   String
+  label       String
+  firstSeenAt DateTime
+  lastSeenAt  DateTime
+  snapshots   AssetSnapshot[]
+
+  @@unique([targetId, canonical])
+  @@map("asset_identities")
+}
+
+model AssetSnapshot {
+  id           String        @id @default(cuid())
+  scan         Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId       String
+  identity     AssetIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+  identityId   String
+  canonical    String
+  label        String
+  kind         String
+  priority     String
+  technologies String[]
+  status       String?
+  present      Boolean       @default(true)
+
+  @@index([scanId])
+  @@index([identityId])
+  @@map("asset_snapshots")
+}

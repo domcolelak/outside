@@ -4,15 +4,18 @@ This document is the honest boundary between what ships in this repository and w
 not yet implemented. Each item lists the integration point the current code already exposes, so a
 buyer or the next engineer can extend rather than rebuild.
 
-## Priority 1 — Persistence & temporal tracking
-- **Store:** PostgreSQL (Prisma or Drizzle). No graph DB — see ARCHITECTURE rationale.
-- **Model:** `organization`, `target`, `scan`, `asset_identity` (stable, keyed by canonical),
-  `asset_snapshot` (per-scan), `edge_snapshot`, `finding_occurrence`, `score`, `change_event`,
-  `audit_event`.
-- **Integration point:** the engine already emits a snapshot-shaped `ScanResult`. Persist it by
-  upserting `asset_identity` on `canonical` and inserting one `asset_snapshot` per asset per scan.
-- **Change detection:** diff consecutive snapshot sets → `change_event` rows (new / disappeared /
-  returned / technology-changed / certificate-changed). Powers the graph diff view and alerts.
+## Priority 1 — Persistence & temporal tracking — ✅ BUILT
+- **Store:** PostgreSQL via Prisma (`prisma/schema.prisma`), loaded lazily when `DATABASE_URL` is set;
+  a zero-config in-memory store (`lib/persistence/memory-store.ts`) is the default so the product runs
+  and demos change detection with no database. No graph DB — see ARCHITECTURE rationale.
+- **Model (built):** `Target`, `Scan`, `AssetIdentity` (stable, unique on `targetId+canonical`),
+  `AssetSnapshot` (per-scan). Temporal identity survives disappear→return gaps.
+- **Change detection (built):** `lib/persistence/diff.ts` diffs consecutive snapshot sets into
+  new / returned / disappeared / technology-changed / priority-changed events, surfaced in the
+  summary panel and as `newlyObserved` flags derived from real history. Verified: a stable surface
+  reports zero changes (no fabrication).
+- **Remaining:** `edge_snapshot`, `finding_occurrence`, `change_event` persistence, `audit_event`,
+  certificate-change detection, and a full historical graph-diff view.
 
 ## Priority 2 — Accounts, organizations, verification
 - **Auth:** email + OAuth (Auth.js). Roles: `owner | admin | analyst | viewer`.

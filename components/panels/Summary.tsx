@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Finding, ScanResult } from "@/lib/types";
+import type { ChangeSummary, ChangeType } from "@/lib/persistence/model";
 import { AssuranceTag, Confidence, PriorityDot, PRIORITY_STYLE } from "@/components/ui";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
@@ -104,6 +105,10 @@ export function Summary({
         <div className="mt-0.5 text-sm text-ink">Replay how the surface was revealed →</div>
       </button>
 
+      {result.changeSummary && result.changeSummary.events.length > 0 && (
+        <Changes summary={result.changeSummary} onSelect={onSelectAsset} assetsByCanon={new Map(result.graph.assets.map((a) => [a.canonical, a.id]))} />
+      )}
+
       <div>
         <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
           <span>Findings</span>
@@ -119,6 +124,61 @@ export function Summary({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+const CHANGE_META: Record<ChangeType, { mark: string; label: string; color: string }> = {
+  asset_appeared: { mark: "+", label: "New", color: "#38e1c3" },
+  asset_returned: { mark: "↻", label: "Returned", color: "#f5c451" },
+  asset_disappeared: { mark: "−", label: "Gone", color: "#6b7793" },
+  technology_changed: { mark: "≠", label: "Tech changed", color: "#5b8cff" },
+  priority_changed: { mark: "▲", label: "Priority up", color: "#ff8a5b" },
+};
+
+function Changes({
+  summary,
+  onSelect,
+  assetsByCanon,
+}: {
+  summary: ChangeSummary;
+  onSelect: (id: string) => void;
+  assetsByCanon: Map<string, string>;
+}) {
+  const c = summary.counts;
+  return (
+    <div>
+      <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+        <span>Since last scan</span>
+        <span className="flex gap-2">
+          {c.appeared > 0 && <span className="text-signal">+{c.appeared} new</span>}
+          {c.returned > 0 && <span className="text-risk-medium">{c.returned} returned</span>}
+          {c.disappeared > 0 && <span className="text-ink-faint">{c.disappeared} gone</span>}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {summary.events.map((e, i) => {
+          const meta = CHANGE_META[e.type];
+          const assetId = assetsByCanon.get(e.canonical);
+          return (
+            <button
+              key={i}
+              onClick={() => assetId && onSelect(assetId)}
+              className="panel flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-base-700/40"
+            >
+              <span className="mono mt-0.5 w-3 shrink-0 text-center" style={{ color: meta.color }}>{meta.mark}</span>
+              <div className="min-w-0 flex-1">
+                <div className="mono truncate text-[12px] text-ink">{e.label}</div>
+                <div className="mt-0.5 text-[11px] leading-snug text-ink-soft">{e.detail}</div>
+                {e.from && e.to && (
+                  <div className="mono mt-0.5 text-[10px] text-ink-faint">{e.from} → {e.to}</div>
+                )}
+              </div>
+              <span className="mono shrink-0 text-[9px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
