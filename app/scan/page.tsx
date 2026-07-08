@@ -1,0 +1,146 @@
+"use client";
+
+import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useScan } from "@/components/useScan";
+import { AssetGraph } from "@/components/graph/AssetGraph";
+import { ScanConsole } from "@/components/panels/ScanConsole";
+import { Summary } from "@/components/panels/Summary";
+import { NodeDetail } from "@/components/panels/NodeDetail";
+import { AttackerView } from "@/components/AttackerView";
+import { Wordmark } from "@/components/Wordmark";
+
+function ScanView() {
+  const params = useSearchParams();
+  const target = params.get("target");
+  const mode = (params.get("mode") === "demo" ? "demo" : "auto") as "auto" | "demo";
+  const scan = useScan(target, mode);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [attacker, setAttacker] = useState(false);
+
+  const selected = useMemo(() => scan.assets.find((a) => a.id === selectedId) ?? null, [scan.assets, selectedId]);
+
+  if (!target) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-ink-soft">No target specified.</p>
+          <Link href="/" className="mono mt-3 inline-block text-sm text-signal hover:underline">← Back to start</Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex items-center justify-between border-b border-line px-5 py-3">
+        <div className="flex items-center gap-4">
+          <Link href="/"><Wordmark className="h-5" /></Link>
+          <div className="hidden items-center gap-2 md:flex">
+            <span className="mono rounded-md border border-line px-2 py-1 text-xs text-ink">{scan.result?.target ?? target}</span>
+            <span className="mono rounded-md border border-line px-2 py-1 text-[11px] uppercase tracking-wider text-ink-faint">
+              {mode === "demo" || scan.result?.isDemo ? "Demo" : "Passive external view"}
+            </span>
+            {scan.result && !scan.result.isDemo && (
+              <span className="mono rounded-md border border-risk-medium/30 px-2 py-1 text-[11px] uppercase tracking-wider text-risk-medium">
+                Unverified
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {scan.status === "done" && (
+            <button onClick={() => setAttacker(true)} className="mono rounded-md border border-signal/30 bg-signal/10 px-3 py-1.5 text-xs text-signal hover:bg-signal/20">
+              Attacker View
+            </button>
+          )}
+          <Link href="/" className="mono text-xs text-ink-soft hover:text-ink">New scan</Link>
+        </div>
+      </header>
+
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_1fr_390px]">
+        {/* Console */}
+        <aside className="hidden border-r border-line bg-base-900/60 lg:block">
+          <ScanConsole stages={scan.stages} logs={scan.logs} scanning={scan.status === "scanning"} />
+        </aside>
+
+        {/* Graph */}
+        <main className="relative min-h-[40vh]">
+          <div className="grid-backdrop pointer-events-none absolute inset-0" />
+          <AssetGraph
+            assets={scan.assets}
+            edges={scan.edges}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            focusPulseId={scan.status === "scanning" ? scan.latestAssetId : null}
+          />
+          {scan.assets.length === 0 && scan.status !== "error" && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="mx-auto h-14 w-14 animate-pulse-ring rounded-full border border-signal/40" />
+                <p className="mono mt-4 text-sm text-ink-soft">Resolving root domain…</p>
+              </div>
+            </div>
+          )}
+          {scan.status === "error" && (
+            <div className="absolute inset-0 flex items-center justify-center px-6">
+              <div className="panel max-w-md p-6 text-center">
+                <div className="mono text-xs uppercase tracking-wider text-risk-high">Scan error</div>
+                <p className="mt-2 text-sm text-ink-soft">{scan.error}</p>
+                <button onClick={scan.restart} className="mono mt-4 rounded-md border border-line px-3 py-1.5 text-xs text-ink hover:bg-base-700">
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+          <GraphLegend />
+        </main>
+
+        {/* Right rail */}
+        <aside className="hidden border-l border-line bg-base-900/60 lg:block">
+          {selected ? (
+            <NodeDetail asset={selected} onClose={() => setSelectedId(null)} />
+          ) : scan.result ? (
+            <Summary result={scan.result} onSelectAsset={setSelectedId} onOpenAttacker={() => setAttacker(true)} />
+          ) : (
+            <div className="flex h-full items-center justify-center px-6 text-center">
+              <p className="mono text-xs text-ink-faint">Assets and findings will appear here as the external surface is mapped.</p>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {attacker && scan.result && <AttackerView result={scan.result} onClose={() => setAttacker(false)} />}
+    </div>
+  );
+}
+
+function GraphLegend() {
+  const items = [
+    { c: "#e8edf6", l: "Root" },
+    { c: "#ff5b6e", l: "Critical" },
+    { c: "#ff8a5b", l: "High" },
+    { c: "#f5c451", l: "Medium" },
+    { c: "#5b8cff", l: "Low" },
+    { c: "#38e1c3", l: "Info" },
+  ];
+  return (
+    <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-base-900/70 px-3 py-2 backdrop-blur">
+      {items.map((i) => (
+        <span key={i.l} className="mono flex items-center gap-1.5 text-[10px] text-ink-soft">
+          <span className="h-2 w-2 rounded-full" style={{ background: i.c, boxShadow: `0 0 8px ${i.c}88` }} />
+          {i.l}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+export default function ScanPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-ink-soft">Loading…</div>}>
+      <ScanView />
+    </Suspense>
+  );
+}

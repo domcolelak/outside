@@ -1,0 +1,126 @@
+/**
+ * Exposure score.
+ *
+ * Deterministic and fully explainable: the value is 100 minus weighted penalties
+ * plus bounded mitigations, clamped to [0,100]. It measures how well-managed and
+ * contained the *observable external surface* is — NOT the probability of being
+ * hacked. Every point of movement maps to a named component.
+ */
+
+import type { Asset, ExposureScore, Finding, ScoreComponent } from "@/lib/types";
+
+const WEIGHTS = {
+  shadowAsset: 6, // per shadow asset
+  nonProd: 7, // per non-production environment signal
+  authSurface: 4, // per exposed auth/admin surface
+  newAsset: 4, // per newly-appeared asset
+  mailSecurity: 7, // missing SPF/DMARC
+  perApiSurface: 2, // per exposed API surface
+  cdnMitigation: 8, // primary web fronted by CDN/WAF
+  containedMitigation: 6, // no unexpected service diversity
+} as const;
+
+function count(assets: Asset[], pred: (a: Asset) => boolean) {
+  return assets.filter(pred).length;
+}
+
+function hasSignal(a: Asset, code: string) {
+  return a.signals.some((s) => s.code === code && s.confidence >= 0.55);
+}
+
+export function computeExposureScore(assets: Asset[], findings: Finding[]): ExposureScore {
+  const components: ScoreComponent[] = [];
+
+  const shadow = count(assets, (a) => hasSignal(a, "asset.shadow"));
+  if (shadow > 0) {
+    components.push({
+      code: "shadow",
+      label: `${shadow} possible shadow asset${shadow > 1 ? "s" : ""}`,
+      impact: -Math.min(24, shadow * WEIGHTS.shadowAsset),
+      detail: "Publicly reachable assets that appear unmanaged or forgotten.",
+    });
+  }
+
+  const nonprod = count(assets, (a) => hasSignal(a, "env.nonprod"));
+  if (nonprod > 0) {
+    components.push({
+      code: "nonprod",
+      label: `${nonprod} non-production environment signal${nonprod > 1 ? "s" : ""}`,
+      impact: -Math.min(21, nonprod * WEIGHTS.nonProd),
+      detail: "Hostnames whose naming indicates a non-production environment are publicly reachable.",
+    });
+  }
+
+  const auth = count(assets, (a) => hasSignal(a, "surface.auth"));
+  if (auth > 0) {
+    components.push({
+      code: "auth",
+      label: `${auth} public authentication surface${auth > 1 ? "s" : ""}`,
+      impact: -Math.min(12, auth * WEIGHTS.authSurface),
+      detail: "Login, remote-access, or administration surfaces observable from the internet.",
+    });
+  }
+
+  const api = count(assets, (a) => hasSignal(a, "surface.api"));
+  if (api > 0) {
+    components.push({
+      code: "api",
+      label: `${api} public API surface${api > 1 ? "s" : ""}`,
+      impact: -Math.min(8, api * WEIGHTS.perApiSurface),
+      detail: "Programmatic API endpoints observable from the internet.",
+    });
+  }
+
+  const fresh = count(assets, (a) => a.attrs.newlyObserved === true);
+  if (fresh > 0) {
+    components.push({
+      code: "new",
+      label: `${fresh} new external asset${fresh > 1 ? "s" : ""} in the last window`,
+      impact: -Math.min(10, fresh * WEIGHTS.newAsset),
+      detail: "Recently appeared public assets that may not yet be inventoried.",
+    });
+  }
+
+  const mail = assets.find((a) => a.kind === "mail_service");
+  if (mail?.attrs.spf === "missing") {
+    components.push({
+      code: "mail",
+      label: "Mail security configuration requires review",
+      impact: -WEIGHTS.mailSecurity,
+      detail: "No SPF policy observed; domain is easier to spoof.",
+    });
+  }
+
+  // Mitigations.
+  const cdnFronted = assets.some((a) => a.kind === "root_domain" && a.attrs.cdn && a.attrs.cdn !== "none");
+  if (cdnFronted) {
+    components.push({
+      code: "cdn",
+      label: "Primary web infrastructure fronted by CDN / WAF",
+      impact: WEIGHTS.cdnMitigation,
+      detail: "A CDN or reverse proxy shields origin infrastructure and adds edge protection.",
+    });
+  }
+  const serviceKinds = new Set(assets.map((a) => a.kind));
+  const diverse = serviceKinds.size;
+  if (diverse <= 6 && shadow === 0) {
+    components.push({
+      code: "contained",
+      label: "No unexpected public service diversity detected",
+      impact: WEIGHTS.containedMitigation,
+      detail: "The observable surface is contained and consistent with a managed footprint.",
+    });
+  }
+
+  const total = components.reduce((sum, c) => sum + c.impact, 0);
+  const value = Math.max(0, Math.min(100, Math.round(100 + total)));
+
+  const band: ExposureScore["band"] =
+    value >= 80 ? "guarded" : value >= 60 ? "moderate" : value >= 40 ? "elevated" : "exposed";
+
+  const explanation =
+    `The score starts at 100 and applies transparent penalties and mitigations for what is observable from the outside. ` +
+    `This value (${value}) reflects how contained and well-managed the external surface appears — it is not a probability of compromise.`;
+
+  return { value, band, components, explanation };
+}
