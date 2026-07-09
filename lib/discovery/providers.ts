@@ -83,6 +83,12 @@ export async function resolveHost(host: string): Promise<DnsRecord> {
   };
 }
 
+/** Raw TXT records for a name (used by domain-ownership verification). */
+export async function resolveTxt(name: string): Promise<string[]> {
+  const txt = await dohQuery(name, "TXT").catch(() => []);
+  return txt.filter((r) => r.type === 16).map((r) => r.data);
+}
+
 export interface MailConfig {
   mx: string[];
   spf: "present" | "missing";

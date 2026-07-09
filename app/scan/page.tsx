@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useScan } from "@/components/useScan";
@@ -9,6 +9,7 @@ import { ScanConsole } from "@/components/panels/ScanConsole";
 import { Summary } from "@/components/panels/Summary";
 import { NodeDetail } from "@/components/panels/NodeDetail";
 import { AttackerView } from "@/components/AttackerView";
+import { VerifyPanel } from "@/components/VerifyPanel";
 import { Wordmark } from "@/components/Wordmark";
 
 function ScanView() {
@@ -18,6 +19,18 @@ function ScanView() {
   const scan = useScan(target, mode);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attacker, setAttacker] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified">("none");
+
+  const resultTarget = scan.result?.target;
+  const resultIsDemo = scan.result?.isDemo;
+  useEffect(() => {
+    if (!resultTarget || resultIsDemo) return;
+    fetch(`/api/verify?domain=${encodeURIComponent(resultTarget)}`)
+      .then((r) => r.json())
+      .then((d) => setVerifyStatus(d.status === "verified" ? "verified" : d.status === "pending" ? "pending" : "none"))
+      .catch(() => {});
+  }, [resultTarget, resultIsDemo]);
 
   const selected = useMemo(() => scan.assets.find((a) => a.id === selectedId) ?? null, [scan.assets, selectedId]);
 
@@ -43,9 +56,18 @@ function ScanView() {
               {mode === "demo" || scan.result?.isDemo ? "Demo" : "Passive external view"}
             </span>
             {scan.result && !scan.result.isDemo && (
-              <span className="mono rounded-md border border-risk-medium/30 px-2 py-1 text-[11px] uppercase tracking-wider text-risk-medium">
-                Unverified
-              </span>
+              verifyStatus === "verified" ? (
+                <span className="mono rounded-md border border-signal/40 bg-signal/10 px-2 py-1 text-[11px] uppercase tracking-wider text-signal">
+                  ✓ Verified organization
+                </span>
+              ) : (
+                <button
+                  onClick={() => setVerifyOpen(true)}
+                  className="mono rounded-md border border-risk-medium/30 px-2 py-1 text-[11px] uppercase tracking-wider text-risk-medium transition hover:bg-risk-medium/10"
+                >
+                  Unverified — verify ownership
+                </button>
+              )
             )}
           </div>
         </div>
@@ -112,6 +134,16 @@ function ScanView() {
       </div>
 
       {attacker && scan.result && <AttackerView result={scan.result} onClose={() => setAttacker(false)} />}
+      {verifyOpen && resultTarget && (
+        <VerifyPanel
+          domain={resultTarget}
+          onVerified={() => {
+            setVerifyStatus("verified");
+            setVerifyOpen(false);
+          }}
+          onClose={() => setVerifyOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import type { ScanResult } from "@/lib/types";
-import type { AssetSnapshot, ScanRecord, ScanStore, Target } from "./model";
+import type { AssetSnapshot, DomainVerification, ScanRecord, ScanStore, Target } from "./model";
 
 // Reuse a single client across hot reloads / lambda invocations.
 const g = globalThis as unknown as { __outsidePrisma?: PrismaClient };
@@ -106,6 +106,37 @@ export class PrismaScanStore implements ScanStore {
       assetCount: r.assetCount,
     }));
   }
+
+  async getVerification(domain: string): Promise<DomainVerification | null> {
+    const row = await prisma.domainVerification.findUnique({ where: { domain: domain.toLowerCase() } });
+    return row ? this.mapVerification(row) : null;
+  }
+
+  async startVerification(domain: string, token: string): Promise<DomainVerification> {
+    const key = domain.toLowerCase();
+    const row = await prisma.domainVerification.upsert({
+      where: { domain: key },
+      create: { domain: key, token, status: "pending" },
+      update: {}, // never overwrite an existing challenge/token
+    });
+    return this.mapVerification(row);
+  }
+
+  async markVerified(domain: string): Promise<DomainVerification> {
+    const row = await prisma.domainVerification.update({
+      where: { domain: domain.toLowerCase() },
+      data: { status: "verified", verifiedAt: new Date() },
+    });
+    return this.mapVerification(row);
+  }
+
+  private mapVerification = (r: { domain: string; token: string; status: string; createdAt: Date; verifiedAt: Date | null }): DomainVerification => ({
+    domain: r.domain,
+    token: r.token,
+    status: r.status === "verified" ? "verified" : "pending",
+    createdAt: r.createdAt.toISOString(),
+    verifiedAt: r.verifiedAt?.toISOString(),
+  });
 
   private mapSnapshot = (r: {
     scanId: string;

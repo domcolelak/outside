@@ -56,6 +56,16 @@ model AssetIdentity {
   @@map("asset_identities")
 }
 
+model DomainVerification {
+  domain     String    @id
+  token      String
+  status     String    @default("pending")
+  createdAt  DateTime  @default(now())
+  verifiedAt DateTime?
+
+  @@map("domain_verifications")
+}
+
 model AssetSnapshot {
   id           String        @id @default(cuid())
   scan         Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
