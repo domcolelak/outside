@@ -50,16 +50,21 @@ export function AssetGraph({
   selectedId,
   onSelect,
   focusPulseId,
+  controls = false,
 }: {
   assets: Asset[];
   edges: Edge[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   focusPulseId?: string | null;
+  /** Show the fit/zoom controls overlay (main scan & attacker view, not the hero backdrop). */
+  controls?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const viewRef = useRef({ x: 0, y: 0, k: 1 });
+  // Auto-fit keeps the whole graph framed until the user pans/zooms manually.
+  const autoFitRef = useRef(true);
   const dragRef = useRef<{ panning: boolean; lastX: number; lastY: number }>({ panning: false, lastX: 0, lastY: 0 });
   const rafRef = useRef<number>(0);
   const [, force] = useState(0);
@@ -124,13 +129,16 @@ export function AssetGraph({
           let dx = a.x - b.x;
           let dy = a.y - b.y;
           let d2 = dx * dx + dy * dy;
-          if (d2 < 0.01) {
-            dx = Math.random() - 0.5;
-            dy = Math.random() - 0.5;
-            d2 = 0.01;
+          if (d2 < 36) {
+            // Floor the distance and jitter coincident nodes so repulsion never
+            // explodes when nodes spawn on top of each other.
+            const ang = Math.random() * Math.PI * 2;
+            dx = Math.cos(ang) * 6;
+            dy = Math.sin(ang) * 6;
+            d2 = 36;
           }
           const d = Math.sqrt(d2);
-          const f = 2600 / d2;
+          const f = Math.min(2200 / d2, 26); // cap the force
           const fx = (dx / d) * f;
           const fy = (dy / d) * f;
           a.vx += fx;
@@ -158,14 +166,43 @@ export function AssetGraph({
         b.vx -= fx;
         b.vy -= fy;
       }
-      // Gravity to center + damping.
+      // Gravity to center + damping + velocity clamp (prevents runaway nodes).
+      const MAX_SPEED = 22;
       for (const n of nodes) {
-        n.vx += -n.x * 0.002;
-        n.vy += -n.y * 0.002;
-        n.vx *= 0.86;
-        n.vy *= 0.86;
+        n.vx += -n.x * 0.003;
+        n.vy += -n.y * 0.003;
+        n.vx *= 0.82;
+        n.vy *= 0.82;
+        const sp = Math.hypot(n.vx, n.vy);
+        if (sp > MAX_SPEED) {
+          n.vx = (n.vx / sp) * MAX_SPEED;
+          n.vy = (n.vy / sp) * MAX_SPEED;
+        }
         n.x += n.vx;
         n.y += n.vy;
+      }
+
+      // Auto-fit: smoothly frame the whole graph in the viewport until the user
+      // takes manual control. This guarantees the graph is always on-screen and
+      // screenshot-ready regardless of where the simulation settles.
+      if (autoFitRef.current && nodes.length > 0 && width > 0 && height > 0) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const n of nodes) {
+          minX = Math.min(minX, n.x - n.r);
+          maxX = Math.max(maxX, n.x + n.r);
+          minY = Math.min(minY, n.y - n.r);
+          maxY = Math.max(maxY, n.y + n.r);
+        }
+        const pad = 90;
+        const spanX = Math.max(maxX - minX, 1);
+        const spanY = Math.max(maxY - minY, 1);
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const targetK = Math.max(0.45, Math.min(1.8, Math.min((width - pad * 2) / spanX, (height - pad * 2) / spanY)));
+        const view = viewRef.current;
+        view.k += (targetK - view.k) * 0.07;
+        view.x += (-view.k * cx - view.x) * 0.09;
+        view.y += (-view.k * cy - view.y) * 0.09;
       }
 
       draw(nodes);
@@ -269,6 +306,7 @@ export function AssetGraph({
     dragRef.current.lastX = e.clientX;
     dragRef.current.lastY = e.clientY;
     if (Math.abs(dx) + Math.abs(dy) > 0) {
+      autoFitRef.current = false; // user took manual control
       viewRef.current.x += dx;
       viewRef.current.y += dy;
     }
@@ -292,18 +330,49 @@ export function AssetGraph({
     void moved;
   };
   const onWheel = (e: React.WheelEvent) => {
+    autoFitRef.current = false; // user took manual control
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
     viewRef.current.k = Math.max(0.4, Math.min(3.5, viewRef.current.k * factor));
   };
 
+  const zoomBy = (factor: number) => {
+    autoFitRef.current = false;
+    viewRef.current.k = Math.max(0.4, Math.min(3.5, viewRef.current.k * factor));
+  };
+  const fitView = () => {
+    autoFitRef.current = true;
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onWheel={onWheel}
-    />
+    <div className="relative h-full w-full">
+      <canvas
+        ref={canvasRef}
+        className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onWheel={onWheel}
+      />
+      {controls && (
+        <div className="absolute right-3 top-3 flex flex-col gap-1">
+          <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
+          <ControlButton label="Zoom out" onClick={() => zoomBy(0.83)}>−</ControlButton>
+          <ControlButton label="Fit to view" onClick={fitView}>⤢</ControlButton>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ControlButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="mono flex h-8 w-8 items-center justify-center rounded-md border border-line bg-base-900/70 text-sm text-ink-soft backdrop-blur transition hover:border-signal/40 hover:text-signal"
+    >
+      {children}
+    </button>
   );
 }
