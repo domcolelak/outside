@@ -51,6 +51,8 @@ export function AssetGraph({
   onSelect,
   focusPulseId,
   controls = false,
+  showLabels = true,
+  matchIds = null,
 }: {
   assets: Asset[];
   edges: Edge[];
@@ -59,12 +61,21 @@ export function AssetGraph({
   focusPulseId?: string | null;
   /** Show the fit/zoom controls overlay (main scan & attacker view, not the hero backdrop). */
   controls?: boolean;
+  /** Draw node labels (off for the decorative hero backdrop). */
+  showLabels?: boolean;
+  /** When set, nodes not in the set are dimmed (search / filter highlighting). */
+  matchIds?: Set<string> | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const viewRef = useRef({ x: 0, y: 0, k: 1 });
   // Auto-fit keeps the whole graph framed until the user pans/zooms manually.
   const autoFitRef = useRef(true);
+  // Read live via refs so search/filter changes don't restart the simulation.
+  const matchIdsRef = useRef(matchIds);
+  matchIdsRef.current = matchIds;
+  const showLabelsRef = useRef(showLabels);
+  showLabelsRef.current = showLabels;
   const dragRef = useRef<{ panning: boolean; lastX: number; lastY: number }>({ panning: false, lastX: 0, lastY: 0 });
   const rafRef = useRef<number>(0);
   const [, force] = useState(0);
@@ -216,6 +227,8 @@ export function AssetGraph({
       ctx.translate(width / 2 + view.x, height / 2 + view.y);
       ctx.scale(view.k, view.k);
 
+      const filter = matchIdsRef.current;
+      const withLabels = showLabelsRef.current;
       const byId = new Map(nodes.map((n) => [n.id, n] as const));
       // Edges.
       for (const e of edgeList) {
@@ -223,10 +236,11 @@ export function AssetGraph({
         const b = byId.get(e.to);
         if (!a || !b) continue;
         const active = selectedId && (e.from === selectedId || e.to === selectedId);
+        const dim = filter && !(filter.has(e.from) && filter.has(e.to));
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = active ? "rgba(56,225,195,0.55)" : "rgba(148,173,214,0.14)";
+        ctx.strokeStyle = dim ? "rgba(148,173,214,0.05)" : active ? "rgba(56,225,195,0.55)" : "rgba(148,173,214,0.14)";
         ctx.lineWidth = active ? 1.6 : 1;
         ctx.stroke();
       }
@@ -238,8 +252,9 @@ export function AssetGraph({
         const r = n.r * (0.4 + 0.6 * grow);
         const isSel = n.id === selectedId;
         const isPulse = n.id === focusPulseId;
+        const dim = filter && !filter.has(n.id);
 
-        if (isPulse || isSel) {
+        if ((isPulse || isSel) && !dim) {
           const ring = (Math.sin(now / 260) + 1) / 2;
           ctx.beginPath();
           ctx.arc(n.x, n.y, r + 6 + ring * 5, 0, Math.PI * 2);
@@ -251,13 +266,14 @@ export function AssetGraph({
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.shadowColor = color;
-        ctx.shadowBlur = isSel ? 22 : 12;
+        ctx.shadowBlur = dim ? 0 : isSel ? 22 : 12;
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.25 + 0.75 * grow;
+        ctx.globalAlpha = dim ? 0.12 : 0.25 + 0.75 * grow;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
         // Core.
+        ctx.globalAlpha = dim ? 0.2 : 1;
         ctx.beginPath();
         ctx.arc(n.x, n.y, Math.max(2, r * 0.5), 0, Math.PI * 2);
         ctx.fillStyle = "#05070a";
@@ -266,9 +282,10 @@ export function AssetGraph({
         ctx.arc(n.x, n.y, Math.max(1.4, r * 0.32), 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
+        ctx.globalAlpha = 1;
 
-        // Label for larger / selected nodes.
-        if (n.r >= 10 || isSel || view.k > 1.15) {
+        // Label for larger / selected / matched nodes.
+        if (withLabels && !dim && (n.r >= 10 || isSel || !!filter || view.k > 1.15)) {
           ctx.font = "11px ui-monospace, monospace";
           ctx.fillStyle = isSel ? "#e8edf6" : "rgba(170,182,204,0.8)";
           ctx.textAlign = "center";
