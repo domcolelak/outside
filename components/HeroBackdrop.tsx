@@ -22,8 +22,8 @@ export function HeroBackdrop() {
   }, []);
 
   return (
-    <div className="pointer-events-none absolute inset-0 opacity-[0.55]">
-      <AssetGraph assets={assets} edges={edges} selectedId={null} onSelect={() => {}} />
+    <div className="pointer-events-none absolute inset-0 opacity-[0.5]">
+      <AssetGraph assets={assets} edges={edges} selectedId={null} onSelect={() => {}} showLabels={false} />
     </div>
   );
 }
