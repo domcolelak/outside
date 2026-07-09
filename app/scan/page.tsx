@@ -81,7 +81,7 @@ function ScanView() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[300px_1fr_390px]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[300px_1fr_390px] lg:grid-rows-[minmax(0,1fr)]">
         {/* Console (desktop rail; on mobile the live logs are summarized in-graph) */}
         <aside className="hidden border-r border-line bg-base-900/60 lg:block">
           <ScanConsole stages={scan.stages} logs={scan.logs} scanning={scan.status === "scanning"} />
@@ -96,6 +96,7 @@ function ScanView() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             focusPulseId={scan.status === "scanning" ? scan.latestAssetId : null}
+            controls
           />
           {scan.assets.length === 0 && scan.status !== "error" && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

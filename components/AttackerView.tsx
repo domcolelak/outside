@@ -33,16 +33,25 @@ export function AttackerView({ result, onClose }: { result: ScanResult; onClose:
   }, [playing, totalDuration]);
 
   // Assets/edges revealed up to the current time.
+  // Discrete index of the latest beat reached — changes only when a beat fires,
+  // NOT every animation frame. Memoizing the revealed assets/edges on this keeps
+  // their array references STABLE between beats so the graph simulation doesn't
+  // restart on every frame (which would leave it blank).
+  const beatIndex = useMemo(() => {
+    let idx = 0;
+    for (let i = 0; i < beats.length; i++) if (beats[i]!.t <= elapsed + 0.001) idx = i;
+    return idx;
+  }, [elapsed, beats]);
+
   const { assets, edges, activeBeat, revealedCount } = useMemo(() => {
     const revealAssetIds = new Set<string>();
     const revealEdgeIds = new Set<string>();
     let active = beats[0];
-    for (const b of beats) {
-      if (b.t <= elapsed + 0.001) {
-        b.revealAssetIds.forEach((id) => revealAssetIds.add(id));
-        b.revealEdgeIds.forEach((id) => revealEdgeIds.add(id));
-        active = b;
-      }
+    for (let i = 0; i <= beatIndex; i++) {
+      const b = beats[i]!;
+      b.revealAssetIds.forEach((id) => revealAssetIds.add(id));
+      b.revealEdgeIds.forEach((id) => revealEdgeIds.add(id));
+      active = b;
     }
     // Root is always present.
     const root = result.graph.assets.find((a) => a.kind === "root_domain");
@@ -53,7 +62,7 @@ export function AttackerView({ result, onClose }: { result: ScanResult; onClose:
       activeBeat: active,
       revealedCount: revealAssetIds.size,
     };
-  }, [elapsed, beats, result]);
+  }, [beatIndex, beats, result]);
 
   const finished = elapsed >= totalDuration - 0.05;
 
@@ -64,7 +73,7 @@ export function AttackerView({ result, onClose }: { result: ScanResult; onClose:
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-base-950/95 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex flex-col bg-base-950">
       <div className="grid-backdrop pointer-events-none absolute inset-0" />
 
       <div className="relative flex items-center justify-between px-6 py-4">
@@ -82,8 +91,9 @@ export function AttackerView({ result, onClose }: { result: ScanResult; onClose:
       <div className="relative flex-1">
         <AssetGraph assets={assets} edges={edges} selectedId={null} onSelect={() => {}} focusPulseId={activeBeat?.revealAssetIds[0] ?? null} />
 
-        {/* Caption */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center px-6 pb-28">
+        {/* Caption — sits over a bottom scrim so it stays legible above nodes */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-16 pt-24"
+          style={{ background: "linear-gradient(to top, rgba(5,7,10,0.95) 30%, rgba(5,7,10,0) 100%)" }}>
           {!finished && activeBeat && (
             <div key={activeBeat.t} className="animate-fade-up text-center">
               <div className="mono text-[12px] tracking-widest text-signal">
