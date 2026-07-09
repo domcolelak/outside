@@ -18,10 +18,14 @@ buyer or the next engineer can extend rather than rebuild.
   certificate-change detection, and a full historical graph-diff view.
 
 ## Priority 2 — Accounts, organizations, verification
-- **Auth:** email + OAuth (Auth.js). Roles: `owner | admin | analyst | viewer`.
-- **Domain verification:** DNS-TXT (`outside-verify=<token>`) and file-based (`/.well-known/outside-verify.txt`).
-- **Integration point:** `/api/scan` already distinguishes an **unverified external view** from a
-  verified path via the `mode`/result flags; gate deeper providers on a verified flag.
+- **Domain verification — ✅ BUILT:** DNS-TXT ownership proof (`outside-verify=<token>`) in
+  `lib/verify/`, `app/api/verify/`, and `components/VerifyPanel.tsx`; token issue + DoH check +
+  persisted verification state; the scan header reflects Unverified vs Verified organization.
+  Remaining: file-based (`/.well-known/outside-verify.txt`) as a fallback method.
+- **Auth (remaining):** email + OAuth (Auth.js). Roles: `owner | admin | analyst | viewer`. Bind
+  verified domains to an authenticated organization (today verification is workspace-global).
+- **Gating (remaining):** once auth lands, gate active/deeper providers and monitoring behind a
+  verified + authorized flag. The UI and verification state are already in place to drive this.
 
 ## Priority 3 — Background workers & monitoring
 - **Queue:** BullMQ (Redis) or a serverless cron. Scheduled per-target scans (daily/weekly).

@@ -85,6 +85,14 @@ export interface ChangeSummary {
   };
 }
 
+export interface DomainVerification {
+  domain: string;
+  token: string;
+  status: "pending" | "verified";
+  createdAt: string;
+  verifiedAt?: string;
+}
+
 /** Persistence boundary. Implemented by the in-memory and Prisma stores. */
 export interface ScanStore {
   /** Whether this store durably persists across process restarts. */
@@ -97,4 +105,10 @@ export interface ScanStore {
   /** Persist a completed scan and its snapshots; returns the previous scan id. */
   saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{ previousScanId: string | null }>;
   recentScans(targetId: string, limit: number): Promise<ScanRecord[]>;
+
+  /** Domain ownership verification (DNS-TXT). */
+  getVerification(domain: string): Promise<DomainVerification | null>;
+  /** Create a pending challenge if none exists; return the current one otherwise. */
+  startVerification(domain: string, token: string): Promise<DomainVerification>;
+  markVerified(domain: string): Promise<DomainVerification>;
 }
