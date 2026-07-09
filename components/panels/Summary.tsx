@@ -107,6 +107,8 @@ export function Summary({
 
       <ExportButton result={result} />
 
+      <AiSummary result={result} />
+
       {result.changeSummary && result.changeSummary.events.length > 0 && (
         <Changes summary={result.changeSummary} onSelect={onSelectAsset} assetsByCanon={new Map(result.graph.assets.map((a) => [a.canonical, a.id]))} />
       )}
@@ -127,6 +129,47 @@ export function Summary({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function AiSummary({ result }: { result: ScanResult }) {
+  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [text, setText] = useState("");
+  const [source, setSource] = useState<"template" | "anthropic">("template");
+  const generate = async () => {
+    setState("loading");
+    try {
+      const res = await fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(result) });
+      const data = await res.json();
+      if (!res.ok) throw new Error();
+      setText(data.summary);
+      setSource(data.source);
+      setState("done");
+    } catch {
+      setState("error");
+    }
+  };
+  if (state === "idle" || state === "loading" || state === "error") {
+    return (
+      <button
+        onClick={generate}
+        disabled={state === "loading"}
+        className="mono w-full rounded-xl border border-line px-4 py-2.5 text-left text-xs text-ink-soft transition hover:bg-base-700/40 disabled:opacity-60"
+      >
+        {state === "loading" ? "Writing summary…" : state === "error" ? "Summary failed — retry" : "✦ Generate executive summary"}
+      </button>
+    );
+  }
+  return (
+    <div className="panel p-4">
+      <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+        <span>Executive summary</span>
+        <span className={source === "anthropic" ? "text-signal" : "text-ink-faint"}>
+          {source === "anthropic" ? "AI-generated" : "Deterministic"}
+        </span>
+      </div>
+      <p className="text-[13px] leading-relaxed text-ink-soft">{text}</p>
     </div>
   );
 }
