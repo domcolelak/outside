@@ -27,6 +27,7 @@ differentiator: cinematic external-surface discovery and visualization. It runs 
 - **Deterministic, explainable exposure score** — a 0–100 posture value with a full _"Why is my score X?"_ breakdown where every component sums to the total.
 - **Evidence-backed findings** — every finding separates **observed fact → inferred signal → possible concern**, with reasoning, recommendation, evidence, and discovery method.
 - **Temporal tracking & change detection** — repeated scans of a target preserve a stable asset identity across gaps (appears → disappears → returns) and diff into change events (new / returned / disappeared / technology-changed). Works out of the box via a zero-config in-memory store; a **PostgreSQL (Prisma)** backend provides durability when `DATABASE_URL` is set. Real scans never fabricate changes — a stable surface reports zero.
+- **PDF report export** — a professionally designed, branded report (executive summary generated deterministically from evidence, score breakdown, findings, change log, asset inventory, methodology) rendered server-side with `@react-pdf/renderer`. One click from the scan view.
 - **Demo mode** — three synthetic organizations (Northstar Labs, Velora Commerce, Atlas Financial) with a designed discovery storyline and change story, clearly labeled as synthetic.
 - **Security layer** — target normalization, SSRF/private-range/metadata guards, and rate limiting, all unit-tested.
 

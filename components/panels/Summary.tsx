@@ -105,6 +105,8 @@ export function Summary({
         <div className="mt-0.5 text-sm text-ink">Replay how the surface was revealed →</div>
       </button>
 
+      <ExportButton result={result} />
+
       {result.changeSummary && result.changeSummary.events.length > 0 && (
         <Changes summary={result.changeSummary} onSelect={onSelectAsset} assetsByCanon={new Map(result.graph.assets.map((a) => [a.canonical, a.id]))} />
       )}
@@ -126,6 +128,43 @@ export function Summary({
         </div>
       </div>
     </div>
+  );
+}
+
+function ExportButton({ result }: { result: ScanResult }) {
+  const [state, setState] = useState<"idle" | "working" | "error">("idle");
+  const download = async () => {
+    setState("working");
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(result),
+      });
+      if (!res.ok) throw new Error("failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `outside-${result.target.replace(/[^a-z0-9.-]/gi, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setState("idle");
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 2500);
+    }
+  };
+  return (
+    <button
+      onClick={download}
+      disabled={state === "working"}
+      className="mono w-full rounded-xl border border-line px-4 py-2.5 text-left text-xs text-ink-soft transition hover:bg-base-700/40 disabled:opacity-60"
+    >
+      {state === "working" ? "Generating PDF…" : state === "error" ? "Export failed — retry" : "↓ Export report (PDF)"}
+    </button>
   );
 }
 
