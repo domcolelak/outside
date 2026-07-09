@@ -16,9 +16,14 @@ export default function Landing() {
             <a href="#security" className="hover:text-ink">Responsible use</a>
             <a href="#pricing" className="hover:text-ink">Pricing</a>
           </nav>
-          <Link href="/scan?target=northstar&mode=demo" className="mono rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-base-700">
-            Watch demo
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/login" className="mono hidden px-3 py-1.5 text-xs text-ink-soft hover:text-ink sm:block">
+              Sign in
+            </Link>
+            <Link href="/scan?target=northstar&mode=demo" className="mono rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-base-700">
+              Watch demo
+            </Link>
+          </div>
         </div>
       </header>
 

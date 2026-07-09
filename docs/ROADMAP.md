@@ -17,38 +17,41 @@ buyer or the next engineer can extend rather than rebuild.
 - **Remaining:** `edge_snapshot`, `finding_occurrence`, `change_event` persistence, `audit_event`,
   certificate-change detection, and a full historical graph-diff view.
 
-## Priority 2 — Accounts, organizations, verification
-- **Domain verification — ✅ BUILT:** DNS-TXT ownership proof (`outside-verify=<token>`) in
-  `lib/verify/`, `app/api/verify/`, and `components/VerifyPanel.tsx`; token issue + DoH check +
-  persisted verification state; the scan header reflects Unverified vs Verified organization.
-  Remaining: file-based (`/.well-known/outside-verify.txt`) as a fallback method.
-- **Auth (remaining):** email + OAuth (Auth.js). Roles: `owner | admin | analyst | viewer`. Bind
-  verified domains to an authenticated organization (today verification is workspace-global).
-- **Gating (remaining):** once auth lands, gate active/deeper providers and monitoring behind a
-  verified + authorized flag. The UI and verification state are already in place to drive this.
+## Priority 2 — Accounts, organizations, verification — ✅ BUILT
+- **Auth (built):** email/password with scrypt hashing (`lib/auth/password.ts`) and HMAC-signed
+  httpOnly session cookies (`lib/auth/session.ts`); `lib/auth/index.ts` resolves the session. Stores:
+  in-memory default + Prisma (`User`/`Organization`/`Membership`).
+- **RBAC (built):** strict hierarchy `owner > admin > analyst > viewer`, enforced server-side via
+  `hasOrgRole` on every mutating route.
+- **Domain verification (built):** DNS-TXT ownership proof in `lib/verify/`, `app/api/verify/`.
+- **Remaining:** OAuth providers + team invites (credentials auth ships today); file-based
+  (`/.well-known/outside-verify.txt`) verification fallback; bind verification to the authenticated org.
 
-## Priority 3 — Background workers & monitoring
-- **Queue:** BullMQ (Redis) or a serverless cron. Scheduled per-target scans (daily/weekly).
-- **Job design:** idempotent by `(target_id, scan_window)`; dedupe concurrent scans of one target;
-  resumable/cancellable; retry providers with backoff; reap stale jobs.
-- **Integration point:** the engine is a pure async function `(target, scanId, emit) => ScanResult`;
-  a worker calls it with a persisting `emit` instead of the SSE `emit`.
+## Priority 3 — Scheduled monitoring — ✅ BUILT
+- **Model (built):** `Monitor` (org, domain, daily/weekly cadence, enabled, `nextRunAt`), with
+  per-plan limits enforced server-side; API in `app/api/monitors/`.
+- **Runner (built):** protected cron endpoint `app/api/cron/scan` claims due monitors and runs real
+  passive scans idempotently (each `nextRunAt` advances after running). Serverless-friendly — point
+  Vercel Cron / any timer at it with `CRON_SECRET`. No Redis/worker required.
+- **Remaining:** per-provider retry/backoff, concurrent-scan dedupe per target, stale-job reaping for
+  very large fleets.
 
-## Priority 4 — Reporting, email, alerting
-- **PDF export:** server-render the executive summary + graph snapshot (`@react-pdf` or Playwright).
-- **Email:** React Email + Resend. Templates: welcome, verify, verification instructions, scan
-  complete, high-priority change, weekly summary, subscription update.
-- **Alerting:** group related `change_event`s; suppress low-signal noise; per-user notification prefs.
+## Priority 4 — Reporting, email, alerting — ✅ BUILT
+- **PDF export (built):** `@react-pdf` server render (`lib/report/`, `app/api/report/`).
+- **Email (built):** provider-abstracted (`lib/email/provider.ts`) — console dev transport + Resend;
+  responsive templates for welcome and change alerts.
+- **Alerting (built):** `lib/email/alerts.ts` groups meaningful changes into one email per monitor and
+  suppresses low-signal noise. **Remaining:** per-user notification preferences, weekly digest.
 
-## Priority 5 — Billing (Stripe)
-- Plans mirror the landing page (Snapshot / Professional / Agency). Checkout, billing portal,
-  webhook verification + idempotency keys, plan-limit enforcement server-side (never trust the client),
-  upgrade/downgrade/cancel, failed-payment handling.
+## Priority 5 — Billing (Stripe) — ✅ BUILT
+- Checkout, billing portal, and a **signature-verified, idempotent** webhook syncing plan/subscription
+  state (`app/api/billing/`); plan limits enforced server-side; env-guarded so the free plan works with
+  no keys. **Remaining:** move webhook idempotency from in-memory to a durable `processed_events` table.
 
-## Priority 6 — AI explanation layer
-- Provider-abstracted (Anthropic default). **Read-only** over a finalized `ScanResult`; output stored
-  as a separate `AIAnalysis` record. Used for executive summaries, plain-English finding explanations,
-  and ambiguous-finding ranking. Never mutates deterministic results. Absent key ⇒ templated summaries.
+## Priority 6 — AI explanation layer — ✅ BUILT
+- Provider-abstracted (`lib/ai/explainer.ts`), **read-only** over a finalized `ScanResult`; deterministic
+  template default, Anthropic when `ANTHROPIC_API_KEY` is set; degrades to template on any failure.
+  **Remaining:** persist AI output as a separate `AIAnalysis` record; per-finding explanations.
 
 ## Graph scale
 - Current: `O(n²)` force sim, smooth into the hundreds of nodes.
