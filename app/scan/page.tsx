@@ -81,14 +81,14 @@ function ScanView() {
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_1fr_390px]">
-        {/* Console */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[300px_1fr_390px]">
+        {/* Console (desktop rail; on mobile the live logs are summarized in-graph) */}
         <aside className="hidden border-r border-line bg-base-900/60 lg:block">
           <ScanConsole stages={scan.stages} logs={scan.logs} scanning={scan.status === "scanning"} />
         </aside>
 
         {/* Graph */}
-        <main className="relative min-h-[40vh]">
+        <main className="relative min-h-[320px] flex-1 lg:min-h-0">
           <div className="grid-backdrop pointer-events-none absolute inset-0" />
           <AssetGraph
             assets={scan.assets}
@@ -119,8 +119,8 @@ function ScanView() {
           <GraphLegend />
         </main>
 
-        {/* Right rail */}
-        <aside className="hidden border-l border-line bg-base-900/60 lg:block">
+        {/* Right rail — stacks below the graph on mobile so findings stay reachable */}
+        <aside className="block h-[46vh] shrink-0 border-t border-line bg-base-900/60 lg:h-auto lg:border-l lg:border-t-0">
           {selected ? (
             <NodeDetail asset={selected} onClose={() => setSelectedId(null)} />
           ) : scan.result ? (
