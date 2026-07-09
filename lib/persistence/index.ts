@@ -8,10 +8,12 @@
 import type { ScanStore } from "./model";
 import { InMemoryScanStore } from "./memory-store";
 
-let singleton: ScanStore | null = null;
+// Cache on globalThis so all route bundles in the process share one in-memory
+// store (module-level singletons are not shared across route bundles).
+const g = globalThis as unknown as { __outsideScanStore?: ScanStore };
 
 export async function getStore(): Promise<ScanStore> {
-  if (singleton) return singleton;
+  if (g.__outsideScanStore) return g.__outsideScanStore;
   let store: ScanStore | null = null;
   if (process.env.DATABASE_URL) {
     try {
@@ -22,13 +24,13 @@ export async function getStore(): Promise<ScanStore> {
       console.warn("[persistence] Prisma store unavailable, falling back to in-memory:", (err as Error).message);
     }
   }
-  singleton = store ?? new InMemoryScanStore();
-  return singleton;
+  g.__outsideScanStore = store ?? new InMemoryScanStore();
+  return g.__outsideScanStore;
 }
 
 /** Test hook. */
 export function __resetStore(store?: ScanStore) {
-  singleton = store ?? null;
+  g.__outsideScanStore = store;
 }
 
 export * from "./model";

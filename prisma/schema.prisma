@@ -18,6 +18,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
+
+  @@map("users")
+}
+
+model Organization {
+  id                   String       @id @default(cuid())
+  name                 String
+  slug                 String
+  plan                 String       @default("free")
+  stripeCustomerId     String?      @unique
+  stripeSubscriptionId String?
+  subscriptionStatus   String?
+  createdAt            DateTime     @default(now())
+  memberships          Membership[]
+  monitors             Monitor[]
+
+  @@map("organizations")
+}
+
+model Membership {
+  userId String
+  orgId  String
+  role   String       @default("viewer")
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@id([userId, orgId])
+  @@map("memberships")
+}
+
+model Monitor {
+  id         String       @id @default(cuid())
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId      String
+  domain     String
+  frequency  String       @default("daily")
+  enabled    Boolean      @default(true)
+  lastScanAt DateTime?
+  nextRunAt  DateTime
+  createdAt  DateTime     @default(now())
+
+  @@index([enabled, nextRunAt])
+  @@map("monitors")
+}
+
 model Target {
   id         String          @id @default(cuid())
   domain     String          @unique

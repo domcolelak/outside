@@ -29,19 +29,27 @@ differentiator: cinematic external-surface discovery and visualization. It runs 
 - **Temporal tracking & change detection** — repeated scans of a target preserve a stable asset identity across gaps (appears → disappears → returns) and diff into change events (new / returned / disappeared / technology-changed). Works out of the box via a zero-config in-memory store; a **PostgreSQL (Prisma)** backend provides durability when `DATABASE_URL` is set. Real scans never fabricate changes — a stable surface reports zero.
 - **PDF report export** — a professionally designed, branded report (executive summary generated deterministically from evidence, score breakdown, findings, change log, asset inventory, methodology) rendered server-side with `@react-pdf/renderer`. One click from the scan view.
 - **DNS-TXT domain verification** — real ownership proof: OUTSIDE issues a per-domain token, the user publishes it as a TXT record, and a DNS-over-HTTPS check flips the target from **Unverified external view** to **Verified organization**. Token binding, verification state, and the check are implemented and persisted.
+- **Accounts, organizations & RBAC** — email/password auth (scrypt hashing, HMAC-signed httpOnly session cookies), a personal organization per user, membership roles (`owner > admin > analyst > viewer`) enforced server-side. No external auth service required.
+- **Monitored targets & scheduled scans** — organizations track domains on a daily/weekly cadence (per-plan limits enforced server-side). A protected cron endpoint (`/api/cron/scan`) claims due monitors and runs real passive scans idempotently — serverless-friendly, no Redis/worker needed.
+- **Intelligent change alerts** — after a scheduled scan, meaningful changes (new/returned assets, high-priority shifts) are grouped into a single email per monitor and sent to the org's members. Provider-abstracted email with a console dev transport (zero-config) and Resend for delivery.
+- **Read-only AI explanation layer** — provider-abstracted executive summaries; deterministic template by default, Anthropic when a key is present. It can never invent assets, findings, or scores.
+- **Stripe billing** — subscription checkout, billing portal, and a signature-verified, idempotent webhook that syncs plan/subscription state; plan limits enforced server-side. Fully env-guarded (free plan works with no Stripe keys).
 - **Demo mode** — three synthetic organizations (Northstar Labs, Velora Commerce, Atlas Financial) with a designed discovery storyline and change story, clearly labeled as synthetic.
 - **Security layer** — target normalization, SSRF/private-range/metadata guards, and rate limiting, all unit-tested.
 
-### Documented roadmap (architected, not yet implemented)
-These are intentionally **not** shipped as broken stubs. The code is structured to accept them, and
-each is specified in [`docs/ROADMAP.md`](docs/ROADMAP.md): accounts/organizations/RBAC, DNS-TXT domain
-verification, background workers & scheduled monitoring, PDF export, transactional email & alerting,
-Stripe billing, and the optional AI explanation layer. The domain model in
-[`lib/types.ts`](lib/types.ts) and [`lib/persistence`](lib/persistence) already reflects the
-temporal/evidence design these depend on.
+### Remaining roadmap
+The major systems above are built. Remaining polish is specified in
+[`docs/ROADMAP.md`](docs/ROADMAP.md): OAuth sign-in and team invites (credentials auth ships today),
+file-based (`/.well-known`) domain verification as a fallback, a durable webhook-idempotency table,
+certificate-change detection, and the historical graph-diff view. The domain models in
+[`lib/types.ts`](lib/types.ts), [`lib/persistence`](lib/persistence), and [`lib/auth`](lib/auth)
+already reflect the design these build on.
 
-To enable durable persistence: set `DATABASE_URL`, then `npm run db:push` (or `db:migrate`). Without
-it the app runs on the in-memory store — no database required.
+**Zero-config vs. durable.** Everything runs immediately on in-memory stores (reset on restart). To
+persist accounts, monitors, and scan history, set `DATABASE_URL` and run `npm run db:push`. Optional
+capabilities activate purely by presence of their env vars — see [`.env.example`](.env.example):
+`ANTHROPIC_API_KEY` (AI summaries), `RESEND_API_KEY` (email delivery), `CRON_SECRET` (scheduler),
+`STRIPE_SECRET_KEY` + price/webhook vars (billing).
 
 > This split is deliberate and honest: see [Technical honesty](#technical-honesty).
 
