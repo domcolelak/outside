@@ -6,6 +6,8 @@ interface StartInfo {
   recordType: string;
   recordName: string;
   recordValue: string;
+  filePath?: string;
+  fileUrl?: string;
   instructions: string;
 }
 
@@ -94,6 +96,15 @@ export function VerifyPanel({
                 </div>
               </div>
             </div>
+
+            {info?.filePath && (
+              <div className="mt-3 rounded-md border border-line bg-base-850 px-3 py-2">
+                <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Alternative — host a file</div>
+                <p className="mt-1 text-xs text-ink-soft">
+                  Serve the same value at <code className="mono text-signal">{info.filePath}</code>. Either method verifies ownership.
+                </p>
+              </div>
+            )}
 
             {hint && <p className="mono mt-3 text-xs text-risk-medium">{hint}</p>}
 

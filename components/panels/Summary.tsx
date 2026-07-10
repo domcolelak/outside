@@ -120,7 +120,7 @@ export function Summary({
         </div>
         <div className="space-y-2">
           {result.findings.map((f) => (
-            <FindingCard key={f.id} finding={f} onSelect={() => onSelectAsset(f.assetId)} />
+            <FindingCard key={f.id} finding={f} target={result.target} onSelect={() => onSelectAsset(f.assetId)} />
           ))}
           {result.findings.length === 0 && (
             <div className="rounded-lg border border-line bg-base-850 px-3 py-4 text-center text-xs text-ink-faint">
@@ -275,8 +275,19 @@ function Stat({ label, value, tone = "ok" }: { label: string; value: number; ton
   );
 }
 
-function FindingCard({ finding, onSelect }: { finding: Finding; onSelect: () => void }) {
+function FindingCard({ finding, target, onSelect }: { finding: Finding; target: string; onSelect: () => void }) {
   const [open, setOpen] = useState(false);
+  const [explain, setExplain] = useState<{ state: "idle" | "loading" | "done"; text: string; source: string }>({ state: "idle", text: "", source: "" });
+  const runExplain = async () => {
+    setExplain((s) => ({ ...s, state: "loading" }));
+    try {
+      const res = await fetch("/api/explain", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ finding, target }) });
+      const data = await res.json();
+      setExplain({ state: "done", text: data.explanation ?? "", source: data.source ?? "" });
+    } catch {
+      setExplain({ state: "idle", text: "", source: "" });
+    }
+  };
   return (
     <div className="panel overflow-hidden">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-base-700/40">
@@ -300,6 +311,19 @@ function FindingCard({ finding, onSelect }: { finding: Finding; onSelect: () => 
             <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Recommended review</div>
             <p className="mt-0.5 leading-relaxed text-ink">{finding.recommendation}</p>
           </div>
+          {explain.state === "done" ? (
+            <div className="rounded-lg border border-line bg-base-850 p-2.5">
+              <div className="mono mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-ink-faint">
+                <span>Plain-English</span>
+                <span className={explain.source === "anthropic" ? "text-signal" : "text-ink-faint"}>{explain.source === "anthropic" ? "AI" : "Deterministic"}</span>
+              </div>
+              <p className="leading-relaxed text-ink-soft">{explain.text}</p>
+            </div>
+          ) : (
+            <button onClick={runExplain} disabled={explain.state === "loading"} className="mono text-[11px] text-signal hover:underline disabled:opacity-60">
+              {explain.state === "loading" ? "Explaining…" : "✦ Explain in plain English"}
+            </button>
+          )}
           <div className="flex items-center justify-between pt-1">
             <Confidence value={finding.confidence} />
             <button onClick={onSelect} className="mono text-[11px] text-signal hover:underline">

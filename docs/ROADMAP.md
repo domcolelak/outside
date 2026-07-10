@@ -23,9 +23,13 @@ buyer or the next engineer can extend rather than rebuild.
   in-memory default + Prisma (`User`/`Organization`/`Membership`).
 - **RBAC (built):** strict hierarchy `owner > admin > analyst > viewer`, enforced server-side via
   `hasOrgRole` on every mutating route.
-- **Domain verification (built):** DNS-TXT ownership proof in `lib/verify/`, `app/api/verify/`.
-- **Remaining:** OAuth providers + team invites (credentials auth ships today); file-based
-  (`/.well-known/outside-verify.txt`) verification fallback; bind verification to the authenticated org.
+- **Domain verification (built):** DNS-TXT **and** file-based (`/.well-known/outside-verify.txt`,
+  SSRF-guarded) ownership proof in `lib/verify/`, `app/api/verify/`.
+- **OAuth (built, env-gated):** Google OpenID Connect in `lib/auth/oauth.ts` +
+  `app/api/auth/oauth/google/*`; the login button appears only when `GOOGLE_CLIENT_ID` is set. Not
+  live-tested here (needs Google credentials).
+- **Remaining:** team invites; bind verified domains to the authenticated org (verification is
+  workspace-global today).
 
 ## Priority 3 — Scheduled monitoring — ✅ BUILT
 - **Model (built):** `Monitor` (org, domain, daily/weekly cadence, enabled, `nextRunAt`), with
@@ -46,12 +50,14 @@ buyer or the next engineer can extend rather than rebuild.
 ## Priority 5 — Billing (Stripe) — ✅ BUILT
 - Checkout, billing portal, and a **signature-verified, idempotent** webhook syncing plan/subscription
   state (`app/api/billing/`); plan limits enforced server-side; env-guarded so the free plan works with
-  no keys. **Remaining:** move webhook idempotency from in-memory to a durable `processed_events` table.
+  no keys. Webhook idempotency is **durable** via a `ProcessedEvent` table when a DB is configured
+  (`lib/billing/idempotency.ts`), in-memory otherwise. **Remaining:** proration UI polish.
 
 ## Priority 6 — AI explanation layer — ✅ BUILT
 - Provider-abstracted (`lib/ai/explainer.ts`), **read-only** over a finalized `ScanResult`; deterministic
   template default, Anthropic when `ANTHROPIC_API_KEY` is set; degrades to template on any failure.
-  **Remaining:** persist AI output as a separate `AIAnalysis` record; per-finding explanations.
+  Executive summaries **and** per-finding plain-English explanations are built. **Remaining:** persist
+  AI output as a separate `AIAnalysis` record.
 
 ## Graph scale
 - Current: `O(n²)` force sim, smooth into the hundreds of nodes.

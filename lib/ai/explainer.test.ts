@@ -62,6 +62,19 @@ describe("AI explanation layer", () => {
     }
   });
 
+  it("template explains a single finding from its fields only", async () => {
+    const finding = {
+      id: "f1", title: "Possible staging environment", priority: "high" as const, confidence: 0.94,
+      assetId: "a1", category: "non-production-exposure",
+      observation: "staging.acme.com is publicly reachable.", inference: "Naming indicates staging.",
+      concern: "Non-production environments may carry weaker controls.", reasoning: "x",
+      recommendation: "Restrict access or remove it.", evidence: [], discoveryMethod: "dns" as const, createdAt: "",
+    };
+    const text = await new TemplateExplainer().explainFinding(finding, "acme.com");
+    expect(text).toContain("acme.com");
+    expect(text).toContain("Restrict access");
+  });
+
   it("factory returns template when no API key is configured", () => {
     const prev = process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;

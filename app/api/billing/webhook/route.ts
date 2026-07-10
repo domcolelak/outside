@@ -3,13 +3,10 @@ import type Stripe from "stripe";
 import { getAuthStore } from "@/lib/auth";
 import { getStripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { planForPriceId } from "@/lib/billing/plans";
+import { markProcessedOnce } from "@/lib/billing/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// In-memory idempotency guard. NOTE: for multi-instance production, back this
-// with a durable store (a processed_events table) — documented in ROADMAP.
-const processed = new Set<string>();
 
 async function resolveOrgId(auth: Awaited<ReturnType<typeof getAuthStore>>, metaOrgId: string | undefined, customerId: string | undefined): Promise<string | null> {
   if (metaOrgId) return metaOrgId;
@@ -36,9 +33,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Signature verification failed: ${(err as Error).message}` }, { status: 400 });
   }
 
-  // Idempotency: acknowledge duplicates without reprocessing.
-  if (processed.has(event.id)) return NextResponse.json({ received: true, duplicate: true });
-  processed.add(event.id);
+  // Idempotency: acknowledge duplicates without reprocessing (durable when a DB
+  // is configured, in-memory otherwise).
+  if (!(await markProcessedOnce(event.id))) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
 
   const auth = await getAuthStore();
 
