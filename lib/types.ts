@@ -168,6 +168,8 @@ export interface ScanResult {
   stats: ScanStats;
   /** Diff against the target's previous scan, present once history exists. */
   changeSummary?: import("@/lib/persistence/model").ChangeSummary;
+  /** Aegis protection posture: recommendations + potential score. */
+  posture?: import("@/lib/aegis/types").Posture;
 }
 
 export interface ScanStats {

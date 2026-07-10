@@ -91,6 +91,32 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
     });
   }
 
+  // Security headers on the observed primary web surface (fact-based).
+  const observed = assets.find((a) => Array.isArray(a.attrs.missingHeaders));
+  if (observed) {
+    const missing = (observed.attrs.missingHeaders as string[]).length;
+    if (missing >= 2) {
+      components.push({
+        code: "headers",
+        label: `${missing} security headers missing on the primary site`,
+        impact: -Math.min(6, missing * 2),
+        detail: "Baseline response headers (HSTS, CSP, X-Content-Type-Options, …) were not observed.",
+      });
+    }
+  }
+
+  // TLS certificate nearing expiry (fact-based, from the handshake).
+  const certAsset = assets.find((a) => typeof a.attrs.certDaysToExpiry === "number");
+  const days = certAsset?.attrs.certDaysToExpiry as number | undefined;
+  if (typeof days === "number" && days < 21) {
+    components.push({
+      code: "cert_expiry",
+      label: days < 0 ? "TLS certificate has expired" : `TLS certificate expires in ${days} day${days === 1 ? "" : "s"}`,
+      impact: days < 0 ? -12 : -5,
+      detail: "Short-lived certificate lifetime observed on the primary web surface.",
+    });
+  }
+
   // Mitigations.
   const cdnFronted = assets.some((a) => a.kind === "root_domain" && a.attrs.cdn && a.attrs.cdn !== "none");
   if (cdnFronted) {

@@ -137,6 +137,29 @@ model AIAnalysis {
   @@map("ai_analyses")
 }
 
+model RecommendationState {
+  target    String
+  recId     String
+  status    String
+  updatedAt DateTime @updatedAt
+
+  @@id([target, recId])
+  @@map("recommendation_states")
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  target    String?
+  orgId     String?
+  actor     String?
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([target])
+  @@map("audit_events")
+}
+
 model ProcessedEvent {
   id        String   @id
   createdAt DateTime @default(now())
