@@ -7,15 +7,32 @@ Enter a domain and watch your publicly observable digital footprint reveal itsel
 interactive, cinematic asset graph — surfacing forgotten, unexpected, and changing external
 assets, using only **passive, public, non-invasive** data sources.
 
-![status](https://img.shields.io/badge/build-passing-38e1c3) ![tests](https://img.shields.io/badge/tests-22%20passing-38e1c3) ![license](https://img.shields.io/badge/license-proprietary-5b8cff)
+![build](https://img.shields.io/badge/build-passing-38e1c3) ![tests](https://img.shields.io/badge/tests-57%20passing-38e1c3) ![typecheck](https://img.shields.io/badge/typecheck-strict-38e1c3) ![stack](https://img.shields.io/badge/Next.js%2014-TypeScript-5b8cff) ![license](https://img.shields.io/badge/license-proprietary-5b8cff)
+
+<p align="center">
+  <img src="docs/media/outside-demo.gif" alt="OUTSIDE — enter a domain and watch its external surface reveal itself" width="100%">
+</p>
+
+> _Demo above: the landing page → a live cinematic scan → the interactive asset graph with shadow/new-asset overlays → the Attacker View replay. All from the built-in demo dataset (synthetic org, clearly labeled)._
+
+---
+
+## How it works in 20 seconds
+
+1. **Enter a domain.** No login required for an external snapshot.
+2. **Watch the scan.** A genuine, stage-based discovery sequence streams over SSE — certificate transparency, DNS, correlation — while assets appear as nodes in real time.
+3. **Read the graph.** The hero visualization auto-frames every asset, colour-coded by review priority, with **NEW / RETURNED** rings for changes since the last scan. Search, filter by priority, zoom, and export it as an image.
+4. **Understand the exposure.** A transparent 0–100 score (open _"Why is my score 37?"_), evidence-backed findings that separate **observed fact → inferred signal → possible concern**, and one-click plain-English explanations.
+5. **Replay it.** **Attacker View** cinematically re-plays how an outsider maps your surface from a single domain — ending with _"In N seconds, N public assets were mapped."_
 
 ---
 
 ## What this repository contains
 
-This is a **working vertical slice** built to a production standard around the product's core
-differentiator: cinematic external-surface discovery and visualization. It runs end-to-end with
-**zero configuration and no external accounts**.
+This is a **production-standard** implementation built around the product's core differentiator —
+cinematic external-surface discovery and visualization — with a full SaaS platform around it. It
+runs end-to-end with **zero configuration and no external accounts**; every external capability
+activates by env var.
 
 ### Built and working today
 - **Landing page** — premium dark hero with a live graph backdrop, concept, features, responsible-use, and pricing sections.

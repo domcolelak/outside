@@ -393,6 +393,25 @@ export function AssetGraph({
   const fitView = () => {
     autoFitRef.current = true;
   };
+  /** Save the current graph view as a PNG, composited over the dark background. */
+  const exportImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const out = document.createElement("canvas");
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const octx = out.getContext("2d");
+    if (!octx) return;
+    octx.fillStyle = "#05070a";
+    octx.fillRect(0, 0, out.width, out.height);
+    octx.drawImage(canvas, 0, 0);
+    const a = document.createElement("a");
+    a.href = out.toDataURL("image/png");
+    a.download = "outside-graph.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
 
   return (
     <div className="relative h-full w-full">
@@ -409,6 +428,7 @@ export function AssetGraph({
           <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
           <ControlButton label="Zoom out" onClick={() => zoomBy(0.83)}>−</ControlButton>
           <ControlButton label="Fit to view" onClick={fitView}>⤢</ControlButton>
+          <ControlButton label="Export as image" onClick={exportImage}>⤓</ControlButton>
         </div>
       )}
     </div>
