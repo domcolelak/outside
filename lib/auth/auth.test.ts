@@ -60,6 +60,31 @@ describe("accounts, organizations, RBAC", () => {
     expect(roleAtLeast("viewer", "viewer")).toBe(true);
   });
 
+  it("invites a teammate and accepting adds a membership", async () => {
+    const store = new InMemoryAuthStore();
+    const { org } = await store.createUserWithOrg({ email: "owner@example.com", name: "Owner", passwordHash: "h", orgName: "Acme" });
+    const invite = await store.createInvite(org.id, "New@Example.com", "analyst", "tok_invite");
+    expect((await store.listInvites(org.id)).map((i) => i.email)).toContain("new@example.com");
+
+    const { user: joiner } = await store.createUserWithOrg({ email: "joiner@example.com", name: "Joiner", passwordHash: "h", orgName: "Joiner Co" });
+    const result = await store.acceptInvite("tok_invite", joiner.id);
+    expect(result).toEqual({ orgId: org.id, role: "analyst" });
+    const memberships = await store.membershipsForUser(joiner.id);
+    expect(memberships.some((m) => m.org.id === org.id && m.role === "analyst")).toBe(true);
+    // Accepted invite is no longer pending, and re-accepting fails.
+    expect(await store.listInvites(org.id)).toHaveLength(0);
+    expect(await store.acceptInvite("tok_invite", joiner.id)).toBeNull();
+    void invite;
+  });
+
+  it("toggles a member's change-alert preference", async () => {
+    const store = new InMemoryAuthStore();
+    const { user, org } = await store.createUserWithOrg({ email: "c@example.com", name: "Cy", passwordHash: "h", orgName: "Cy Co" });
+    expect((await store.membershipsForUser(user.id))[0]!.notifyChanges).toBe(true);
+    await store.setNotifyChanges(user.id, org.id, false);
+    expect((await store.orgMembers(org.id))[0]!.notifyChanges).toBe(false);
+  });
+
   it("updates the org plan", async () => {
     const store = new InMemoryAuthStore();
     const { user, org } = await store.createUserWithOrg({ email: "b@example.com", name: "Bo", passwordHash: "h", orgName: "Bo Co" });

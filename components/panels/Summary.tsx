@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Finding, ScanResult } from "@/lib/types";
 import type { ChangeSummary, ChangeType } from "@/lib/persistence/model";
 import { AssuranceTag, Confidence, PriorityDot, PRIORITY_STYLE } from "@/components/ui";
+import { HistoryPanel } from "@/components/panels/HistoryPanel";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -108,6 +109,8 @@ export function Summary({
       <ExportButton result={result} />
 
       <AiSummary result={result} />
+
+      <HistoryPanel target={result.target} isDemo={result.isDemo} />
 
       {result.changeSummary && result.changeSummary.events.length > 0 && (
         <Changes summary={result.changeSummary} onSelect={onSelectAsset} assetsByCanon={new Map(result.graph.assets.map((a) => [a.canonical, a.id]))} />
@@ -216,6 +219,7 @@ const CHANGE_META: Record<ChangeType, { mark: string; label: string; color: stri
   asset_returned: { mark: "↻", label: "Returned", color: "#f5c451" },
   asset_disappeared: { mark: "−", label: "Gone", color: "#6b7793" },
   technology_changed: { mark: "≠", label: "Tech changed", color: "#5b8cff" },
+  certificate_changed: { mark: "⚿", label: "Cert changed", color: "#5b8cff" },
   priority_changed: { mark: "▲", label: "Priority up", color: "#ff8a5b" },
 };
 

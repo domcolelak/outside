@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getStore } from "@/lib/persistence";
+import { getSessionContext } from "@/lib/auth";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
 import { rateLimit } from "@/lib/security/ratelimit";
 import { resolveHost, resolveTxt } from "@/lib/discovery/providers";
@@ -81,7 +82,10 @@ export async function POST(req: NextRequest) {
   if (payload.action === "start") {
     const existing = await store.getVerification(domain);
     const token = existing?.token ?? issueToken(domain, SECRET);
-    const v = await store.startVerification(domain, token);
+    // Bind the domain to the caller's organization when signed in.
+    const ctx = await getSessionContext();
+    const orgId = ctx?.memberships[0]?.org.id ?? null;
+    const v = await store.startVerification(domain, token, orgId);
     return json({
       status: v.status,
       recordType: "TXT",

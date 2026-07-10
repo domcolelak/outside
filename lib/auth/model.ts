@@ -39,12 +39,23 @@ export interface Membership {
   userId: string;
   orgId: string;
   role: Role;
+  notifyChanges: boolean;
+}
+
+export interface Invite {
+  id: string;
+  orgId: string;
+  email: string;
+  role: Role;
+  token: string;
+  createdAt: string;
+  acceptedAt: string | null;
 }
 
 /** A user with the organizations they can access (for the session context). */
 export interface SessionContext {
   user: Omit<User, "passwordHash">;
-  memberships: Array<{ org: Organization; role: Role }>;
+  memberships: Array<{ org: Organization; role: Role; notifyChanges: boolean }>;
 }
 
 export interface AuthStore {
@@ -53,11 +64,18 @@ export interface AuthStore {
   getUser(id: string): Promise<User | null>;
   /** Create a user together with a personal organization + owner membership. */
   createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string }): Promise<{ user: User; org: Organization }>;
-  membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role }>>;
+  membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>>;
   getMembership(userId: string, orgId: string): Promise<Membership | null>;
   /** Members of an organization (for notifications). */
-  orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role }>>;
+  orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>>;
+  setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void>;
   setPlan(orgId: string, plan: Organization["plan"]): Promise<void>;
+  // Team invites.
+  createInvite(orgId: string, email: string, role: Role, token: string): Promise<Invite>;
+  listInvites(orgId: string): Promise<Invite[]>;
+  getInviteByToken(token: string): Promise<Invite | null>;
+  /** Accept an invite: add membership + mark accepted. Returns the org/role, or null. */
+  acceptInvite(token: string, userId: string): Promise<{ orgId: string; role: Role } | null>;
   /** Look up an org by its Stripe customer id (billing webhooks). */
   findOrgByStripeCustomer?(customerId: string): Promise<Organization | null>;
   setSubscription?(orgId: string, data: { plan: Organization["plan"]; stripeCustomerId?: string; stripeSubscriptionId?: string | null; status?: string | null }): Promise<void>;

@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import type { AuthStore, Membership, Organization, Role, User } from "./model";
+import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
 
 const g = globalThis as unknown as { __outsidePrisma?: PrismaClient };
 const prisma = g.__outsidePrisma ?? new PrismaClient();
@@ -32,20 +32,60 @@ export class PrismaAuthStore implements AuthStore {
     return { user: this.mapUser(result.user), org: this.mapOrg(result.org) };
   }
 
-  async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role }>> {
+  async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
     const rows = await prisma.membership.findMany({ where: { userId }, include: { org: true } });
-    return rows.map((r) => ({ org: this.mapOrg(r.org), role: r.role as Role }));
+    return rows.map((r) => ({ org: this.mapOrg(r.org), role: r.role as Role, notifyChanges: r.notifyChanges }));
   }
 
   async getMembership(userId: string, orgId: string): Promise<Membership | null> {
     const m = await prisma.membership.findUnique({ where: { userId_orgId: { userId, orgId } } });
-    return m ? { userId: m.userId, orgId: m.orgId, role: m.role as Role } : null;
+    return m ? { userId: m.userId, orgId: m.orgId, role: m.role as Role, notifyChanges: m.notifyChanges } : null;
   }
 
-  async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role }>> {
+  async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>> {
     const rows = await prisma.membership.findMany({ where: { orgId }, include: { user: true } });
-    return rows.map((r) => ({ email: r.user.email, name: r.user.name, role: r.role as Role }));
+    return rows.map((r) => ({ email: r.user.email, name: r.user.name, role: r.role as Role, notifyChanges: r.notifyChanges }));
   }
+
+  async setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void> {
+    await prisma.membership.update({ where: { userId_orgId: { userId, orgId } }, data: { notifyChanges: enabled } });
+  }
+
+  async createInvite(orgId: string, email: string, role: Role, token: string): Promise<Invite> {
+    const row = await prisma.invite.create({ data: { orgId, email: email.toLowerCase(), role, token } });
+    return this.mapInvite(row);
+  }
+  async listInvites(orgId: string): Promise<Invite[]> {
+    const rows = await prisma.invite.findMany({ where: { orgId, acceptedAt: null }, orderBy: { createdAt: "desc" } });
+    return rows.map((r) => this.mapInvite(r));
+  }
+  async getInviteByToken(token: string): Promise<Invite | null> {
+    const row = await prisma.invite.findUnique({ where: { token } });
+    return row ? this.mapInvite(row) : null;
+  }
+  async acceptInvite(token: string, userId: string): Promise<{ orgId: string; role: Role } | null> {
+    const invite = await prisma.invite.findUnique({ where: { token } });
+    if (!invite || invite.acceptedAt) return null;
+    await prisma.$transaction(async (tx) => {
+      await tx.membership.upsert({
+        where: { userId_orgId: { userId, orgId: invite.orgId } },
+        create: { userId, orgId: invite.orgId, role: invite.role },
+        update: {},
+      });
+      await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
+    });
+    return { orgId: invite.orgId, role: invite.role as Role };
+  }
+
+  private mapInvite = (r: { id: string; orgId: string; email: string; role: string; token: string; createdAt: Date; acceptedAt: Date | null }): Invite => ({
+    id: r.id,
+    orgId: r.orgId,
+    email: r.email,
+    role: r.role as Role,
+    token: r.token,
+    createdAt: r.createdAt.toISOString(),
+    acceptedAt: r.acceptedAt?.toISOString() ?? null,
+  });
 
   async setPlan(orgId: string, plan: Organization["plan"]): Promise<void> {
     await prisma.organization.update({ where: { id: orgId }, data: { plan } });

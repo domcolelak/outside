@@ -4,6 +4,7 @@ import { getSessionContext } from "@/lib/auth";
 import { Wordmark } from "@/components/Wordmark";
 import { LogoutButton } from "@/components/account/AccountControls";
 import { MonitorsPanel } from "@/components/account/MonitorsPanel";
+import { TeamPanel } from "@/components/account/TeamPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,14 @@ export default async function AccountPage() {
         </section>
 
         {primary && <MonitorsPanel orgId={primary.org.id} plan={primary.org.plan} />}
+        {primary && (
+          <TeamPanel
+            orgId={primary.org.id}
+            canInvite={primary.role === "owner" || primary.role === "admin"}
+            canGrantAdmin={primary.role === "owner"}
+            initialNotify={primary.notifyChanges}
+          />
+        )}
       </main>
     </div>
   );
