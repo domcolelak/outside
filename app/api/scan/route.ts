@@ -5,6 +5,8 @@ import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
 import { rateLimit } from "@/lib/security/ratelimit";
 import { getStore } from "@/lib/persistence";
 import { recordScan } from "@/lib/persistence/record";
+import { buildPosture } from "@/lib/aegis/recommendations";
+import { applyStoredRecommendationStatus } from "@/lib/aegis/store";
 import type { ScanEvent } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -43,6 +45,8 @@ export async function GET(req: NextRequest) {
         if (demoOrg || isDemoDomain(rawTarget)) {
           const org = demoOrg ?? findDemoOrg(rawTarget)!;
           const result = await runDemoScan(org, scanId, emit);
+          // Aegis: derive the protection posture once findings + changes are known.
+          result.posture = buildPosture(result);
           emit({ type: "result", result });
         } else {
           const domain = normalizeDomain(rawTarget);
@@ -50,6 +54,9 @@ export async function GET(req: NextRequest) {
           // Persist + derive change detection against this target's history.
           const store = await getStore();
           await recordScan(store, result);
+          // Aegis: build posture, then apply any remembered recommendation statuses.
+          result.posture = buildPosture(result);
+          await applyStoredRecommendationStatus(result.target, result.posture);
           emit({ type: "result", result });
         }
       } catch (error) {

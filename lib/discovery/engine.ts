@@ -21,6 +21,7 @@ import type {
 } from "@/lib/types";
 import { mapPool } from "./net";
 import { certificateTransparency, resolveHost, resolveMailAndNs } from "./providers";
+import { observeHttp } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
 
 export type Emit = (event: ScanEvent) => void | Promise<void>;
@@ -258,6 +259,42 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
       }
     } catch (e) {
       await emit({ type: "log", level: "warn", message: `DNS correlation partial: ${(e as Error).message}` });
+    }
+  });
+
+  // HTTP + TLS observation of the primary web surface (headers + certificate).
+  await stage(emit, "http", async () => {
+    const primary = assets.find((a) => a.canonical === `www.${reg}`) ?? assets.find((a) => a.kind === "web_service") ?? root;
+    try {
+      const obs = await observeHttp(primary.canonical);
+      if (obs) {
+        primary.attrs.missingHeaders = obs.missingHeaders;
+        primary.attrs.presentHeaders = obs.presentHeaders;
+        if (obs.server) primary.attrs.server = obs.server;
+        if (obs.status) primary.attrs.status = String(obs.status);
+        if (obs.cert?.issuer) primary.attrs.certIssuer = obs.cert.issuer;
+        if (obs.cert?.validTo) primary.attrs.certNotAfter = obs.cert.validTo;
+        if (typeof obs.cert?.daysToExpiry === "number") primary.attrs.certDaysToExpiry = obs.cert.daysToExpiry;
+        if (obs.cert?.fingerprint) primary.attrs.certFingerprint = obs.cert.fingerprint;
+        primary.evidence.push(
+          ev(
+            "http_observation",
+            "HttpObservation",
+            `${primary.label} responded${obs.status ? ` (${obs.status})` : ""} with ${obs.missingHeaders.length} baseline security header(s) absent${
+              typeof obs.cert?.daysToExpiry === "number" ? `; certificate valid for ${obs.cert.daysToExpiry} more day(s)` : ""
+            }.`,
+            obs.server ? `server: ${obs.server}` : undefined,
+            now,
+          ),
+        );
+        await emit({
+          type: "log",
+          level: obs.missingHeaders.length >= 2 ? "signal" : "info",
+          message: `${primary.label} observed — ${obs.missingHeaders.length} security header(s) missing`,
+        });
+      }
+    } catch (e) {
+      await emit({ type: "log", level: "warn", message: `HTTP observation skipped: ${(e as Error).message}` });
     }
   });
 

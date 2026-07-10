@@ -58,7 +58,17 @@ export function buildNorthstar(): DemoOrg {
       ev("certificate_transparency", "crt.sh", "Hostname present on a public TLS certificate."),
       ev("http_observation", "HttpObservation", "Responds 200 over HTTPS; title 'Northstar Labs'.", "server: cloudflare"),
     ],
-    attrs: { protocols: ["HTTPS"], technologies: ["Next.js", "Cloudflare"], status: "200", cdn: "Cloudflare" },
+    attrs: {
+      protocols: ["HTTPS"],
+      technologies: ["Next.js", "Cloudflare"],
+      status: "200",
+      cdn: "Cloudflare",
+      presentHeaders: ["X-Content-Type-Options", "Referrer-Policy"],
+      missingHeaders: ["Strict-Transport-Security (HSTS)", "Content-Security-Policy", "X-Frame-Options"],
+      certIssuer: "Let's Encrypt",
+      certDaysToExpiry: 14,
+      certFingerprint: "3c2d…a91f",
+    },
   });
 
   const api = asset({

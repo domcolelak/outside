@@ -5,6 +5,7 @@ import type { Finding, ScanResult } from "@/lib/types";
 import type { ChangeSummary, ChangeType } from "@/lib/persistence/model";
 import { AssuranceTag, Confidence, PriorityDot, PRIORITY_STYLE } from "@/components/ui";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
+import { ProtectionPanel } from "@/components/panels/ProtectionPanel";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -109,6 +110,8 @@ export function Summary({
       <ExportButton result={result} />
 
       <AiSummary result={result} />
+
+      <ProtectionPanel result={result} onSelectAsset={onSelectAsset} />
 
       <HistoryPanel target={result.target} isDemo={result.isDemo} />
 

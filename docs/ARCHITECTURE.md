@@ -37,9 +37,32 @@ The pipeline maps directly onto the epistemic layers the product requires:
 | Entity resolution | `filterCtHosts`, engine dedupe by `canonical` | One `Asset` per real entity across providers |
 | Graph construction | `lib/discovery/engine.ts` | `Asset[]` + `Edge[]` with relationship confidence |
 | Classification | `lib/analysis/signals.ts` | `Signal[]` (assurance + confidence + rationale) |
+| HTTP + TLS observation | `lib/discovery/http.ts` | Security headers + certificate facts on the primary web surface (SSRF-pinned) |
 | Scoring | `lib/analysis/scoring.ts` | `ExposureScore` (deterministic, component-summed) |
 | Finding generation | `lib/analysis/findings.ts` | `Finding[]` (fact/inference/concern separated) |
-| AI explanation _(roadmap)_ | — | Executive summary only; never mutates the above |
+| **Aegis intelligence** | `lib/aegis/recommendations.ts` | `Posture` — `Recommendation[]` + potential score |
+| **Aegis state / learning** | `lib/aegis/store.ts` | Recommendation status + audit trail (persisted) |
+| AI explanation | `lib/ai/explainer.ts` | Executive + per-finding summaries only; never mutates the above |
+
+### One pipeline: Discover → Understand → Monitor → Protect → Improve
+
+Aegis is **not** a second product bolted on — it is the layer that consumes the *same* finalized
+`ScanResult` (assets, findings, score, change history) and produces intelligence:
+
+```
+Discovery ─▶ Normalization ─▶ Evidence ─▶ Graph + Signals ─▶ Scoring + Findings
+   └─ Guardian (scheduled scans + change detection + alerts)  [Monitor]
+        └─ Aegis (recommendations + posture + remediation + audit)  [Protect / Improve]
+```
+
+The linchpin is **honesty by construction**: the exposure score is `100 + Σ(component impacts)`, and
+each recommendation references the score component it neutralizes, so its `estimatedReduction` (and
+therefore the "potential score", e.g. `42 → 100`) is read from the deterministic model — never
+invented. Recommendation *status* is the only mutable state Aegis owns; it lives in `lib/aegis/store.ts`
+(in-memory or Prisma) with an append-only audit trail, so "resolve once, stay resolved" and every
+change is accountable. Remediation is always **preview → approve → apply → verify → rollback**, and
+defaults to human-applied **guided** steps; connectors (`lib/aegis/integrations.ts`) are optional and,
+when connected, let Aegis *apply* what it already recommends.
 
 ### Epistemic separation
 Every inference is a `Signal` or `Finding` carrying an `assurance` of `observed | inferred | possible`

@@ -1,11 +1,15 @@
 # OUTSIDE
 
-**External digital exposure visualization platform.**
-_You know your company from the inside. OUTSIDE shows you what everyone else sees._
+**External security intelligence & protection platform.**
+_You know your company from the inside. OUTSIDE shows you what everyone else sees — then helps you fix it._
 
 Enter a domain and watch your publicly observable digital footprint reveal itself as an
 interactive, cinematic asset graph — surfacing forgotten, unexpected, and changing external
-assets, using only **passive, public, non-invasive** data sources.
+assets, using only **passive, public, non-invasive** data sources. Then **Guardian** monitors it
+continuously and **Aegis** turns every finding into a prioritized, evidence-backed recommendation
+with a real, score-quantified path to reduce your exposure.
+
+> **One product, one pipeline:** Discover → Understand → Monitor _(Guardian)_ → Protect _(Aegis)_ → Improve.
 
 ![build](https://img.shields.io/badge/build-passing-38e1c3) ![tests](https://img.shields.io/badge/tests-57%20passing-38e1c3) ![typecheck](https://img.shields.io/badge/typecheck-strict-38e1c3) ![stack](https://img.shields.io/badge/Next.js%2014-TypeScript-5b8cff) ![license](https://img.shields.io/badge/license-proprietary-5b8cff)
 
@@ -23,7 +27,8 @@ assets, using only **passive, public, non-invasive** data sources.
 2. **Watch the scan.** A genuine, stage-based discovery sequence streams over SSE — certificate transparency, DNS, correlation — while assets appear as nodes in real time.
 3. **Read the graph.** The hero visualization auto-frames every asset, colour-coded by review priority, with **NEW / RETURNED** rings for changes since the last scan. Search, filter by priority, zoom, and export it as an image.
 4. **Understand the exposure.** A transparent 0–100 score (open _"Why is my score 37?"_), evidence-backed findings that separate **observed fact → inferred signal → possible concern**, and one-click plain-English explanations.
-5. **Replay it.** **Attacker View** cinematically re-plays how an outsider maps your surface from a single domain — ending with _"In N seconds, N public assets were mapped."_
+5. **Protect & improve (Aegis).** Findings become prioritized recommendations — each with why, evidence, confidence, business impact, and a **guided remediation** (preview → approve → apply → rollback). Every recommendation shows its **real exposure-score reduction**, so you see _"resolve these and your score goes 42 → 100."_ Statuses persist across scans, so progress is tracked, not re-nagged.
+6. **Replay it.** **Attacker View** cinematically re-plays how an outsider maps your surface from a single domain — ending with _"In N seconds, N public assets were mapped."_
 
 ---
 
@@ -49,7 +54,10 @@ activates by env var.
 - **Accounts, organizations & RBAC** — email/password auth (scrypt hashing, HMAC-signed httpOnly session cookies), a personal organization per user, membership roles (`owner > admin > analyst > viewer`) enforced server-side. No external auth service required.
 - **Monitored targets & scheduled scans** — organizations track domains on a daily/weekly cadence (per-plan limits enforced server-side). A protected cron endpoint (`/api/cron/scan`) claims due monitors and runs real passive scans idempotently — serverless-friendly, no Redis/worker needed.
 - **Intelligent change alerts** — after a scheduled scan, meaningful changes (new/returned assets, high-priority shifts) are grouped into a single email per monitor and sent to the org's members. Provider-abstracted email with a console dev transport (zero-config) and Resend for delivery.
-- **Read-only AI explanation layer** — provider-abstracted executive summaries; deterministic template by default, Anthropic when a key is present. It can never invent assets, findings, or scores.
+- **Aegis — intelligence & protection layer** — the native layer on top of discovery: every finding becomes a prioritized **recommendation** (why, evidence, confidence, business impact, guided remediation, rollback) whose **estimated exposure reduction is read straight from the score model**, so the "potential score" is honest. Recommendation statuses persist across scans (resolved stays resolved). Remediation defaults to safe **guided** steps; infrastructure changes are always preview → approve → apply → verify → rollback, audited.
+- **HTTP + TLS observation** — one SSRF-guarded request to the primary web surface reads **security headers** and the **TLS certificate** (issuer, expiry, fingerprint), pinned to a validated IP with SNI (rebinding-safe). Turns header and certificate-lifecycle recommendations into observed facts and feeds real certificate-change detection.
+- **Safe integrations registry** — optional, never required connectors (Cloudflare, AWS, Azure, GCP, Microsoft 365, Google Workspace, GitHub, Vercel, Netlify, Fastly, DigitalOcean), each mapped to the recommendation categories it can help *apply*. Env-gated; connecting one lets Aegis act on what it found.
+- **Read-only AI explanation layer** — provider-abstracted executive summaries **and per-finding explanations**; deterministic template by default, Anthropic when a key is present. It can never invent assets, findings, or scores.
 - **Stripe billing** — subscription checkout, billing portal, and a signature-verified, idempotent webhook that syncs plan/subscription state; plan limits enforced server-side. Fully env-guarded (free plan works with no Stripe keys).
 - **Demo mode** — three synthetic organizations (Northstar Labs, Velora Commerce, Atlas Financial) with a designed discovery storyline and change story, clearly labeled as synthetic.
 - **Security layer** — target normalization, SSRF/private-range/metadata guards, and rate limiting, all unit-tested.
