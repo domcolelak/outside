@@ -69,13 +69,16 @@ OUTSIDE's findings instead of log events:
 | Causal graph, roots ranked by blast-radius × earliness × impact | Incidents (connected components) ranked by blast-radius × recency × severity |
 | Strongest causal chain (Dijkstra over −log score) | Correlation-chain narrative per incident |
 | Devil's Advocate attacks the leading hypothesis; Commander must report surviving contradicting evidence | `ExposureAssessment` that **always** carries `contradictingEvidence`, derived from observed facts (CDN/WAF mitigation, low org-attribution confidence, inference-based signals) |
-| PatchProposal: validated diff, path-jailed, **never auto-applied** | Guided remediation, always preview → approve → apply → rollback (concrete validated `ChangeProposal` is the next port) |
-| `LLMProvider` seam + resilience (rate-limit + retry) | OUTSIDE's `Explainer` seam (resilient wrappers are the next port) |
+| PatchProposal: validated diff, path-jailed, **never auto-applied** | Concrete `ChangeProposal` (`lib/aegis/proposal.ts`): exact DNS records / headers, deterministically validated to stay in-scope of the target with declared-coverage, `autoApply: false`, previewed for approval |
+| `LLMProvider` seam + resilience (rate-limit + retry) | `Explainer` wrapped with a concurrency semaphore + transient-only retry with full-jitter backoff (`lib/ai/resilience.ts`) |
 
 The deterministic assessment is the default (works offline, honest); an AI provider is an optional
-enhancement over the *same* structure. What is intentionally **not** ported: Aegis AI's full
-six-agent orchestration and pgvector incident memory — OUTSIDE's smaller evidence set is served better
-by the deterministic investigator with the counter-evidence discipline than by a multi-agent loop.
+enhancement over the *same* structure, now hardened with the ported resilience wrappers. Remediation
+carries a concrete, validated `ChangeProposal` (the ported PatchProposal safety model): the exact
+records/headers to apply, checked to stay inside the target's registrable domain, **never
+auto-applied**. What is intentionally **not** ported: Aegis AI's full six-agent orchestration and
+pgvector incident memory — OUTSIDE's smaller evidence set is served better by the deterministic
+investigator with the counter-evidence discipline than by a multi-agent loop.
 
 The linchpin is **honesty by construction**: the exposure score is `100 + Σ(component impacts)`, and
 each recommendation references the score component it neutralizes, so its `estimatedReduction` (and

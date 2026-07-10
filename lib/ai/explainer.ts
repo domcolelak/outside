@@ -11,6 +11,10 @@
 
 import type { Finding, ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
+import { isTransientHttp, retryTransient, Semaphore } from "./resilience";
+
+// Bounds concurrent Anthropic calls across the process (agents/requests share it).
+const aiSemaphore = new Semaphore(4);
 
 export interface Explainer {
   readonly kind: "template" | "anthropic";
@@ -79,29 +83,38 @@ export class AnthropicExplainer implements Explainer {
   ) {}
 
   private async call(system: string, userContent: string, maxTokens = 400): Promise<string> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15_000);
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": this.apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: "user", content: userContent }],
-      }),
-    }).finally(() => clearTimeout(timer));
+    const once = async (): Promise<string> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: "user", content: userContent }],
+        }),
+      }).finally(() => clearTimeout(timer));
 
-    if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
-    const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-    const text = data.content?.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-    if (!text) throw new Error("Empty AI response");
-    return text;
+      if (!res.ok) {
+        // Attach the status so the retry classifier can tell transient from fatal.
+        const err = new Error(`Anthropic API ${res.status}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
+      }
+      const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+      const text = data.content?.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+      if (!text) throw new Error("Empty AI response");
+      return text;
+    };
+    // Bounded concurrency + transient-only retries with full-jitter backoff.
+    return aiSemaphore.run(() => retryTransient(once, isTransientHttp, { maxAttempts: 4, baseDelay: 500, maxDelay: 8000 }));
   }
 
   async executiveSummary(result: ScanResult): Promise<string> {

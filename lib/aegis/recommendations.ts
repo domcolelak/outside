@@ -9,6 +9,7 @@
 
 import type { Asset, Evidence, Priority, ScanResult } from "@/lib/types";
 import type { Posture, Recommendation, RecommendationCategory } from "./types";
+import { headerProposal, mailProposal } from "./proposal";
 
 const PRIORITY_RANK: Record<Priority, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
 
@@ -69,6 +70,7 @@ const genMailSecurity: Gen = ({ result, now }) => {
         { instruction: "Monitor DMARC aggregate reports, then move p=none → quarantine → reject" },
       ],
       rollback: "Remove or revert the TXT records; DNS changes are non-destructive and fully reversible.",
+      proposal: mailProposal(result.target),
     },
     status: "open",
     createdAt: now,
@@ -261,6 +263,7 @@ const genSecurityHeaders: Gen = ({ result, now }) => {
         { instruction: "Add a Content-Security-Policy (start report-only) and a Referrer-Policy" },
       ],
       rollback: "Headers can be removed instantly at the edge with no data impact.",
+      proposal: headerProposal(result.target, observed.label, missing),
     },
     status: "open",
     createdAt: now,
