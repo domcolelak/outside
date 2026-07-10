@@ -35,7 +35,8 @@ function AuthForm() {
         setBusy(false);
         return;
       }
-      router.push("/account");
+      const next = params.get("next");
+      router.push(next && next.startsWith("/") ? next : "/account");
       router.refresh();
     } catch {
       setError("Network error. Try again.");

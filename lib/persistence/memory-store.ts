@@ -97,11 +97,14 @@ export class InMemoryScanStore implements ScanStore {
     return this.verifications.get(domain.toLowerCase()) ?? null;
   }
 
-  async startVerification(domain: string, token: string): Promise<DomainVerification> {
+  async startVerification(domain: string, token: string, orgId?: string | null): Promise<DomainVerification> {
     const key = domain.toLowerCase();
     const existing = this.verifications.get(key);
-    if (existing) return existing;
-    const v: DomainVerification = { domain: key, token, status: "pending", createdAt: new Date().toISOString() };
+    if (existing) {
+      if (orgId && !existing.orgId) existing.orgId = orgId; // bind on first authed start
+      return existing;
+    }
+    const v: DomainVerification = { domain: key, token, status: "pending", orgId: orgId ?? null, createdAt: new Date().toISOString() };
     this.verifications.set(key, v);
     return v;
   }

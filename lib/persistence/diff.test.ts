@@ -4,7 +4,7 @@ import { InMemoryScanStore } from "./memory-store";
 import { recordScan } from "./record";
 import { diffScans, toSnapshot } from "./diff";
 
-function mkAsset(canonical: string, opts: { kind?: AssetKind; tech?: string[]; priority?: Asset["priority"] } = {}): Asset {
+function mkAsset(canonical: string, opts: { kind?: AssetKind; tech?: string[]; priority?: Asset["priority"]; cert?: string } = {}): Asset {
   return {
     id: `a_${canonical}`,
     kind: opts.kind ?? "web_service",
@@ -17,7 +17,7 @@ function mkAsset(canonical: string, opts: { kind?: AssetKind; tech?: string[]; p
     signals: [],
     priority: opts.priority ?? "low",
     orgConfidence: 1,
-    attrs: { technologies: opts.tech ?? [] },
+    attrs: { technologies: opts.tech ?? [], ...(opts.cert ? { certFingerprint: opts.cert } : {}) },
   };
 }
 
@@ -57,6 +57,18 @@ describe("diffScans (pure)", () => {
     expect(events.find((e) => e.canonical === "old.acme.com")?.type).toBe("asset_disappeared");
     const tech = events.find((e) => e.canonical === "api.acme.com" && e.type === "technology_changed");
     expect(tech?.to).toContain("Cloudflare");
+  });
+
+  it("detects a certificate change on a stable host", () => {
+    const prev = [toSnapshot(mkAsset("www.acme.com", { cert: "fp_aaa" }), "s1", "i1")];
+    const curr = [toSnapshot(mkAsset("www.acme.com", { cert: "fp_bbb" }), "s2", "i1")];
+    const events = diffScans(prev, curr, new Set(["www.acme.com"]));
+    const cert = events.find((e) => e.type === "certificate_changed");
+    expect(cert?.from).toBe("fp_aaa");
+    expect(cert?.to).toBe("fp_bbb");
+    // No cert key on one side -> no false positive.
+    const prev2 = [toSnapshot(mkAsset("www.acme.com"), "s1", "i1")];
+    expect(diffScans(prev2, curr, new Set(["www.acme.com"])).some((e) => e.type === "certificate_changed")).toBe(false);
   });
 });
 

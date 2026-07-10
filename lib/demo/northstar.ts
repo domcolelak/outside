@@ -240,8 +240,17 @@ export function buildNorthstar(): DemoOrg {
         from: "nginx",
         to: "nginx, Cloudflare",
       },
+      {
+        type: "certificate_changed",
+        canonical: "www.northstarlabs.example",
+        label: "www.northstarlabs.example",
+        detail: "The certificate presented for this hostname changed since the previous scan.",
+        priority: "medium",
+        from: "Let's Encrypt (…a91f)",
+        to: "Let's Encrypt (…3c2d)",
+      },
     ],
-    counts: { appeared: 1, returned: 1, disappeared: 0, changed: 1 },
+    counts: { appeared: 1, returned: 1, disappeared: 0, changed: 2 },
   };
 
   return {

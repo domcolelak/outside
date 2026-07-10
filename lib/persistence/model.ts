@@ -52,6 +52,8 @@ export interface AssetSnapshot {
   priority: Priority;
   technologies: string[];
   status?: string;
+  /** Stable key for the observed certificate (issuer/fingerprint), if known. */
+  certKey?: string;
   present: boolean;
 }
 
@@ -60,6 +62,7 @@ export type ChangeType =
   | "asset_returned"
   | "asset_disappeared"
   | "technology_changed"
+  | "certificate_changed"
   | "priority_changed";
 
 export interface ChangeEvent {
@@ -89,6 +92,8 @@ export interface DomainVerification {
   domain: string;
   token: string;
   status: "pending" | "verified";
+  /** Organization that initiated verification (binds the domain to an org). */
+  orgId?: string | null;
   createdAt: string;
   verifiedAt?: string;
 }
@@ -109,6 +114,6 @@ export interface ScanStore {
   /** Domain ownership verification (DNS-TXT). */
   getVerification(domain: string): Promise<DomainVerification | null>;
   /** Create a pending challenge if none exists; return the current one otherwise. */
-  startVerification(domain: string, token: string): Promise<DomainVerification>;
+  startVerification(domain: string, token: string, orgId?: string | null): Promise<DomainVerification>;
   markVerified(domain: string): Promise<DomainVerification>;
 }

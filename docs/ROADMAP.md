@@ -28,8 +28,10 @@ buyer or the next engineer can extend rather than rebuild.
 - **OAuth (built, env-gated):** Google OpenID Connect in `lib/auth/oauth.ts` +
   `app/api/auth/oauth/google/*`; the login button appears only when `GOOGLE_CLIENT_ID` is set. Not
   live-tested here (needs Google credentials).
-- **Remaining:** team invites; bind verified domains to the authenticated org (verification is
-  workspace-global today).
+- **Team invites (built):** admin+ invite teammates by email with a role (owners may grant admin);
+  invite email + accept flow (`/invite/[token]`, `app/api/invites/*`).
+- **Verification → org (built):** verification binds to the caller's organization on first
+  authenticated start (`DomainVerification.orgId`).
 
 ## Priority 3 — Scheduled monitoring — ✅ BUILT
 - **Model (built):** `Monitor` (org, domain, daily/weekly cadence, enabled, `nextRunAt`), with
@@ -44,8 +46,9 @@ buyer or the next engineer can extend rather than rebuild.
 - **PDF export (built):** `@react-pdf` server render (`lib/report/`, `app/api/report/`).
 - **Email (built):** provider-abstracted (`lib/email/provider.ts`) — console dev transport + Resend;
   responsive templates for welcome and change alerts.
-- **Alerting (built):** `lib/email/alerts.ts` groups meaningful changes into one email per monitor and
-  suppresses low-signal noise. **Remaining:** per-user notification preferences, weekly digest.
+- **Alerting (built):** `lib/email/alerts.ts` groups meaningful changes into one email per monitor,
+  suppresses low-signal noise, and respects each member's **per-user notification preference**
+  (`Membership.notifyChanges`, toggle in the account UI). **Remaining:** weekly digest.
 
 ## Priority 5 — Billing (Stripe) — ✅ BUILT
 - Checkout, billing portal, and a **signature-verified, idempotent** webhook syncing plan/subscription
@@ -56,13 +59,25 @@ buyer or the next engineer can extend rather than rebuild.
 ## Priority 6 — AI explanation layer — ✅ BUILT
 - Provider-abstracted (`lib/ai/explainer.ts`), **read-only** over a finalized `ScanResult`; deterministic
   template default, Anthropic when `ANTHROPIC_API_KEY` is set; degrades to template on any failure.
-  Executive summaries **and** per-finding plain-English explanations are built. **Remaining:** persist
-  AI output as a separate `AIAnalysis` record.
+  Executive summaries **and** per-finding plain-English explanations are built, and AI output is
+  persisted as a separate `AIAnalysis` record (`lib/ai/persist.ts`) when a DB is configured — kept
+  apart from deterministic scan data.
 
-## Graph scale
-- Current: `O(n²)` force sim, smooth into the hundreds of nodes.
-- 1,000+ nodes: Barnes–Hut quadtree for repulsion, viewport culling, and level-of-detail label
-  rendering. Node clustering by registrable domain / kind for very large surfaces.
+## Graph scale — ✅ BUILT (Barnes–Hut)
+- Direct `O(n²)` force sim for small graphs; **Barnes–Hut quadtree** (`lib/graph/barnesHut.ts`,
+  ~O(n log n)) kicks in above 140 nodes. Auto-fit already provides viewport framing.
+- **Remaining for 10k+ nodes:** viewport culling, level-of-detail labels, and node clustering by
+  registrable domain / kind.
+
+## Change detection — certificate changes ✅ BUILT
+- `AssetSnapshot.certKey` + a `certificate_changed` change type (`lib/persistence/diff.ts`); surfaced
+  in the change panel and alerted on. Passive cert-fingerprint capture per host is the provider
+  enhancement that will populate `certKey` for real scans.
+
+## History / graph-diff — ✅ BUILT (baseline)
+- `app/api/history` + an exposure-score timeline sparkline (`components/panels/HistoryPanel.tsx`) over
+  a target's persisted scans; the graph already overlays NEW/RETURNED nodes per scan.
+- **Remaining:** a full side-by-side two-scan graph diff view.
 
 ## Additional providers (abstracted behind the provider interface)
 Passive subdomain intelligence, HTTP observation + technology fingerprinting (with the SSRF-pinned

@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Asset, AssetKind, Edge, Priority } from "@/lib/types";
+import { applyRepulsion } from "@/lib/graph/barnesHut";
 
 interface Node {
   id: string;
@@ -137,30 +138,35 @@ export function AssetGraph({
       const nodes = [...nodesRef.current.values()];
       const idIndex = new Map(nodes.map((n, i) => [n.id, i] as const));
 
-      // Repulsion (O(n^2) — fine for hundreds of nodes).
-      for (let i = 0; i < nodes.length; i++) {
-        const a = nodes[i]!;
-        for (let j = i + 1; j < nodes.length; j++) {
-          const b = nodes[j]!;
-          let dx = a.x - b.x;
-          let dy = a.y - b.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 < 36) {
-            // Floor the distance and jitter coincident nodes so repulsion never
-            // explodes when nodes spawn on top of each other.
-            const ang = Math.random() * Math.PI * 2;
-            dx = Math.cos(ang) * 6;
-            dy = Math.sin(ang) * 6;
-            d2 = 36;
+      // Repulsion. Direct all-pairs (O(n^2)) reads best for small graphs; switch
+      // to the Barnes–Hut quadtree (~O(n log n)) once the surface gets large.
+      if (nodes.length > 140) {
+        applyRepulsion(nodes, { strength: 2200, theta: 0.85, maxForce: 26 });
+      } else {
+        for (let i = 0; i < nodes.length; i++) {
+          const a = nodes[i]!;
+          for (let j = i + 1; j < nodes.length; j++) {
+            const b = nodes[j]!;
+            let dx = a.x - b.x;
+            let dy = a.y - b.y;
+            let d2 = dx * dx + dy * dy;
+            if (d2 < 36) {
+              // Floor the distance and jitter coincident nodes so repulsion never
+              // explodes when nodes spawn on top of each other.
+              const ang = Math.random() * Math.PI * 2;
+              dx = Math.cos(ang) * 6;
+              dy = Math.sin(ang) * 6;
+              d2 = 36;
+            }
+            const d = Math.sqrt(d2);
+            const f = Math.min(2200 / d2, 26); // cap the force
+            const fx = (dx / d) * f;
+            const fy = (dy / d) * f;
+            a.vx += fx;
+            a.vy += fy;
+            b.vx -= fx;
+            b.vy -= fy;
           }
-          const d = Math.sqrt(d2);
-          const f = Math.min(2200 / d2, 26); // cap the force
-          const fx = (dx / d) * f;
-          const fy = (dy / d) * f;
-          a.vx += fx;
-          a.vy += fy;
-          b.vx -= fx;
-          b.vy -= fy;
         }
       }
       // Link springs.

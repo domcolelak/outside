@@ -11,6 +11,11 @@ import type { AssetSnapshot, ChangeEvent, ChangeSummary } from "./model";
 export function toSnapshot(asset: Asset, scanId: string, identityId: string): AssetSnapshot {
   const technologies = ((asset.attrs.technologies as string[] | undefined) ?? []).slice().sort();
   const status = asset.attrs.status ? String(asset.attrs.status) : undefined;
+  const certKey = asset.attrs.certFingerprint
+    ? String(asset.attrs.certFingerprint)
+    : asset.attrs.certIssuer
+      ? String(asset.attrs.certIssuer)
+      : undefined;
   return {
     scanId,
     identityId,
@@ -20,6 +25,7 @@ export function toSnapshot(asset: Asset, scanId: string, identityId: string): As
     priority: asset.priority,
     technologies,
     status,
+    certKey,
     present: true,
   };
 }
@@ -88,6 +94,17 @@ export function diffScans(
         to: cur.technologies.join(", ") || "none",
       });
     }
+    if (before.certKey && cur.certKey && before.certKey !== cur.certKey) {
+      events.push({
+        type: "certificate_changed",
+        canonical: canon,
+        label: cur.label,
+        detail: "The certificate presented for this hostname changed since the previous scan.",
+        priority: "medium",
+        from: before.certKey,
+        to: cur.certKey,
+      });
+    }
     if (before.priority !== cur.priority && PRIORITY_RANK[cur.priority] > PRIORITY_RANK[before.priority]) {
       events.push({
         type: "priority_changed",
@@ -113,7 +130,7 @@ export function summarize(previousScanId: string | null, events: ChangeEvent[]):
       appeared: events.filter((e) => e.type === "asset_appeared").length,
       returned: events.filter((e) => e.type === "asset_returned").length,
       disappeared: events.filter((e) => e.type === "asset_disappeared").length,
-      changed: events.filter((e) => e.type === "technology_changed" || e.type === "priority_changed").length,
+      changed: events.filter((e) => e.type === "technology_changed" || e.type === "priority_changed" || e.type === "certificate_changed").length,
     },
   };
 }

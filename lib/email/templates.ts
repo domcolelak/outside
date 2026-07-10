@@ -55,6 +55,15 @@ export function changeAlertEmail(to: string, monitor: Monitor, result: ScanResul
   return { to, subject: `OUTSIDE: ${events.length} change${events.length === 1 ? "" : "s"} on ${monitor.domain}`, html, text };
 }
 
+export function inviteEmail(to: string, orgName: string, role: string, acceptUrl: string): EmailMessage {
+  const html = shell(
+    `You're invited to ${orgName} on OUTSIDE`,
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">You've been invited to join <strong style="color:#e8edf6;">${orgName}</strong> as <strong style="color:#e8edf6;">${role}</strong> on OUTSIDE — external exposure intelligence.</p>
+     <a href="${acceptUrl}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Accept invitation</a>`,
+  );
+  return { to, subject: `You're invited to ${orgName} on OUTSIDE`, html, text: `You've been invited to join ${orgName} as ${role} on OUTSIDE.\nAccept: ${acceptUrl}` };
+}
+
 export function welcomeEmail(to: string, name: string): EmailMessage {
   const html = shell(
     `Welcome to OUTSIDE, ${name.split(" ")[0]}`,

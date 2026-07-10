@@ -112,13 +112,17 @@ export class PrismaScanStore implements ScanStore {
     return row ? this.mapVerification(row) : null;
   }
 
-  async startVerification(domain: string, token: string): Promise<DomainVerification> {
+  async startVerification(domain: string, token: string, orgId?: string | null): Promise<DomainVerification> {
     const key = domain.toLowerCase();
-    const row = await prisma.domainVerification.upsert({
-      where: { domain: key },
-      create: { domain: key, token, status: "pending" },
-      update: {}, // never overwrite an existing challenge/token
-    });
+    const existing = await prisma.domainVerification.findUnique({ where: { domain: key } });
+    if (existing) {
+      // Never overwrite the token; bind the org on the first authenticated start.
+      const row = orgId && !existing.orgId
+        ? await prisma.domainVerification.update({ where: { domain: key }, data: { orgId } })
+        : existing;
+      return this.mapVerification(row);
+    }
+    const row = await prisma.domainVerification.create({ data: { domain: key, token, status: "pending", orgId: orgId ?? null } });
     return this.mapVerification(row);
   }
 
@@ -130,10 +134,11 @@ export class PrismaScanStore implements ScanStore {
     return this.mapVerification(row);
   }
 
-  private mapVerification = (r: { domain: string; token: string; status: string; createdAt: Date; verifiedAt: Date | null }): DomainVerification => ({
+  private mapVerification = (r: { domain: string; token: string; status: string; orgId: string | null; createdAt: Date; verifiedAt: Date | null }): DomainVerification => ({
     domain: r.domain,
     token: r.token,
     status: r.status === "verified" ? "verified" : "pending",
+    orgId: r.orgId,
     createdAt: r.createdAt.toISOString(),
     verifiedAt: r.verifiedAt?.toISOString(),
   });

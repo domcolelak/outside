@@ -16,7 +16,9 @@ const HIGH = new Set(["high", "critical"]);
 
 /** Which change events are worth an email. */
 export function alertableEvents(events: ChangeEvent[]): ChangeEvent[] {
-  return events.filter((e) => e.type === "asset_appeared" || e.type === "asset_returned" || HIGH.has(e.priority));
+  return events.filter(
+    (e) => e.type === "asset_appeared" || e.type === "asset_returned" || e.type === "certificate_changed" || HIGH.has(e.priority),
+  );
 }
 
 /** Returns true if an alert was sent. Failures are swallowed (never break a scan). */
@@ -27,8 +29,8 @@ export async function dispatchChangeAlert(monitor: Monitor, result: ScanResult):
   try {
     const auth = await getAuthStore();
     const members = await auth.orgMembers(monitor.orgId);
-    // Notify owners/admins/analysts (not view-only members).
-    const recipients = members.filter((m) => m.role !== "viewer").map((m) => m.email);
+    // Notify owners/admins/analysts who have change alerts enabled.
+    const recipients = members.filter((m) => m.role !== "viewer" && m.notifyChanges).map((m) => m.email);
     if (recipients.length === 0) return false;
 
     const email = getEmailProvider();

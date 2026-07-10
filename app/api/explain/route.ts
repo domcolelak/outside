@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import type { Finding, ScanResult } from "@/lib/types";
 import { getExplainer } from "@/lib/ai/explainer";
+import { saveAnalysis } from "@/lib/ai/persist";
 import { rateLimit } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: "Invalid finding" }), { status: 422, headers: { "content-type": "application/json" } });
     }
     const explanation = await explainer.explainFinding(f, String(body.target));
+    void saveAnalysis({ target: String(body.target), scanId: f.id, kind: "finding", source: explainer.kind, text: explanation });
     return new Response(JSON.stringify({ explanation, source: explainer.kind }), {
       headers: { "content-type": "application/json", "cache-control": "no-store" },
     });
@@ -43,6 +45,7 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "Invalid scan result" }), { status: 422, headers: { "content-type": "application/json" } });
   }
   const summary = await explainer.executiveSummary(result);
+  void saveAnalysis({ target: result.target, scanId: result.scanId, kind: "summary", source: explainer.kind, text: summary });
   return new Response(JSON.stringify({ summary, source: explainer.kind }), {
     headers: { "content-type": "application/json", "cache-control": "no-store" },
   });
