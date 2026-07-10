@@ -6,6 +6,7 @@ import type { ChangeSummary, ChangeType } from "@/lib/persistence/model";
 import { AssuranceTag, Confidence, PriorityDot, PRIORITY_STYLE } from "@/components/ui";
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { ProtectionPanel } from "@/components/panels/ProtectionPanel";
+import { InvestigationPanel } from "@/components/panels/InvestigationPanel";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -110,6 +111,8 @@ export function Summary({
       <ExportButton result={result} />
 
       <AiSummary result={result} />
+
+      <InvestigationPanel result={result} />
 
       <ProtectionPanel result={result} onSelectAsset={onSelectAsset} />
 
