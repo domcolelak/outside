@@ -16,6 +16,8 @@ export interface Explainer {
   readonly kind: "template" | "anthropic";
   /** A plain-English executive summary of the external surface. */
   executiveSummary(result: ScanResult): Promise<string>;
+  /** A plain-English explanation of a single finding. */
+  explainFinding(finding: Finding, target: string): Promise<string>;
 }
 
 /** Deterministic, zero-dependency explainer. Always available. */
@@ -23,6 +25,11 @@ export class TemplateExplainer implements Explainer {
   readonly kind = "template" as const;
   async executiveSummary(result: ScanResult): Promise<string> {
     return buildExecutiveSummary(result);
+  }
+  async explainFinding(f: Finding, target: string): Promise<string> {
+    const period = (s: string) => s.trim().replace(/\.?$/, ".");
+    const inference = f.inference ? ` ${period(f.inference)}` : "";
+    return `On ${target}, ${period(f.observation)}${inference} ${period(f.concern)} This is a ${f.priority}-priority item at ${Math.round(f.confidence * 100)}% confidence. Recommended review: ${period(f.recommendation)}`;
   }
 }
 
@@ -58,6 +65,11 @@ const SYSTEM_PROMPT =
   "(3) Be factual and measured — no sensationalism, no security buzzwords. " +
   "(4) 3–5 sentences, plain prose, no headings or lists. If evidence is weak, say so.";
 
+const FINDING_PROMPT =
+  "You explain a SINGLE external-surface finding to a non-expert stakeholder. Use ONLY the provided " +
+  "fields — never invent details. Keep the observed fact separate from the inference and the possible " +
+  "concern. Do not claim compromise or exploitation. 2–3 sentences of plain prose, then the recommended action.";
+
 export class AnthropicExplainer implements Explainer {
   readonly kind = "anthropic" as const;
   constructor(
@@ -66,36 +78,59 @@ export class AnthropicExplainer implements Explainer {
     private fallback: Explainer = new TemplateExplainer(),
   ) {}
 
+  private async call(system: string, userContent: string, maxTokens = 400): Promise<string> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": this.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: "user", content: userContent }],
+      }),
+    }).finally(() => clearTimeout(timer));
+
+    if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
+    const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const text = data.content?.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+    if (!text) throw new Error("Empty AI response");
+    return text;
+  }
+
   async executiveSummary(result: ScanResult): Promise<string> {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15_000);
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": this.apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: 400,
-          system: SYSTEM_PROMPT,
-          messages: [
-            { role: "user", content: `Scan projection:\n${JSON.stringify(projectForModel(result))}` },
-          ],
-        }),
-      }).finally(() => clearTimeout(timer));
-
-      if (!res.ok) throw new Error(`Anthropic API ${res.status}`);
-      const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-      const text = data.content?.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
-      if (!text) throw new Error("Empty AI response");
-      return text;
+      return await this.call(SYSTEM_PROMPT, `Scan projection:\n${JSON.stringify(projectForModel(result))}`);
     } catch {
-      // Never fail the request — degrade to the deterministic summary.
-      return this.fallback.executiveSummary(result);
+      return this.fallback.executiveSummary(result); // never fail the request
+    }
+  }
+
+  async explainFinding(finding: Finding, target: string): Promise<string> {
+    try {
+      const projection = {
+        target,
+        title: finding.title,
+        priority: finding.priority,
+        confidence: Math.round(finding.confidence * 100),
+        observation: finding.observation,
+        inference: finding.inference,
+        concern: finding.concern,
+        recommendation: finding.recommendation,
+      };
+      return await this.call(
+        FINDING_PROMPT,
+        `Finding:\n${JSON.stringify(projection)}`,
+        300,
+      );
+    } catch {
+      return this.fallback.explainFinding(finding, target);
     }
   }
 }

@@ -30,6 +30,24 @@ export function txtRecordName(domain: string): string {
   return domain;
 }
 
+/** File-based verification: the path the token file must be served from. */
+export const WELL_KNOWN_PATH = "/.well-known/outside-verify.txt";
+
+export function wellKnownUrl(domain: string): string {
+  return `https://${domain}${WELL_KNOWN_PATH}`;
+}
+
+/** True if the fetched file content carries the exact token. */
+export function isTokenInFile(content: string, token: string): boolean {
+  const needle = expectedTxtValue(token);
+  return content
+    .split(/\r?\n/)
+    .some((line) => {
+      const t = line.trim();
+      return t === token || t === needle;
+    });
+}
+
 /**
  * Decide whether any of the domain's observed TXT records satisfy the token.
  * Tolerant of provider quoting/whitespace; matches the exact issued token only.

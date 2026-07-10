@@ -37,6 +37,20 @@ function ScanView() {
 
   const selected = useMemo(() => scan.assets.find((a) => a.id === selectedId) ?? null, [scan.assets, selectedId]);
 
+  const changedIds = useMemo(() => {
+    const events = scan.result?.changeSummary?.events;
+    if (!events || events.length === 0) return null;
+    const byCanon = new Map(scan.assets.map((a) => [a.canonical, a.id]));
+    const map = new Map<string, "new" | "returned">();
+    for (const e of events) {
+      const id = byCanon.get(e.canonical);
+      if (!id) continue;
+      if (e.type === "asset_appeared") map.set(id, "new");
+      else if (e.type === "asset_returned") map.set(id, "returned");
+    }
+    return map.size > 0 ? map : null;
+  }, [scan.result, scan.assets]);
+
   const matchIds = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q && priorityFilter.size === 0) return null;
@@ -113,6 +127,7 @@ function ScanView() {
             focusPulseId={scan.status === "scanning" ? scan.latestAssetId : null}
             controls
             matchIds={matchIds}
+            changedIds={changedIds}
           />
           {scan.status === "done" && scan.assets.length > 0 && (
             <GraphControls

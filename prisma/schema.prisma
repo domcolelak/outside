@@ -108,6 +108,13 @@ model AssetIdentity {
   @@map("asset_identities")
 }
 
+model ProcessedEvent {
+  id        String   @id
+  createdAt DateTime @default(now())
+
+  @@map("processed_events")
+}
+
 model DomainVerification {
   domain     String    @id
   token      String

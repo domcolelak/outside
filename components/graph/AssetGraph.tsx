@@ -53,6 +53,7 @@ export function AssetGraph({
   controls = false,
   showLabels = true,
   matchIds = null,
+  changedIds = null,
 }: {
   assets: Asset[];
   edges: Edge[];
@@ -65,6 +66,8 @@ export function AssetGraph({
   showLabels?: boolean;
   /** When set, nodes not in the set are dimmed (search / filter highlighting). */
   matchIds?: Set<string> | null;
+  /** Nodes that changed since the previous scan, for the change overlay. */
+  changedIds?: Map<string, "new" | "returned"> | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<Map<string, Node>>(new Map());
@@ -76,6 +79,8 @@ export function AssetGraph({
   matchIdsRef.current = matchIds;
   const showLabelsRef = useRef(showLabels);
   showLabelsRef.current = showLabels;
+  const changedIdsRef = useRef(changedIds);
+  changedIdsRef.current = changedIds;
   const dragRef = useRef<{ panning: boolean; lastX: number; lastY: number }>({ panning: false, lastX: 0, lastY: 0 });
   const rafRef = useRef<number>(0);
   const [, force] = useState(0);
@@ -290,6 +295,29 @@ export function AssetGraph({
           ctx.fillStyle = isSel ? "#e8edf6" : "rgba(170,182,204,0.8)";
           ctx.textAlign = "center";
           ctx.fillText(n.asset.label.replace(/\.[a-z]+$/, ""), n.x, n.y + r + 13);
+        }
+
+        // Change overlay: distinctive ring + tag for assets that changed since
+        // the previous scan (new / returned).
+        const change = changedIdsRef.current?.get(n.id);
+        if (change && !dim) {
+          const c = change === "new" ? "#38e1c3" : "#f5c451";
+          const pulse = (Math.sin(now / 320) + 1) / 2;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, r + 7 + pulse * 3, 0, Math.PI * 2);
+          ctx.strokeStyle = c;
+          ctx.globalAlpha = 0.85;
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          if (withLabels) {
+            ctx.font = "700 9px ui-monospace, monospace";
+            ctx.fillStyle = c;
+            ctx.textAlign = "center";
+            ctx.fillText(change === "new" ? "NEW" : "RETURNED", n.x, n.y - r - 8);
+          }
         }
       }
       ctx.restore();
