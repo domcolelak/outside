@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ScanResult } from "@/lib/types";
-import type { Recommendation, RecommendationStatus } from "@/lib/aegis/types";
+import type { ChangeProposal, Recommendation, RecommendationStatus } from "@/lib/aegis/types";
 import { PriorityDot } from "@/components/ui";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -154,6 +154,7 @@ function RecCard({
             {rec.remediation.rollback && (
               <p className="mono mt-2 text-[10px] text-ink-faint">↩ Rollback: {rec.remediation.rollback}</p>
             )}
+            {rec.remediation.proposal && <ProposalPreview proposal={rec.remediation.proposal} />}
             {rec.remediation.changesInfrastructure && (
               <p className="mono mt-1 text-[10px] text-risk-medium">Applying this changes live infrastructure — always preview & approve first.</p>
             )}
@@ -187,6 +188,40 @@ function RecCard({
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function ProposalPreview({ proposal }: { proposal: ChangeProposal }) {
+  const [copied, setCopied] = useState(false);
+  const text =
+    proposal.format === "dns_records"
+      ? (proposal.dnsRecords ?? []).map((r) => `${r.name}\t${r.type}\t${r.value}`).join("\n")
+      : proposal.format === "http_headers"
+        ? (proposal.headers ?? []).map((h) => `${h.name}: ${h.value}`).join("\n")
+        : proposal.text ?? "";
+  const copy = () => {
+    navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="mt-2 rounded-md border border-signal/20 bg-base-950 p-2.5">
+      <div className="mono mb-1.5 flex items-center justify-between text-[10px] uppercase tracking-wide">
+        <span className="text-signal">Proposed change · never auto-applied</span>
+        <span className="flex items-center gap-2">
+          <span className={proposal.validation.ok ? "text-signal" : "text-risk-medium"}>
+            {proposal.validation.ok ? "✓ validated in-scope" : "⚠ review"}
+          </span>
+          <button onClick={copy} className="rounded border border-line px-1.5 py-0.5 text-ink-soft hover:bg-base-700">{copied ? "copied" : "copy"}</button>
+        </span>
+      </div>
+      <pre className="scroll-thin overflow-x-auto whitespace-pre text-[11px] leading-relaxed text-ink-soft">{text}</pre>
+      {!proposal.validation.ok && (
+        <ul className="mono mt-1 space-y-0.5 text-[10px] text-risk-medium">
+          {proposal.validation.issues.map((iss, i) => <li key={i}>· {iss}</li>)}
+        </ul>
       )}
     </div>
   );

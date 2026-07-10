@@ -36,6 +36,37 @@ export interface RemediationStep {
   detail?: string;
 }
 
+export type ProposalFormat = "dns_records" | "http_headers" | "text";
+
+export interface ProposedDnsRecord {
+  name: string;
+  type: string;
+  value: string;
+}
+
+export interface ProposedHeader {
+  name: string;
+  value: string;
+}
+
+/**
+ * A concrete, deterministically-validated remediation artifact — the OUTSIDE
+ * analog of Aegis AI's PatchProposal. It states the exact change to apply,
+ * validated to stay in-scope of the target, and is NEVER auto-applied.
+ */
+export interface ChangeProposal {
+  format: ProposalFormat;
+  summary: string;
+  dnsRecords?: ProposedDnsRecord[];
+  headers?: ProposedHeader[];
+  text?: string;
+  /** Hostnames the change touches (declared; validation checks coverage + scope). */
+  affects: string[];
+  /** Always false — proposals are reviewed and applied by a human. */
+  autoApply: false;
+  validation: { ok: boolean; issues: string[] };
+}
+
 export interface Remediation {
   summary: string;
   mode: RemediationMode;
@@ -46,6 +77,8 @@ export interface Remediation {
   rollback?: string;
   /** Whether applying this touches live infrastructure (always requires approval). */
   changesInfrastructure: boolean;
+  /** A concrete, validated change artifact (never auto-applied), when one exists. */
+  proposal?: ChangeProposal;
 }
 
 export interface Recommendation {
