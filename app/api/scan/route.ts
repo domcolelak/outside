@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/security/ratelimit";
 import { getStore } from "@/lib/persistence";
 import { recordScan } from "@/lib/persistence/record";
 import { buildPosture } from "@/lib/aegis/recommendations";
+import { buildInvestigation } from "@/lib/aegis/investigation";
 import { applyStoredRecommendationStatus } from "@/lib/aegis/store";
 import type { ScanEvent } from "@/lib/types";
 
@@ -45,8 +46,9 @@ export async function GET(req: NextRequest) {
         if (demoOrg || isDemoDomain(rawTarget)) {
           const org = demoOrg ?? findDemoOrg(rawTarget)!;
           const result = await runDemoScan(org, scanId, emit);
-          // Aegis: derive the protection posture once findings + changes are known.
+          // Aegis: derive the protection posture + correlate findings into incidents.
           result.posture = buildPosture(result);
+          result.investigation = buildInvestigation(result);
           emit({ type: "result", result });
         } else {
           const domain = normalizeDomain(rawTarget);
@@ -54,8 +56,9 @@ export async function GET(req: NextRequest) {
           // Persist + derive change detection against this target's history.
           const store = await getStore();
           await recordScan(store, result);
-          // Aegis: build posture, then apply any remembered recommendation statuses.
+          // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
+          result.investigation = buildInvestigation(result);
           await applyStoredRecommendationStatus(result.target, result.posture);
           emit({ type: "result", result });
         }

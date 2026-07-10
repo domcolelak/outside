@@ -170,6 +170,8 @@ export interface ScanResult {
   changeSummary?: import("@/lib/persistence/model").ChangeSummary;
   /** Aegis protection posture: recommendations + potential score. */
   posture?: import("@/lib/aegis/types").Posture;
+  /** Aegis investigation: correlated exposure incidents + assessment. */
+  investigation?: import("@/lib/aegis/investigation").Investigation;
 }
 
 export interface ScanStats {
