@@ -104,6 +104,7 @@ export interface Recommendation {
 
 export interface AuditEvent {
   id: string;
+  orgId: string;
   target: string | null;
   actor: string | null;
   action: string;

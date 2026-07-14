@@ -34,15 +34,18 @@ export function ProtectionPanel({ result, onSelectAsset }: { result: ScanResult;
   const openCount = recs.filter((r) => OPEN.includes(r.status)).length;
 
   const setStatus = async (rec: Recommendation, status: RecommendationStatus) => {
+    const previous = rec.status;
     setRecs((list) => list.map((r) => (r.id === rec.id ? { ...r, status } : r)));
+    if (result.isDemo) return;
     try {
-      await fetch("/api/recommendations", {
+      const response = await fetch("/api/recommendations", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ target: result.target, recId: rec.id, status }),
       });
+      if (!response.ok) throw new Error(`Recommendation update failed (${response.status})`);
     } catch {
-      /* optimistic; ignore */
+      setRecs((list) => list.map((r) => (r.id === rec.id ? { ...r, status: previous } : r)));
     }
   };
 

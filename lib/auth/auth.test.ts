@@ -39,6 +39,20 @@ describe("signed sessions", () => {
     expect(sessionCookie("t")).toMatch(/HttpOnly/);
     expect(clearedSessionCookie()).toMatch(/Max-Age=0/);
   });
+
+  it("refuses the public fallback secret in production", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousSecret = process.env.AUTH_SECRET;
+    try {
+      Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true, writable: true });
+      delete process.env.AUTH_SECRET;
+      expect(() => signSession("usr_prod")).toThrow(/AUTH_SECRET/);
+    } finally {
+      Object.defineProperty(process.env, "NODE_ENV", { value: previousNodeEnv, configurable: true, writable: true });
+      if (previousSecret === undefined) delete process.env.AUTH_SECRET;
+      else process.env.AUTH_SECRET = previousSecret;
+    }
+  });
 });
 
 describe("accounts, organizations, RBAC", () => {
@@ -63,17 +77,20 @@ describe("accounts, organizations, RBAC", () => {
   it("invites a teammate and accepting adds a membership", async () => {
     const store = new InMemoryAuthStore();
     const { org } = await store.createUserWithOrg({ email: "owner@example.com", name: "Owner", passwordHash: "h", orgName: "Acme" });
-    const invite = await store.createInvite(org.id, "New@Example.com", "analyst", "tok_invite");
+    const invite = await store.createInvite(org.id, "New@Example.com", "analyst", "tok_invite", "owner_id");
     expect((await store.listInvites(org.id)).map((i) => i.email)).toContain("new@example.com");
 
-    const { user: joiner } = await store.createUserWithOrg({ email: "joiner@example.com", name: "Joiner", passwordHash: "h", orgName: "Joiner Co" });
-    const result = await store.acceptInvite("tok_invite", joiner.id);
+    const { user: wrongUser } = await store.createUserWithOrg({ email: "joiner@example.com", name: "Joiner", passwordHash: "h", orgName: "Joiner Co" });
+    expect(await store.acceptInvite("tok_invite", wrongUser.id, wrongUser.email)).toBeNull();
+
+    const { user: joiner } = await store.createUserWithOrg({ email: "new@example.com", name: "New", passwordHash: "h", orgName: "New Co" });
+    const result = await store.acceptInvite("tok_invite", joiner.id, joiner.email);
     expect(result).toEqual({ orgId: org.id, role: "analyst" });
     const memberships = await store.membershipsForUser(joiner.id);
     expect(memberships.some((m) => m.org.id === org.id && m.role === "analyst")).toBe(true);
     // Accepted invite is no longer pending, and re-accepting fails.
     expect(await store.listInvites(org.id)).toHaveLength(0);
-    expect(await store.acceptInvite("tok_invite", joiner.id)).toBeNull();
+    expect(await store.acceptInvite("tok_invite", joiner.id, joiner.email)).toBeNull();
     void invite;
   });
 

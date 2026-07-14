@@ -1,4 +1,5 @@
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
+import { hashInviteToken, inviteExpiresAt } from "./invites";
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "org";
@@ -11,7 +12,12 @@ export class InMemoryAuthStore implements AuthStore {
   private byEmail = new Map<string, string>(); // email -> id
   private orgs = new Map<string, Organization>();
   private memberships: Membership[] = [];
-  private invites: Invite[] = [];
+  private invites: Array<Invite & { tokenHash: string }> = [];
+
+  private publicInvite(invite: Invite & { tokenHash: string }): Invite {
+    const { tokenHash: _tokenHash, ...safe } = invite;
+    return safe;
+  }
 
   private id(p: string) {
     return `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -62,20 +68,31 @@ export class InMemoryAuthStore implements AuthStore {
     if (m) m.notifyChanges = enabled;
   }
 
-  async createInvite(orgId: string, email: string, role: Role, token: string): Promise<Invite> {
-    const invite: Invite = { id: this.id("inv"), orgId, email: email.toLowerCase(), role, token, createdAt: new Date().toISOString(), acceptedAt: null };
+  async createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite> {
+    const now = new Date();
+    const invite: Invite & { tokenHash: string } = {
+      id: this.id("inv"), orgId, email: email.toLowerCase(), role, createdBy,
+      tokenHash: hashInviteToken(token), createdAt: now.toISOString(), expiresAt: inviteExpiresAt(now).toISOString(),
+      acceptedAt: null, revokedAt: null,
+    };
     this.invites.push(invite);
-    return invite;
+    return this.publicInvite(invite);
   }
   async listInvites(orgId: string): Promise<Invite[]> {
-    return this.invites.filter((i) => i.orgId === orgId && !i.acceptedAt);
+    const now = Date.now();
+    return this.invites
+      .filter((i) => i.orgId === orgId && !i.acceptedAt && !i.revokedAt && Date.parse(i.expiresAt) > now)
+      .map((invite) => this.publicInvite(invite));
   }
   async getInviteByToken(token: string): Promise<Invite | null> {
-    return this.invites.find((i) => i.token === token) ?? null;
+    const tokenHash = hashInviteToken(token);
+    const invite = this.invites.find((i) => i.tokenHash === tokenHash);
+    return invite ? this.publicInvite(invite) : null;
   }
-  async acceptInvite(token: string, userId: string): Promise<{ orgId: string; role: Role } | null> {
-    const invite = this.invites.find((i) => i.token === token && !i.acceptedAt);
-    if (!invite) return null;
+  async acceptInvite(token: string, userId: string, userEmail: string): Promise<{ orgId: string; role: Role } | null> {
+    const tokenHash = hashInviteToken(token);
+    const invite = this.invites.find((i) => i.tokenHash === tokenHash && !i.acceptedAt && !i.revokedAt);
+    if (!invite || Date.parse(invite.expiresAt) <= Date.now() || invite.email !== userEmail.toLowerCase()) return null;
     if (!this.memberships.some((m) => m.userId === userId && m.orgId === invite.orgId)) {
       this.memberships.push({ userId, orgId: invite.orgId, role: invite.role, notifyChanges: true });
     }

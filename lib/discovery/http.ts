@@ -11,6 +11,7 @@
 
 import tls from "node:tls";
 import { isSafePublicIp } from "@/lib/security/target";
+import { pinnedHttpsGet } from "@/lib/security/pinned-https";
 import { resolveHost } from "./providers";
 
 const SECURITY_HEADERS: Array<{ key: string; label: string }> = [
@@ -68,20 +69,19 @@ export async function observeHttp(host: string): Promise<HttpObservation | null>
 
   const obs: HttpObservation = { presentHeaders: [], missingHeaders: [] };
 
-  // Headers via a bounded GET (redirects not followed).
+  // Headers via a bounded, IP-pinned GET. The response body is discarded.
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(`https://${host}/`, {
-      method: "GET",
-      redirect: "manual",
-      signal: controller.signal,
+    const res = await pinnedHttpsGet(host, ips, {
+      path: "/",
+      timeoutMs: 6_000,
+      maxBodyBytes: 0,
       headers: { "user-agent": "OUTSIDE-observation/0.1 (+https://outside.example/about)" },
-    }).finally(() => clearTimeout(timer));
+    });
     obs.status = res.status;
-    obs.server = res.headers.get("server") ?? undefined;
+    const server = res.headers.server;
+    obs.server = Array.isArray(server) ? server[0] : server;
     for (const h of SECURITY_HEADERS) {
-      if (res.headers.get(h.key)) obs.presentHeaders.push(h.label);
+      if (res.headers[h.key]) obs.presentHeaders.push(h.label);
       else obs.missingHeaders.push(h.label);
     }
   } catch {

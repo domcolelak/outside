@@ -5,12 +5,12 @@
  */
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { authSecret, authVerificationSecrets } from "@/lib/config/secrets";
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
 
-const SECRET = process.env.AUTH_SECRET ?? "outside-dev-auth-secret-change-me";
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 export const OAUTH_STATE_COOKIE = "outside_oauth_state";
 
@@ -25,7 +25,7 @@ function redirectUri(): string {
 /** Create a signed state token to store in a cookie and echo via the OAuth flow. */
 export function makeState(): string {
   const nonce = randomBytes(16).toString("base64url");
-  const sig = createHmac("sha256", SECRET).update(nonce).digest("base64url");
+  const sig = createHmac("sha256", authSecret()).update(nonce).digest("base64url");
   return `${nonce}.${sig}`;
 }
 
@@ -33,10 +33,11 @@ export function verifyState(cookieState: string | undefined, queryState: string 
   if (!cookieState || !queryState || cookieState !== queryState) return false;
   const [nonce, sig] = cookieState.split(".");
   if (!nonce || !sig) return false;
-  const expected = createHmac("sha256", SECRET).update(nonce).digest("base64url");
   const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  return authVerificationSecrets().some((secret) => {
+    const expected = Buffer.from(createHmac("sha256", secret).update(nonce).digest("base64url"));
+    return a.length === expected.length && timingSafeEqual(a, expected);
+  });
 }
 
 export function buildGoogleAuthUrl(state: string): string {

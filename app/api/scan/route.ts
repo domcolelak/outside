@@ -9,6 +9,8 @@ import { buildPosture } from "@/lib/aegis/recommendations";
 import { buildInvestigation } from "@/lib/aegis/investigation";
 import { applyStoredRecommendationStatus } from "@/lib/aegis/store";
 import type { ScanEvent } from "@/lib/types";
+import { getSessionContext } from "@/lib/auth";
+import { authorizedTargetOrg } from "@/lib/auth/target-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +61,9 @@ export async function GET(req: NextRequest) {
           // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
-          await applyStoredRecommendationStatus(result.target, result.posture);
+          const ctx = await getSessionContext();
+          const orgId = await authorizedTargetOrg(ctx, result.target, "viewer");
+          if (orgId) await applyStoredRecommendationStatus(orgId, result.target, result.posture);
           emit({ type: "result", result });
         }
       } catch (error) {

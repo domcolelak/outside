@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
+import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { getRecommendationStatuses, listAudit, setRecommendationStatus } from "@/lib/aegis/store";
 import { rateLimit } from "@/lib/security/ratelimit";
 import { normalizeDomain } from "@/lib/security/target";
@@ -17,10 +18,14 @@ export async function GET(req: NextRequest) {
   try {
     target = normalizeDomain(raw);
   } catch {
-    return NextResponse.json({ statuses: {}, audit: [] });
+    return NextResponse.json({ error: "Invalid target" }, { status: 422 });
   }
-  const statuses = Object.fromEntries(await getRecommendationStatuses(target));
-  return NextResponse.json({ statuses, audit: await listAudit(target, 30) });
+  const ctx = await getSessionContext();
+  if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const orgId = await authorizedTargetOrg(ctx, target, "viewer");
+  if (!orgId) return NextResponse.json({ error: "Verified organization access required" }, { status: 403 });
+  const statuses = Object.fromEntries(await getRecommendationStatuses(orgId, target));
+  return NextResponse.json({ statuses, audit: await listAudit(orgId, target, 30) });
 }
 
 /** Update a recommendation's status (acknowledge / start / resolve / dismiss). */
@@ -38,8 +43,7 @@ export async function POST(req: NextRequest) {
   try {
     target = normalizeDomain(body.target ?? "");
   } catch {
-    // Demo targets use reserved TLDs; accept the raw value for status tracking.
-    target = String(body.target ?? "").trim().toLowerCase();
+    return NextResponse.json({ error: "Invalid target" }, { status: 422 });
   }
   const recId = String(body.recId ?? "");
   const status = body.status as RecommendationStatus;
@@ -48,6 +52,9 @@ export async function POST(req: NextRequest) {
   }
 
   const ctx = await getSessionContext();
-  await setRecommendationStatus(target, recId, status, ctx?.user.email ?? null ?? undefined);
+  if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const orgId = await authorizedTargetOrg(ctx, target, "analyst");
+  if (!orgId) return NextResponse.json({ error: "Verified organization analyst access required" }, { status: 403 });
+  await setRecommendationStatus(orgId, target, recId, status, ctx.user.email);
   return NextResponse.json({ ok: true, status });
 }

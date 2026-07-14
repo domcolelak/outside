@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   const store = await getAuthStore();
   const token = randomBytes(24).toString("base64url");
-  const invite = await store.createInvite(orgId, email, role, token);
+  const invite = await store.createInvite(orgId, email, role, token, ctx.user.id);
 
   // Fire-and-forget invite email (console transport unless configured).
   const acceptUrl = `${APP_URL}/invite/${token}`;

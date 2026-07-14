@@ -1,13 +1,4 @@
-/**
- * Aegis state: recommendation status ("resolved", "dismissed", …) and an audit
- * trail. This is the "Improve" / historical-learning layer — once a user
- * resolves a recommendation it stays resolved across future scans, and the
- * posture reflects real progress rather than re-nagging.
- *
- * Zero-config in-memory by default (cached on globalThis so every route bundle
- * shares it); durable via Prisma when DATABASE_URL is set. Every status change
- * is written to the audit trail.
- */
+/** Organization-isolated Aegis recommendation state and audit trail. */
 
 import type { AuditEvent, Posture, RecommendationStatus } from "./types";
 
@@ -21,6 +12,9 @@ function memStatus() {
 }
 function memAudit() {
   return (g.__outsideAudit ??= []);
+}
+function scopeKey(orgId: string, target: string) {
+  return `${orgId}\u0000${target.toLowerCase()}`;
 }
 
 async function prisma() {
@@ -36,81 +30,94 @@ async function prisma() {
   }
 }
 
-export async function getRecommendationStatuses(target: string): Promise<Map<string, RecommendationStatus>> {
+export async function getRecommendationStatuses(orgId: string, target: string): Promise<Map<string, RecommendationStatus>> {
   const key = target.toLowerCase();
   const db = await prisma();
   if (db) {
-    const rows = await db.recommendationState.findMany({ where: { target: key } });
-    return new Map(rows.map((r) => [r.recId, r.status as RecommendationStatus]));
+    const rows = await db.recommendationState.findMany({ where: { orgId, target: key } });
+    return new Map(rows.map((row) => [row.recId, row.status as RecommendationStatus]));
   }
-  return new Map(memStatus().get(key) ?? []);
+  return new Map(memStatus().get(scopeKey(orgId, key)) ?? []);
 }
 
 export async function setRecommendationStatus(
+  orgId: string,
   target: string,
   recId: string,
   status: RecommendationStatus,
-  actor?: string,
+  actor: string,
 ): Promise<void> {
   const key = target.toLowerCase();
   const db = await prisma();
   if (db) {
     await db.recommendationState.upsert({
-      where: { target_recId: { target: key, recId } },
-      create: { target: key, recId, status },
+      where: { orgId_target_recId: { orgId, target: key, recId } },
+      create: { orgId, target: key, recId, status },
       update: { status },
     });
   } else {
-    const map = memStatus().get(key) ?? new Map<string, RecommendationStatus>();
-    map.set(recId, status);
-    memStatus().set(key, map);
+    const scoped = scopeKey(orgId, key);
+    const statuses = memStatus().get(scoped) ?? new Map<string, RecommendationStatus>();
+    statuses.set(recId, status);
+    memStatus().set(scoped, statuses);
   }
-  await appendAudit({ target: key, actor: actor ?? null, action: `recommendation.${status}`, detail: recId });
+  await appendAudit({ orgId, target: key, actor, action: `recommendation.${status}`, detail: recId });
 }
 
-export async function appendAudit(evt: { target: string | null; actor: string | null; action: string; detail: string | null }): Promise<void> {
+export async function appendAudit(evt: Omit<AuditEvent, "id" | "createdAt">): Promise<void> {
   const record: AuditEvent = {
-    id: `aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    id: crypto.randomUUID(),
     ...evt,
     createdAt: new Date().toISOString(),
   };
   const db = await prisma();
   if (db) {
-    await db.auditEvent.create({ data: { target: evt.target, actor: evt.actor, action: evt.action, detail: evt.detail } });
+    await db.auditEvent.create({ data: { orgId: evt.orgId, target: evt.target, actor: evt.actor, action: evt.action, detail: evt.detail } });
     return;
   }
   memAudit().unshift(record);
   if (memAudit().length > 500) memAudit().length = 500;
 }
 
-export async function listAudit(target: string, limit = 50): Promise<AuditEvent[]> {
+export async function listAudit(orgId: string, target: string, limit = 50): Promise<AuditEvent[]> {
   const key = target.toLowerCase();
   const db = await prisma();
   if (db) {
-    const rows = await db.auditEvent.findMany({ where: { target: key }, orderBy: { createdAt: "desc" }, take: limit });
-    return rows.map((r) => ({ id: r.id, target: r.target, actor: r.actor, action: r.action, detail: r.detail, createdAt: r.createdAt.toISOString() }));
+    const rows = await db.auditEvent.findMany({ where: { orgId, target: key }, orderBy: { createdAt: "desc" }, take: limit });
+    return rows.map((row) => ({
+      id: row.id,
+      orgId: row.orgId!,
+      target: row.target,
+      actor: row.actor,
+      action: row.action,
+      detail: row.detail,
+      createdAt: row.createdAt.toISOString(),
+    }));
   }
-  return memAudit().filter((a) => a.target === key).slice(0, limit);
+  return memAudit().filter((event) => event.orgId === orgId && event.target === key).slice(0, limit);
 }
 
 const OPEN: RecommendationStatus[] = ["open", "acknowledged", "in_progress"];
 
-/**
- * Overlay stored statuses onto a freshly-built posture and recompute the
- * potential score so resolved/dismissed items no longer count toward the gain.
- */
-export async function applyStoredRecommendationStatus(target: string, posture: Posture): Promise<void> {
-  const statuses = await getRecommendationStatuses(target);
+export async function applyStoredRecommendationStatus(orgId: string, target: string, posture: Posture): Promise<void> {
+  const statuses = await getRecommendationStatuses(orgId, target);
   if (statuses.size === 0) return;
-  for (const rec of posture.recommendations) {
-    const stored = statuses.get(rec.id);
-    if (stored) rec.status = stored;
+  for (const recommendation of posture.recommendations) {
+    const stored = statuses.get(recommendation.id);
+    if (stored) recommendation.status = stored;
   }
   const openReduction = posture.recommendations
-    .filter((r) => OPEN.includes(r.status))
-    .reduce((sum, r) => sum + r.estimatedReduction, 0);
+    .filter((recommendation) => OPEN.includes(recommendation.status))
+    .reduce((sum, recommendation) => sum + recommendation.estimatedReduction, 0);
   posture.potentialScore = Math.max(0, Math.min(100, posture.currentScore + openReduction));
   const openByPriority = { critical: 0, high: 0, medium: 0, low: 0, info: 0 } as Posture["openByPriority"];
-  for (const r of posture.recommendations) if (r.status === "open") openByPriority[r.priority] += 1;
+  for (const recommendation of posture.recommendations) {
+    if (recommendation.status === "open") openByPriority[recommendation.priority] += 1;
+  }
   posture.openByPriority = openByPriority;
+}
+
+export function __resetAegisStore(): void {
+  g.__outsideRecStatus = undefined;
+  g.__outsideAudit = undefined;
 }

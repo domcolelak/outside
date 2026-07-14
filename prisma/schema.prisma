@@ -63,11 +63,18 @@ model Invite {
   orgId      String
   email      String
   role       String       @default("analyst")
-  token      String       @unique
+  // Transitional nullable columns allow an existing db-push deployment to add
+  // hashed tokens without making legacy plaintext tokens usable. The legacy
+  // token column can be dropped after operators run the security migration.
+  token      String?      @unique
+  tokenHash  String?      @unique
+  createdBy  String       @default("legacy")
   createdAt  DateTime     @default(now())
+  expiresAt  DateTime     @default(now())
   acceptedAt DateTime?
+  revokedAt  DateTime?
 
-  @@index([orgId])
+  @@index([orgId, acceptedAt, expiresAt])
   @@map("invites")
 }
 
@@ -138,12 +145,14 @@ model AIAnalysis {
 }
 
 model RecommendationState {
+  orgId     String
   target    String
   recId     String
   status    String
   updatedAt DateTime @updatedAt
 
-  @@id([target, recId])
+  @@id([orgId, target, recId])
+  @@index([orgId, target])
   @@map("recommendation_states")
 }
 
