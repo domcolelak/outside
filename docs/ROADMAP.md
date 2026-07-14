@@ -10,6 +10,7 @@ This file records the remaining product boundary. It is not a claim that planned
 - Atomic scheduled-monitor claims, retry backoff, alerts, PDF reports, Stripe subscriptions, and optional read-only Anthropic explanations.
 - Responsive canvas graph with Barnes-Hut repulsion, stale-object reconciliation, viewport culling, and idle/visibility suspension.
 - A connector credential registry and validated remediation proposal previews.
+- OUTSIDE Guardian continuous snapshots, semantic event correlation, Exposure Drift, living SPF/DKIM/DMARC/DNSSEC/HSTS/HTTPS/security.txt/MTA-STS/TLS checklist, evidence-backed recommendations, provider-tailored remediation guides, grouped email/workflow notifications, retryable delivery history, and weekly executive digests.
 
 ## Not implemented
 
