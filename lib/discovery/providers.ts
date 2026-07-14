@@ -11,7 +11,8 @@
 import { registrableDomain } from "@/lib/security/target";
 import { fetchJson } from "./net";
 
-const DOH = "https://cloudflare-dns.com/dns-query";
+const DOH = process.env.OUTSIDE_DOH_ENDPOINT ?? "https://cloudflare-dns.com/dns-query";
+const CT = process.env.OUTSIDE_CT_ENDPOINT ?? "https://crt.sh";
 
 interface DohAnswer {
   name: string;
@@ -54,16 +55,16 @@ export function filterCtHosts(
 }
 
 /** Query Certificate Transparency logs for hostnames under a registrable domain. */
-export async function certificateTransparency(domain: string): Promise<CtHostname[]> {
+export async function certificateTransparency(domain: string, signal?: AbortSignal): Promise<CtHostname[]> {
   const reg = registrableDomain(domain);
-  const url = `https://crt.sh/?q=${encodeURIComponent("%." + reg)}&output=json`;
-  const rows = await fetchJson<Array<{ name_value: string; not_before?: string }>>(url, { timeoutMs: 12000 });
+  const url = `${CT}/?q=${encodeURIComponent("%." + reg)}&output=json`;
+  const rows = await fetchJson<Array<{ name_value: string; not_before?: string }>>(url, { timeoutMs: 12_000, maxBytes: 5_000_000, signal });
   return filterCtHosts(rows, reg);
 }
 
-async function dohQuery(name: string, type: string): Promise<DohAnswer[]> {
+async function dohQuery(name: string, type: string, signal?: AbortSignal): Promise<DohAnswer[]> {
   const url = `${DOH}?name=${encodeURIComponent(name)}&type=${type}`;
-  const res = await fetchJson<DohResponse>(url, { headers: { accept: "application/dns-json" }, timeoutMs: 6000 });
+  const res = await fetchJson<DohResponse>(url, { headers: { accept: "application/dns-json" }, timeoutMs: 6_000, maxBytes: 256_000, signal });
   return res.Answer ?? [];
 }
 
@@ -72,10 +73,10 @@ export interface DnsRecord {
   aaaa: string[];
 }
 
-export async function resolveHost(host: string): Promise<DnsRecord> {
+export async function resolveHost(host: string, signal?: AbortSignal): Promise<DnsRecord> {
   const [a, aaaa] = await Promise.all([
-    dohQuery(host, "A").catch(() => []),
-    dohQuery(host, "AAAA").catch(() => []),
+    dohQuery(host, "A", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(host, "AAAA", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
   ]);
   return {
     a: a.filter((r) => r.type === 1).map((r) => r.data),
@@ -84,8 +85,8 @@ export async function resolveHost(host: string): Promise<DnsRecord> {
 }
 
 /** Raw TXT records for a name (used by domain-ownership verification). */
-export async function resolveTxt(name: string): Promise<string[]> {
-  const txt = await dohQuery(name, "TXT").catch(() => []);
+export async function resolveTxt(name: string, signal?: AbortSignal): Promise<string[]> {
+  const txt = await dohQuery(name, "TXT", signal).catch((error) => { if (signal?.aborted) throw error; return []; });
   return txt.filter((r) => r.type === 16).map((r) => r.data);
 }
 
@@ -95,11 +96,11 @@ export interface MailConfig {
   ns: string[];
 }
 
-export async function resolveMailAndNs(domain: string): Promise<MailConfig> {
+export async function resolveMailAndNs(domain: string, signal?: AbortSignal): Promise<MailConfig> {
   const [mx, txt, ns] = await Promise.all([
-    dohQuery(domain, "MX").catch(() => []),
-    dohQuery(domain, "TXT").catch(() => []),
-    dohQuery(domain, "NS").catch(() => []),
+    dohQuery(domain, "MX", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(domain, "TXT", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(domain, "NS", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
   ]);
   const spf = txt.some((r) => /v=spf1/i.test(r.data)) ? "present" : "missing";
   return {

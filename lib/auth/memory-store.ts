@@ -1,8 +1,7 @@
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "org";
-}
+import { hashInviteToken, inviteExpiresAt } from "./invites";
+import { slugifyOrganization } from "./validation";
+import { randomUUID } from "node:crypto";
 
 /** Zero-config in-memory auth store. Resets on restart — durable path is Prisma. */
 export class InMemoryAuthStore implements AuthStore {
@@ -11,10 +10,15 @@ export class InMemoryAuthStore implements AuthStore {
   private byEmail = new Map<string, string>(); // email -> id
   private orgs = new Map<string, Organization>();
   private memberships: Membership[] = [];
-  private invites: Invite[] = [];
+  private invites: Array<Invite & { tokenHash: string }> = [];
+
+  private publicInvite(invite: Invite & { tokenHash: string }): Invite {
+    const { tokenHash: _tokenHash, ...safe } = invite;
+    return safe;
+  }
 
   private id(p: string) {
-    return `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return `${p}_${randomUUID()}`;
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
@@ -25,15 +29,29 @@ export class InMemoryAuthStore implements AuthStore {
     return this.users.get(id) ?? null;
   }
 
-  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string }) {
+  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
-    const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, createdAt: new Date().toISOString() };
-    const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugify(input.orgName), plan: "free", createdAt: new Date().toISOString() };
+    const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date().toISOString() : null, sessionVersion: 0, createdAt: new Date().toISOString() };
+    const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free", createdAt: new Date().toISOString() };
     this.users.set(user.id, user);
     this.byEmail.set(email, user.id);
     this.orgs.set(org.id, org);
     this.memberships.push({ userId: user.id, orgId: org.id, role: "owner", notifyChanges: true });
     return { user, org };
+  }
+
+  async markEmailVerified(userId: string, email: string): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user || user.email !== email.toLowerCase()) return false;
+    user.emailVerifiedAt = new Date().toISOString();
+    return true;
+  }
+
+  async revokeSessions(userId: string): Promise<number> {
+    const user = this.users.get(userId);
+    if (!user) return 0;
+    user.sessionVersion += 1;
+    return user.sessionVersion;
   }
 
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
@@ -62,20 +80,31 @@ export class InMemoryAuthStore implements AuthStore {
     if (m) m.notifyChanges = enabled;
   }
 
-  async createInvite(orgId: string, email: string, role: Role, token: string): Promise<Invite> {
-    const invite: Invite = { id: this.id("inv"), orgId, email: email.toLowerCase(), role, token, createdAt: new Date().toISOString(), acceptedAt: null };
+  async createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite> {
+    const now = new Date();
+    const invite: Invite & { tokenHash: string } = {
+      id: this.id("inv"), orgId, email: email.toLowerCase(), role, createdBy,
+      tokenHash: hashInviteToken(token), createdAt: now.toISOString(), expiresAt: inviteExpiresAt(now).toISOString(),
+      acceptedAt: null, revokedAt: null,
+    };
     this.invites.push(invite);
-    return invite;
+    return this.publicInvite(invite);
   }
   async listInvites(orgId: string): Promise<Invite[]> {
-    return this.invites.filter((i) => i.orgId === orgId && !i.acceptedAt);
+    const now = Date.now();
+    return this.invites
+      .filter((i) => i.orgId === orgId && !i.acceptedAt && !i.revokedAt && Date.parse(i.expiresAt) > now)
+      .map((invite) => this.publicInvite(invite));
   }
   async getInviteByToken(token: string): Promise<Invite | null> {
-    return this.invites.find((i) => i.token === token) ?? null;
+    const tokenHash = hashInviteToken(token);
+    const invite = this.invites.find((i) => i.tokenHash === tokenHash);
+    return invite ? this.publicInvite(invite) : null;
   }
-  async acceptInvite(token: string, userId: string): Promise<{ orgId: string; role: Role } | null> {
-    const invite = this.invites.find((i) => i.token === token && !i.acceptedAt);
-    if (!invite) return null;
+  async acceptInvite(token: string, userId: string, userEmail: string): Promise<{ orgId: string; role: Role } | null> {
+    const tokenHash = hashInviteToken(token);
+    const invite = this.invites.find((i) => i.tokenHash === tokenHash && !i.acceptedAt && !i.revokedAt);
+    if (!invite || Date.parse(invite.expiresAt) <= Date.now() || invite.email !== userEmail.toLowerCase()) return null;
     if (!this.memberships.some((m) => m.userId === userId && m.orgId === invite.orgId)) {
       this.memberships.push({ userId, orgId: invite.orgId, role: invite.role, notifyChanges: true });
     }

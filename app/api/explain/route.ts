@@ -1,52 +1,69 @@
-import { NextRequest } from "next/server";
-import type { Finding, ScanResult } from "@/lib/types";
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionContext } from "@/lib/auth";
+import { targetEntitlement } from "@/lib/auth/entitlements";
 import { getExplainer } from "@/lib/ai/explainer";
 import { saveAnalysis } from "@/lib/ai/persist";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
+import { sanitizeFinding, sanitizeScanResult } from "@/lib/http/scan-input";
+import { normalizeDomain } from "@/lib/security/target";
+import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
+import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
+import { recordUsage } from "@/lib/usage/record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** POST /api/explain { result } -> { summary, source }. Read-only over the result. */
+function json(body: unknown, status = 200) { return NextResponse.json(body, { status, headers: { "cache-control": "no-store" } }); }
+
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`explain:${ip}`, 15, 60_000).ok) {
-    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { "content-type": "application/json" } });
-  }
+  const ctx = await getSessionContext();
+  if (!ctx) return json({ error: "Not authenticated" }, 401);
+  let raw: unknown;
+  try { raw = await readLimitedJson(req, 750_000); }
+  catch (error) { return json({ error: (error as Error).message }, error instanceof RequestBodyError ? error.status : 400); }
 
-  const text = await req.text();
-  if (text.length > 3_000_000) return new Response(JSON.stringify({ error: "Payload too large" }), { status: 413 });
-
-  let body: { result?: ScanResult; finding?: Finding; target?: string };
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { "content-type": "application/json" } });
+  const body = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const finding = body.finding ? sanitizeFinding(body.finding) : null;
+  let result = sanitizeScanResult(body.result ?? raw);
+  let target = result?.target ?? "";
+  if (finding && typeof body.target === "string") {
+    try { target = normalizeDomain(body.target); }
+    catch { if (/^[a-z0-9.-]{1,253}\.example$/i.test(body.target)) target = body.target.toLowerCase(); }
   }
+  if ((!finding && !result) || !target) return json({ error: finding ? "Invalid finding" : "Invalid scan result" }, 422);
 
   const explainer = getExplainer();
+  const entitlement = await targetEntitlement(ctx, target, { paid: explainer.kind === "anthropic", allowDemo: true });
+  if (!entitlement) return json({ error: explainer.kind === "anthropic" ? "A verified paid organization is required" : "Verified target access is required" }, 403);
+  const limit = await requireBudgets([
+    { key: "ai:global", limit: 120, windowMs: 60_000 },
+    { key: `ai:client:${clientIdentity(req)}`, limit: 15, windowMs: 60_000 },
+    { key: `ai:user:${ctx.user.id}`, limit: 50, windowMs: 24 * 60 * 60_000 },
+    { key: `ai:org:${entitlement.orgId}`, limit: entitlement.plan === "agency" ? 1_000 : 250, windowMs: 30 * 24 * 60 * 60_000 },
+  ]);
+  if (!limit.ok) return json({ error: "AI usage limit exceeded", retryAfter: limit.retryAfter }, 429);
 
-  // Single-finding explanation.
-  if (body.finding && body.target) {
-    const f = body.finding;
-    if (!f.title || !f.observation || !f.concern) {
-      return new Response(JSON.stringify({ error: "Invalid finding" }), { status: 422, headers: { "content-type": "application/json" } });
-    }
-    const explanation = await explainer.explainFinding(f, String(body.target));
-    void saveAnalysis({ target: String(body.target), scanId: f.id, kind: "finding", source: explainer.kind, text: explanation });
-    return new Response(JSON.stringify({ explanation, source: explainer.kind }), {
-      headers: { "content-type": "application/json", "cache-control": "no-store" },
+  try {
+    return await withConcurrency("ai:global", 8, 60_000, async () => {
+      if (finding) {
+        const explanation = await explainer.explainFinding(finding, target);
+        await Promise.all([
+          saveAnalysis({ target, scanId: finding.id, kind: "finding", source: explainer.kind, text: explanation }),
+          recordUsage(entitlement.orgId, ctx.user.id, "ai"),
+        ]);
+        return json({ explanation, source: explainer.kind });
+      }
+      result = result!;
+      const summary = await explainer.executiveSummary(result);
+      await Promise.all([
+        saveAnalysis({ target, scanId: result.scanId, kind: "summary", source: explainer.kind, text: summary }),
+        recordUsage(entitlement.orgId, ctx.user.id, "ai"),
+      ]);
+      return json({ summary, source: explainer.kind });
     });
+  } catch (error) {
+    if (error instanceof CapacityError) return json({ error: error.message }, 503);
+    console.error("[ai] explanation failed", error);
+    return json({ error: "Explanation failed" }, 502);
   }
-
-  // Executive summary. Accept either { result } or a bare ScanResult.
-  const result = (body.result ?? (body as unknown as ScanResult));
-  if (!result?.target || !result?.score || !Array.isArray(result?.findings)) {
-    return new Response(JSON.stringify({ error: "Invalid scan result" }), { status: 422, headers: { "content-type": "application/json" } });
-  }
-  const summary = await explainer.executiveSummary(result);
-  void saveAnalysis({ target: result.target, scanId: result.scanId, kind: "summary", source: explainer.kind, text: summary });
-  return new Response(JSON.stringify({ summary, source: explainer.kind }), {
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
-  });
 }

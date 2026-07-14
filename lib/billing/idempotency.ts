@@ -1,29 +1,33 @@
-/**
- * Webhook idempotency. Durable via a Postgres table when DATABASE_URL is set
- * (survives restarts and works across instances); falls back to an in-memory set
- * otherwise. Returns true the first time an event id is seen, false for
- * duplicates.
- */
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 
-const memo = new Set<string>();
+const completed = new Set<string>();
+const inFlight = new Set<string>();
 
-export async function markProcessedOnce(eventId: string): Promise<boolean> {
-  if (process.env.DATABASE_URL) {
+/** The event marker commits in the same transaction as all business changes. */
+export async function processWebhookOnce(
+  eventId: string,
+  handler: (tx: Prisma.TransactionClient | null) => Promise<void>,
+): Promise<"processed" | "duplicate"> {
+  if (process.env.DATABASE_URL && process.env.OUTSIDE_STORAGE_MODE !== "memory") {
     try {
-      const { PrismaClient } = await import("@prisma/client");
-      const g = globalThis as unknown as { __outsidePrisma?: InstanceType<typeof PrismaClient> };
-      const prisma = g.__outsidePrisma ?? new PrismaClient();
-      if (process.env.NODE_ENV !== "production") g.__outsidePrisma = prisma;
-      await prisma.processedEvent.create({ data: { id: eventId } });
-      return true;
-    } catch (err) {
-      // Unique-constraint violation => already processed.
-      if ((err as { code?: string })?.code === "P2002") return false;
-      // Any other DB error: fall through to the in-memory guard rather than
-      // dropping the event.
+      await prisma.$transaction(async (tx) => {
+        await tx.processedEvent.create({ data: { id: eventId } });
+        await handler(tx);
+      });
+      return "processed";
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") return "duplicate";
+      throw error;
     }
   }
-  if (memo.has(eventId)) return false;
-  memo.add(eventId);
-  return true;
+  if (completed.has(eventId) || inFlight.has(eventId)) return "duplicate";
+  inFlight.add(eventId);
+  try {
+    await handler(null);
+    completed.add(eventId);
+    return "processed";
+  } finally { inFlight.delete(eventId); }
 }
+
+export function __resetWebhookEvents(): void { completed.clear(); inFlight.clear(); }

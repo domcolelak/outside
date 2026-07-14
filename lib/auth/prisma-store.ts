@@ -1,13 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
-
-const g = globalThis as unknown as { __outsidePrisma?: PrismaClient };
-const prisma = g.__outsidePrisma ?? new PrismaClient();
-if (process.env.NODE_ENV !== "production") g.__outsidePrisma = prisma;
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "org";
-}
+import { hashInviteToken, inviteExpiresAt } from "./invites";
+import { prisma } from "@/lib/db/prisma";
+import { slugifyOrganization } from "./validation";
 
 export class PrismaAuthStore implements AuthStore {
   readonly durable = true;
@@ -21,15 +15,25 @@ export class PrismaAuthStore implements AuthStore {
     return u ? this.mapUser(u) : null;
   }
 
-  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string }) {
+  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({ data: { email, name: input.name, passwordHash: input.passwordHash } });
-      const org = await tx.organization.create({ data: { name: input.orgName, slug: slugify(input.orgName), plan: "free" } });
+      const user = await tx.user.create({ data: { email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date() : null } });
+      const org = await tx.organization.create({ data: { name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free" } });
       await tx.membership.create({ data: { userId: user.id, orgId: org.id, role: "owner" } });
       return { user, org };
     });
     return { user: this.mapUser(result.user), org: this.mapOrg(result.org) };
+  }
+
+  async markEmailVerified(userId: string, email: string): Promise<boolean> {
+    const result = await prisma.user.updateMany({ where: { id: userId, email: email.toLowerCase() }, data: { emailVerifiedAt: new Date() } });
+    return result.count === 1;
+  }
+
+  async revokeSessions(userId: string): Promise<number> {
+    const user = await prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } }, select: { sessionVersion: true } });
+    return user.sessionVersion;
   }
 
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
@@ -51,40 +55,52 @@ export class PrismaAuthStore implements AuthStore {
     await prisma.membership.update({ where: { userId_orgId: { userId, orgId } }, data: { notifyChanges: enabled } });
   }
 
-  async createInvite(orgId: string, email: string, role: Role, token: string): Promise<Invite> {
-    const row = await prisma.invite.create({ data: { orgId, email: email.toLowerCase(), role, token } });
+  async createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite> {
+    const row = await prisma.invite.create({
+      data: { orgId, email: email.toLowerCase(), role, tokenHash: hashInviteToken(token), createdBy, expiresAt: inviteExpiresAt() },
+    });
     return this.mapInvite(row);
   }
   async listInvites(orgId: string): Promise<Invite[]> {
-    const rows = await prisma.invite.findMany({ where: { orgId, acceptedAt: null }, orderBy: { createdAt: "desc" } });
+    const rows = await prisma.invite.findMany({
+      where: { orgId, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+    });
     return rows.map((r) => this.mapInvite(r));
   }
   async getInviteByToken(token: string): Promise<Invite | null> {
-    const row = await prisma.invite.findUnique({ where: { token } });
+    const row = await prisma.invite.findUnique({ where: { tokenHash: hashInviteToken(token) } });
     return row ? this.mapInvite(row) : null;
   }
-  async acceptInvite(token: string, userId: string): Promise<{ orgId: string; role: Role } | null> {
-    const invite = await prisma.invite.findUnique({ where: { token } });
-    if (!invite || invite.acceptedAt) return null;
-    await prisma.$transaction(async (tx) => {
+  async acceptInvite(token: string, userId: string, userEmail: string): Promise<{ orgId: string; role: Role } | null> {
+    return prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const invite = await tx.invite.findUnique({ where: { tokenHash: hashInviteToken(token) } });
+      if (!invite || invite.acceptedAt || invite.revokedAt || invite.expiresAt <= now || invite.email !== userEmail.toLowerCase()) return null;
+      const claimed = await tx.invite.updateMany({
+        where: { id: invite.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
+        data: { acceptedAt: now },
+      });
+      if (claimed.count !== 1) return null;
       await tx.membership.upsert({
         where: { userId_orgId: { userId, orgId: invite.orgId } },
         create: { userId, orgId: invite.orgId, role: invite.role },
         update: {},
       });
-      await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
+      return { orgId: invite.orgId, role: invite.role as Role };
     });
-    return { orgId: invite.orgId, role: invite.role as Role };
   }
 
-  private mapInvite = (r: { id: string; orgId: string; email: string; role: string; token: string; createdAt: Date; acceptedAt: Date | null }): Invite => ({
+  private mapInvite = (r: { id: string; orgId: string; email: string; role: string; createdBy: string; createdAt: Date; expiresAt: Date; acceptedAt: Date | null; revokedAt: Date | null }): Invite => ({
     id: r.id,
     orgId: r.orgId,
     email: r.email,
     role: r.role as Role,
-    token: r.token,
+    createdBy: r.createdBy,
     createdAt: r.createdAt.toISOString(),
+    expiresAt: r.expiresAt.toISOString(),
     acceptedAt: r.acceptedAt?.toISOString() ?? null,
+    revokedAt: r.revokedAt?.toISOString() ?? null,
   });
 
   async setPlan(orgId: string, plan: Organization["plan"]): Promise<void> {
@@ -108,11 +124,13 @@ export class PrismaAuthStore implements AuthStore {
     });
   }
 
-  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; createdAt: Date }): User => ({
+  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; emailVerifiedAt: Date | null; sessionVersion: number; createdAt: Date }): User => ({
     id: u.id,
     email: u.email,
     name: u.name,
     passwordHash: u.passwordHash,
+    emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
+    sessionVersion: u.sessionVersion,
     createdAt: u.createdAt.toISOString(),
   });
   private mapOrg = (o: {

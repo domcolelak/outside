@@ -32,10 +32,15 @@ class ResendEmailProvider implements EmailProvider {
   async send(message: EmailMessage): Promise<void> {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      signal: AbortSignal.timeout(10_000),
       headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify({ from: FROM, to: message.to, subject: message.subject, html: message.html, text: message.text }),
     });
-    if (!res.ok) throw new Error(`Resend API ${res.status}`);
+    if (!res.ok) {
+      const error = new Error(`Resend API ${res.status}`) as Error & { status?: number };
+      error.status = res.status;
+      throw error;
+    }
   }
 }
 

@@ -8,6 +8,7 @@
 
 import type { ScanResult } from "@/lib/types";
 import type { AssetIdentity, AssetSnapshot, DomainVerification, ScanRecord, ScanStore, Target } from "./model";
+import { randomUUID } from "node:crypto";
 
 interface TargetState {
   target: Target;
@@ -18,19 +19,25 @@ interface TargetState {
 
 export class InMemoryScanStore implements ScanStore {
   readonly durable = false;
-  private targets = new Map<string, TargetState>(); // domain -> state
+  private targets = new Map<string, TargetState>(); // orgId + domain -> state
   private byId = new Map<string, TargetState>(); // targetId -> state
-  private verifications = new Map<string, DomainVerification>(); // domain -> verification
+  private verifications = new Map<string, DomainVerification>(); // orgId + domain -> verification
 
   private id(prefix: string): string {
-    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return `${prefix}_${randomUUID()}`;
   }
 
-  async getOrCreateTarget(domain: string): Promise<Target> {
-    const key = domain.toLowerCase();
+  private scope(orgId: string, domain: string) { return `${orgId}\u0000${domain.toLowerCase()}`; }
+
+  async findTarget(orgId: string, domain: string): Promise<Target | null> {
+    return this.targets.get(this.scope(orgId, domain))?.target ?? null;
+  }
+
+  async getOrCreateTarget(orgId: string, domain: string): Promise<Target> {
+    const key = this.scope(orgId, domain);
     const existing = this.targets.get(key);
     if (existing) return existing.target;
-    const target: Target = { id: this.id("tgt"), domain: key, createdAt: new Date().toISOString() };
+    const target: Target = { id: this.id("tgt"), orgId, domain: domain.toLowerCase(), createdAt: new Date().toISOString() };
     const state: TargetState = { target, identities: new Map(), scans: [], snapshotsByScan: new Map() };
     this.targets.set(key, state);
     this.byId.set(target.id, state);
@@ -76,6 +83,7 @@ export class InMemoryScanStore implements ScanStore {
 
     const record: ScanRecord = {
       id: result.scanId,
+      orgId: target.orgId,
       targetId: target.id,
       finishedAt: now,
       mode: result.mode,
@@ -93,24 +101,23 @@ export class InMemoryScanStore implements ScanStore {
     return state.scans.slice(-limit).reverse();
   }
 
-  async getVerification(domain: string): Promise<DomainVerification | null> {
-    return this.verifications.get(domain.toLowerCase()) ?? null;
+  async getVerification(domain: string, orgId: string): Promise<DomainVerification | null> {
+    return this.verifications.get(this.scope(orgId, domain)) ?? null;
   }
 
-  async startVerification(domain: string, token: string, orgId?: string | null): Promise<DomainVerification> {
-    const key = domain.toLowerCase();
+  async startVerification(domain: string, token: string, orgId: string): Promise<DomainVerification> {
+    const key = this.scope(orgId, domain);
     const existing = this.verifications.get(key);
     if (existing) {
-      if (orgId && !existing.orgId) existing.orgId = orgId; // bind on first authed start
       return existing;
     }
-    const v: DomainVerification = { domain: key, token, status: "pending", orgId: orgId ?? null, createdAt: new Date().toISOString() };
+    const v: DomainVerification = { domain: domain.toLowerCase(), token, status: "pending", orgId, createdAt: new Date().toISOString() };
     this.verifications.set(key, v);
     return v;
   }
 
-  async markVerified(domain: string): Promise<DomainVerification> {
-    const key = domain.toLowerCase();
+  async markVerified(domain: string, orgId: string): Promise<DomainVerification> {
+    const key = this.scope(orgId, domain);
     const existing = this.verifications.get(key);
     if (!existing) throw new Error("No verification challenge for domain");
     const v: DomainVerification = { ...existing, status: "verified", verifiedAt: new Date().toISOString() };

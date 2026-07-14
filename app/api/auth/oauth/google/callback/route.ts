@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore } from "@/lib/auth";
 import { hashPassword } from "@/lib/auth/password";
-import { sessionCookie, signSession } from "@/lib/auth/session";
+import { SESSION_MAX_AGE, sessionCookie, signSession } from "@/lib/auth/session";
 import { exchangeGoogleCode, googleConfigured, OAUTH_STATE_COOKIE, verifyState } from "@/lib/auth/oauth";
 import { randomBytes } from "node:crypto";
+import { APP_URL } from "@/lib/config/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
 /** Google OAuth callback: verify state, exchange code, find-or-create the user. */
 export async function GET(req: NextRequest) {
@@ -36,12 +35,13 @@ export async function GET(req: NextRequest) {
       name: profile.name,
       passwordHash,
       orgName: `${profile.name.split(" ")[0]} workspace`,
+      emailVerified: true,
     });
     user = created.user;
   }
 
   const res = NextResponse.redirect(new URL("/account", APP_URL));
-  res.headers.append("Set-Cookie", sessionCookie(signSession(user.id)));
+  res.headers.append("Set-Cookie", sessionCookie(signSession(user.id, SESSION_MAX_AGE, user.sessionVersion)));
   // Clear the state cookie.
   res.headers.append("Set-Cookie", `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
   return res;

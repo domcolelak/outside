@@ -7,6 +7,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    pool: "threads",
+    maxWorkers: 1,
     include: ["lib/**/*.test.ts"],
   },
 });

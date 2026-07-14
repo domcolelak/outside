@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { APP_URL } from "@/lib/config/runtime";
 import "./globals.css";
 
-const SITE_URL = process.env.APP_URL ?? "http://localhost:3000";
+const SITE_URL = APP_URL;
 const DESCRIPTION =
   "OUTSIDE maps your publicly observable digital footprint and reveals forgotten, unexpected, and changing external assets — using passive, safe, public data sources.";
 

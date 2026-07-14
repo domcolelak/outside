@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OUTSIDE_STORAGE_MODE: memory
+      AUTH_SECRET: ci-only-auth-secret-at-least-thirty-two-bytes
+      OUTSIDE_VERIFY_SECRET: ci-only-verify-secret-at-least-thirty-two-bytes
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20.20.0
+          cache: npm
+      - run: npm ci
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
