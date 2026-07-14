@@ -93,19 +93,89 @@ export async function resolveTxt(name: string, signal?: AbortSignal): Promise<st
 export interface MailConfig {
   mx: string[];
   spf: "present" | "missing";
+  dmarc: "enforced" | "monitoring" | "missing" | "invalid";
+  mtaSts: "present" | "missing";
+  dnssec: "present" | "missing";
   ns: string[];
+  dnsProvider?: string;
+  mailProvider?: string;
+}
+
+export function identifyDnsProvider(nameservers: string[]): string | undefined {
+  const joined = nameservers.join(" ").toLowerCase();
+  const providers: Array<[RegExp, string]> = [
+    [/cloudflare\.com/, "Cloudflare"],
+    [/awsdns-[^.]+\.(com|net|org|co\.uk)/, "Amazon Route 53"],
+    [/azure-dns\.(com|net|org|info)/, "Azure DNS"],
+    [/googledomains\.com|google\.com/, "Google Cloud DNS"],
+    [/dnsimple\.com/, "DNSimple"],
+    [/domaincontrol\.com/, "GoDaddy DNS"],
+    [/nsone\.net/, "NS1"],
+    [/akam\.net|akamaiedge\.net/, "Akamai"],
+  ];
+  return providers.find(([pattern]) => pattern.test(joined))?.[1];
+}
+
+export function classifyDmarc(records: string[]): MailConfig["dmarc"] {
+  const record = records.map((value) => value.replace(/^"|"$/g, "")).find((value) => /^v=DMARC1\s*;/i.test(value));
+  if (!record) return "missing";
+  const policy = /(?:^|;)\s*p\s*=\s*(none|quarantine|reject)(?:\s*;|$)/i.exec(record)?.[1]?.toLowerCase();
+  if (!policy) return "invalid";
+  return policy === "none" ? "monitoring" : "enforced";
+}
+
+export function identifyMailProvider(exchangers: string[]): string | undefined {
+  const joined = exchangers.join(" ").toLowerCase();
+  if (/google\.com|googlemail\.com/.test(joined)) return "Google Workspace";
+  if (/protection\.outlook\.com|outlook\.com/.test(joined)) return "Microsoft 365";
+  if (/pphosted\.com/.test(joined)) return "Proofpoint";
+  if (/mimecast\.com/.test(joined)) return "Mimecast";
+  return undefined;
 }
 
 export async function resolveMailAndNs(domain: string, signal?: AbortSignal): Promise<MailConfig> {
-  const [mx, txt, ns] = await Promise.all([
+  const [mx, txt, ns, dmarc, mtaSts, ds] = await Promise.all([
     dohQuery(domain, "MX", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
     dohQuery(domain, "TXT", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
     dohQuery(domain, "NS", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(`_dmarc.${domain}`, "TXT", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(`_mta-sts.${domain}`, "TXT", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(domain, "DS", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
   ]);
   const spf = txt.some((r) => /v=spf1/i.test(r.data)) ? "present" : "missing";
+  const nameservers = ns.filter((r) => r.type === 2).map((r) => r.data.replace(/\.$/, ""));
+  const exchangers = mx.filter((r) => r.type === 15).map((r) => r.data.replace(/^\d+\s+/, "").replace(/\.$/, ""));
   return {
-    mx: mx.filter((r) => r.type === 15).map((r) => r.data.replace(/^\d+\s+/, "").replace(/\.$/, "")),
+    mx: exchangers,
     spf,
-    ns: ns.filter((r) => r.type === 2).map((r) => r.data.replace(/\.$/, "")),
+    dmarc: classifyDmarc(dmarc.filter((r) => r.type === 16).map((r) => r.data)),
+    mtaSts: mtaSts.some((r) => r.type === 16 && /v=STSv1/i.test(r.data)) ? "present" : "missing",
+    dnssec: ds.some((r) => r.type === 43) ? "present" : "missing",
+    ns: nameservers,
+    dnsProvider: identifyDnsProvider(nameservers),
+    mailProvider: identifyMailProvider(exchangers),
   };
+}
+
+interface RdapResponse {
+  events?: Array<{ eventAction?: string; eventDate?: string }>;
+  entities?: Array<{ roles?: string[]; vcardArray?: [string, unknown[]] }>;
+}
+
+export interface DomainRegistration {
+  expiresAt?: string;
+  daysToExpiry?: number;
+  registrar?: string;
+}
+
+/** Passive registration lifecycle metadata from the public RDAP bootstrap. */
+export async function domainRegistration(domain: string, signal?: AbortSignal): Promise<DomainRegistration> {
+  const reg = registrableDomain(domain);
+  const data = await fetchJson<RdapResponse>(`https://rdap.org/domain/${encodeURIComponent(reg)}`, { timeoutMs: 8_000, maxBytes: 1_000_000, signal, headers: { accept: "application/rdap+json, application/json" } });
+  const expiresAt = data.events?.find((event) => ["expiration", "expiry"].includes(event.eventAction?.toLowerCase() ?? ""))?.eventDate;
+  const registrarEntity = data.entities?.find((entity) => entity.roles?.includes("registrar"));
+  const vcards = registrarEntity?.vcardArray?.[1];
+  const registrar = Array.isArray(vcards) ? (vcards.find((entry) => Array.isArray(entry) && entry[0] === "fn") as unknown[] | undefined)?.[3] : undefined;
+  const parsed = expiresAt ? Date.parse(expiresAt) : NaN;
+  return { expiresAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined, daysToExpiry: Number.isFinite(parsed) ? Math.ceil((parsed - Date.now()) / 86_400_000) : undefined, registrar: typeof registrar === "string" ? registrar : undefined };
 }

@@ -65,6 +65,10 @@ export class InMemoryAuthStore implements AuthStore {
     return this.memberships.find((m) => m.userId === userId && m.orgId === orgId) ?? null;
   }
 
+  async getOrganization(orgId: string): Promise<Organization | null> {
+    return this.orgs.get(orgId) ?? null;
+  }
+
   async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>> {
     return this.memberships
       .filter((m) => m.orgId === orgId)

@@ -25,6 +25,9 @@ const SECURITY_HEADERS: Array<{ key: string; label: string }> = [
 export interface HttpObservation {
   status?: number;
   server?: string;
+  httpsVerified: boolean;
+  redirectLocation?: string;
+  securityTxt: "present" | "missing" | "invalid" | "unknown";
   presentHeaders: string[];
   missingHeaders: string[];
   cert?: {
@@ -69,7 +72,7 @@ export async function observeHttp(host: string, signal?: AbortSignal): Promise<H
   const ips = [...(rec?.a ?? []), ...(rec?.aaaa ?? [])];
   if (ips.length === 0 || !ips.every(isSafePublicIp)) return null;
 
-  const obs: HttpObservation = { presentHeaders: [], missingHeaders: [] };
+  const obs: HttpObservation = { presentHeaders: [], missingHeaders: [], httpsVerified: false, securityTxt: "unknown" };
 
   // Headers via a bounded, IP-pinned GET. The response body is discarded.
   try {
@@ -81,6 +84,11 @@ export async function observeHttp(host: string, signal?: AbortSignal): Promise<H
       signal,
     });
     obs.status = res.status;
+    obs.httpsVerified = true;
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.location;
+      obs.redirectLocation = Array.isArray(location) ? location[0] : location;
+    }
     const server = res.headers.server;
     obs.server = Array.isArray(server) ? server[0] : server;
     for (const h of SECURITY_HEADERS) {
@@ -89,6 +97,26 @@ export async function observeHttp(host: string, signal?: AbortSignal): Promise<H
     }
   } catch {
     // Header probe failed; still attempt the cert observation below.
+  }
+
+  // RFC 9116 disclosure contact. This is a separate bounded request to the
+  // verified host, pinned to the same public addresses and never redirected.
+  try {
+    const response = await pinnedHttpsGet(host, ips, {
+      path: "/.well-known/security.txt",
+      timeoutMs: 6_000,
+      maxBodyBytes: 64_000,
+      headers: { "user-agent": "OUTSIDE-observation/0.1 (+https://outside.example/about)", accept: "text/plain" },
+      signal,
+    });
+    if (response.status === 200) {
+      const expires = /^Expires\s*:\s*(.+)$/im.exec(response.body)?.[1]?.trim();
+      obs.securityTxt = /^Contact\s*:/im.test(response.body) && !!expires && Number.isFinite(Date.parse(expires)) && Date.parse(expires) > Date.now() ? "present" : "invalid";
+    } else if (response.status === 404 || response.status === 410) {
+      obs.securityTxt = "missing";
+    }
+  } catch {
+    // Unknown is distinct from missing: transport failures do not prove absence.
   }
 
   // Certificate via a pinned TLS handshake to the first validated IP.

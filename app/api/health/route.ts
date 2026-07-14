@@ -23,6 +23,7 @@ export async function GET() {
       email: !!process.env.RESEND_API_KEY,
       billing: !!process.env.STRIPE_SECRET_KEY,
       scheduler: !!process.env.CRON_SECRET,
+      guardianIntegrations: !!process.env.GUARDIAN_ENCRYPTION_KEY,
     },
     }, { status: database ? 200 : 503 });
   } catch (error) {
