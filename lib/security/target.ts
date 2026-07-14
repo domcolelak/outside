@@ -1,6 +1,7 @@
 /** Target normalization, public-suffix attribution, and egress safety. */
 
 import { BlockList, isIP } from "node:net";
+import { getDomain } from "tldts";
 
 export class InvalidTargetError extends Error {
   constructor(message: string) {
@@ -68,12 +69,8 @@ export function isSafePublicIp(ip: string): boolean {
   return false;
 }
 
-/** Registrable-domain heuristic for entity resolution / org attribution. */
+/** Registrable domain according to the maintained Public Suffix List. */
 export function registrableDomain(fqdn: string): string {
-  const parts = fqdn.toLowerCase().replace(/\.$/, "").split(".");
-  if (parts.length <= 2) return parts.join(".");
-  const twoLevelTlds = new Set(["co.uk", "org.uk", "gov.uk", "ac.uk", "com.au", "co.nz", "co.jp"]);
-  const lastTwo = parts.slice(-2).join(".");
-  if (twoLevelTlds.has(lastTwo)) return parts.slice(-3).join(".");
-  return lastTwo;
+  const normalized = fqdn.toLowerCase().replace(/\.$/, "");
+  return getDomain(normalized, { allowPrivateDomains: false }) ?? normalized;
 }

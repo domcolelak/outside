@@ -3,12 +3,14 @@ import { createHash, randomBytes } from "node:crypto";
 import { getAuthStore, getSessionContext, hasOrgRole, type Role } from "@/lib/auth";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { appendAudit } from "@/lib/aegis/store";
+import { sendDurably } from "@/lib/email/outbox";
+import { inviteEmail } from "@/lib/email/templates";
+import { APP_URL } from "@/lib/config/runtime";
+import { isValidEmail } from "@/lib/auth/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const ROLES: Role[] = ["admin", "analyst", "viewer"];
 
 export async function GET(req: NextRequest) {
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Admin access required to invite." }, { status: 403 });
   }
   const email = String(body.email ?? "").trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) return NextResponse.json({ error: "Enter a valid email." }, { status: 422 });
+  if (!isValidEmail(email)) return NextResponse.json({ error: "Enter a valid email." }, { status: 422 });
   if (email === ctx.user.email) return NextResponse.json({ error: "You are already a member of this organization." }, { status: 409 });
   // Only owners may grant admin; cap the invited role at the inviter's own level.
   let role = (ROLES.includes(body.role as Role) ? body.role : "analyst") as Role;
@@ -63,9 +65,7 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget invite email (console transport unless configured).
   const acceptUrl = `${APP_URL}/invite/${token}`;
-  import("@/lib/email/provider")
-    .then(({ getEmailProvider }) => import("@/lib/email/templates").then(({ inviteEmail }) => getEmailProvider().send(inviteEmail(email, membership.org.name, role, acceptUrl))))
-    .catch(() => {});
+  await sendDurably(inviteEmail(email, membership.org.name, role, acceptUrl), `invite:${invite.id}`);
 
   return NextResponse.json({ invite: { id: invite.id, email: invite.email, role: invite.role }, acceptUrl });
 }

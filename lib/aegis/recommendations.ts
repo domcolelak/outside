@@ -10,8 +10,7 @@
 import type { Asset, Evidence, Priority, ScanResult } from "@/lib/types";
 import type { Posture, Recommendation, RecommendationCategory } from "./types";
 import { headerProposal, mailProposal } from "./proposal";
-
-const PRIORITY_RANK: Record<Priority, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+import { PRIORITY_RANK } from "@/lib/analysis/priority";
 
 function rid(target: string, category: string): string {
   return `rec_${target}_${category}`.replace(/[^a-z0-9_]/gi, "_");

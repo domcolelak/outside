@@ -6,12 +6,12 @@
 
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { authSecret, authVerificationSecrets } from "@/lib/config/secrets";
+import { APP_URL } from "@/lib/config/runtime";
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
 
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 export const OAUTH_STATE_COOKIE = "outside_oauth_state";
 
 export function googleConfigured(): boolean {

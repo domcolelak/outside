@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
   const frequency: Frequency = body.frequency === "weekly" ? "weekly" : "daily";
 
-  const verification = await (await getStore()).getVerification(domain);
+  const verification = await (await getStore()).getVerification(domain, orgId);
   if (verification?.status !== "verified" || verification.orgId !== orgId) {
     return NextResponse.json({ error: "Verify ownership of this domain for the organization before monitoring it." }, { status: 403 });
   }
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Your ${membership.org.plan} plan allows ${limit} monitored domain${limit === 1 ? "" : "s"}. Upgrade to add more.`, code: "plan_limit" }, { status: 402 });
   }
 
-  const monitor = await store.create({ orgId, domain, frequency });
+  const monitor = await store.create({ orgId, domain, frequency, limit });
+  if (!monitor) return NextResponse.json({ error: "Monitor could not be created because the domain already exists or the plan limit was reached." }, { status: 409 });
   return NextResponse.json({ monitor });
 }

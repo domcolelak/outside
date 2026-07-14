@@ -2,8 +2,7 @@ import type { ScanResult } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/persistence/model";
 import type { Monitor } from "@/lib/monitoring";
 import type { EmailMessage } from "./provider";
-
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+import { APP_URL } from "@/lib/config/runtime";
 
 export function escapeHtml(value: unknown): string {
   return String(value)

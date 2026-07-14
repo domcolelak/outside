@@ -15,9 +15,9 @@ import { applyHistoryFlags } from "./diff";
  * from real history (not naming heuristics). Persistence failure is non-fatal:
  * the scan result is still returned, just without history.
  */
-export async function recordScan(store: ScanStore, result: ScanResult): Promise<ChangeSummary | null> {
+export async function recordScan(store: ScanStore, result: ScanResult, orgId: string, throwOnError = false): Promise<ChangeSummary | null> {
   try {
-    const target = await store.getOrCreateTarget(result.target);
+    const target = await store.getOrCreateTarget(orgId, result.target);
     const prev = await store.latestSnapshots(target.id);
     const seenBefore = await store.canonicalsSeenBefore(target.id, null);
 
@@ -32,6 +32,7 @@ export async function recordScan(store: ScanStore, result: ScanResult): Promise<
     result.changeSummary = summary;
     return summary;
   } catch (err) {
+    if (throwOnError) throw err;
     console.warn("[persistence] recordScan failed (non-fatal):", (err as Error).message);
     return null;
   }

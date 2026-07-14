@@ -1,10 +1,7 @@
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
 import { hashInviteToken, inviteExpiresAt } from "./invites";
 import { prisma } from "@/lib/db/prisma";
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "org";
-}
+import { slugifyOrganization } from "./validation";
 
 export class PrismaAuthStore implements AuthStore {
   readonly durable = true;
@@ -22,7 +19,7 @@ export class PrismaAuthStore implements AuthStore {
     const email = input.email.toLowerCase();
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date() : null } });
-      const org = await tx.organization.create({ data: { name: input.orgName, slug: slugify(input.orgName), plan: "free" } });
+      const org = await tx.organization.create({ data: { name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free" } });
       await tx.membership.create({ data: { userId: user.id, orgId: org.id, role: "owner" } });
       return { user, org };
     });

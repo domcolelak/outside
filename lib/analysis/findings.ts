@@ -4,7 +4,8 @@
  * inference and the concern, and cites its evidence and discovery method.
  */
 
-import type { Asset, Edge, Finding, Priority, Signal } from "@/lib/types";
+import type { Asset, Edge, Finding, Signal } from "@/lib/types";
+import { PRIORITY_RANK } from "@/lib/analysis/priority";
 
 function fid(assetId: string, code: string) {
   return `find_${assetId}_${code}`.replace(/[^a-z0-9_]/gi, "_");
@@ -13,14 +14,6 @@ function fid(assetId: string, code: string) {
 function signal(asset: Asset, code: string): Signal | undefined {
   return asset.signals.find((s) => s.code === code);
 }
-
-const PRIORITY_RANK: Record<Priority, number> = {
-  critical: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-  info: 0,
-};
 
 export function generateFindings(assets: Asset[], edges: Edge[], now: string): Finding[] {
   const out: Finding[] = [];

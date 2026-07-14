@@ -19,7 +19,7 @@ describe("monitor store (in-memory)", () => {
   it("creates, lists, toggles, and detects due monitors idempotently", async () => {
     __resetMonitorStore();
     const store = await getMonitorStore();
-    const m = await store.create({ orgId: "org1", domain: "Acme.com", frequency: "daily" });
+    const m = (await store.create({ orgId: "org1", domain: "Acme.com", frequency: "daily" }))!;
     expect(m.domain).toBe("acme.com");
     expect((await store.list("org1"))).toHaveLength(1);
 

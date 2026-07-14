@@ -11,6 +11,7 @@ import { NodeDetail } from "@/components/panels/NodeDetail";
 import { AttackerView } from "@/components/AttackerView";
 import { VerifyPanel } from "@/components/VerifyPanel";
 import { Wordmark } from "@/components/Wordmark";
+import { PRIORITY_STYLE } from "@/lib/analysis/priority";
 
 function ScanView() {
   const params = useSearchParams();
@@ -189,9 +190,7 @@ function ScanView() {
 }
 
 const FILTER_PRIORITIES: Array<{ key: string; color: string; label: string }> = [
-  { key: "critical", color: "#ff5b6e", label: "Critical" },
-  { key: "high", color: "#ff8a5b", label: "High" },
-  { key: "medium", color: "#f5c451", label: "Medium" },
+  ...(["critical", "high", "medium"] as const).map((key) => ({ key, ...PRIORITY_STYLE[key] })),
 ];
 
 function GraphControls({

@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
           const result = await runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal });
           // Persist + derive change detection against this target's history.
           const store = await getStore();
-          await recordScan(store, result);
+          if (orgId) await recordScan(store, result, orgId);
           // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);

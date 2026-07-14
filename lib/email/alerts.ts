@@ -9,8 +9,8 @@ import type { ScanResult } from "@/lib/types";
 import type { ChangeEvent } from "@/lib/persistence/model";
 import type { Monitor } from "@/lib/monitoring";
 import { getAuthStore } from "@/lib/auth";
-import { getEmailProvider } from "./provider";
 import { changeAlertEmail } from "./templates";
+import { enqueueEmail, deliverOutboxBatch } from "./outbox";
 
 const HIGH = new Set(["high", "critical"]);
 
@@ -33,8 +33,8 @@ export async function dispatchChangeAlert(monitor: Monitor, result: ScanResult):
     const recipients = members.filter((m) => m.role !== "viewer" && m.notifyChanges).map((m) => m.email);
     if (recipients.length === 0) return false;
 
-    const email = getEmailProvider();
-    await Promise.all(recipients.map((to) => email.send(changeAlertEmail(to, monitor, result, events))));
+    await Promise.all(recipients.map((to) => enqueueEmail(changeAlertEmail(to, monitor, result, events), `alert:${monitor.id}:${result.scanId}:${to.toLowerCase()}`)));
+    await deliverOutboxBatch(Math.min(10, recipients.length)).catch((error) => console.error("[alerts] delivery deferred", error));
     return true;
   } catch (err) {
     console.error(`[alerts] dispatch failed for ${monitor.domain}:`, (err as Error).message);

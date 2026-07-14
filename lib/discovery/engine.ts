@@ -10,6 +10,7 @@ import { computeExposureScore } from "@/lib/analysis/scoring";
 import { assetPriority, detectAssetSignals, type SignalContext } from "@/lib/analysis/signals";
 import type { DemoOrg } from "@/lib/demo";
 import { registrableDomain } from "@/lib/security/target";
+import { SCAN_STAGE_LABELS } from "@/lib/discovery/stages";
 import type {
   Asset,
   AssetKind,
@@ -30,23 +31,10 @@ export type Emit = (event: ScanEvent) => void | Promise<void>;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const STAGE_LABELS: Record<string, string> = {
-  init: "Initializing external view",
-  dns: "Inspecting public DNS relationships",
-  certificates: "Reviewing certificate evidence",
-  correlate: "Correlating observed hostnames",
-  http: "Checking public web reachability",
-  normalize: "Normalizing discovered assets",
-  graph: "Building organization graph",
-  classify: "Classifying exposure signals",
-  score: "Calculating exposure score",
-  done: "Preparing external view",
-};
-
-async function stage(emit: Emit, s: keyof typeof STAGE_LABELS, work: () => Promise<void>) {
-  await emit({ type: "stage", stage: s as never, label: STAGE_LABELS[s]!, status: "start" });
+async function stage(emit: Emit, s: keyof typeof SCAN_STAGE_LABELS, work: () => Promise<void>) {
+  await emit({ type: "stage", stage: s, label: SCAN_STAGE_LABELS[s], status: "start" });
   await work();
-  await emit({ type: "stage", stage: s as never, label: STAGE_LABELS[s]!, status: "done" });
+  await emit({ type: "stage", stage: s, label: SCAN_STAGE_LABELS[s], status: "done" });
 }
 
 /**

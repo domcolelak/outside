@@ -5,6 +5,7 @@ import { runPassiveScan } from "@/lib/discovery/engine";
 import { getStore } from "@/lib/persistence";
 import { recordScan } from "@/lib/persistence/record";
 import { dispatchChangeAlert } from "@/lib/email/alerts";
+import { deliverOutboxBatch } from "@/lib/email/outbox";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
       const scanId = `cron_${monitor.id}_${new Date(monitor.nextRunAt).getTime()}`;
       const result = await runPassiveScan(monitor.domain, scanId, () => {}, { activeObservation: true, signal: AbortSignal.timeout(90_000) });
       let alreadyPersisted = false;
-      try { await recordScan(scanStore, result); }
+      try { await recordScan(scanStore, result, monitor.orgId, true); }
       catch (error) {
         if ((error as { code?: string }).code === "P2002" || /unique|duplicate/i.test((error as Error).message)) alreadyPersisted = true;
         else throw error;
@@ -63,6 +64,7 @@ export async function GET(req: NextRequest) {
       await processMonitor(monitor);
     }
   }));
+  const email = await deliverOutboxBatch(20).catch(() => ({ sent: 0, failed: 0 }));
 
-  return NextResponse.json({ ranAt: new Date().toISOString(), claimed: claimed.length, processed: ran.length, failed: failed.length, results: ran, errors: failed });
+  return NextResponse.json({ ranAt: new Date().toISOString(), claimed: claimed.length, processed: ran.length, failed: failed.length, email, results: ran, errors: failed });
 }

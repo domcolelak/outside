@@ -12,14 +12,19 @@ import { prisma } from "@/lib/db/prisma";
 export class PrismaScanStore implements ScanStore {
   readonly durable = true;
 
-  async getOrCreateTarget(domain: string): Promise<Target> {
+  async findTarget(orgId: string, domain: string): Promise<Target | null> {
+    const row = await prisma.target.findUnique({ where: { orgId_domain: { orgId, domain: domain.toLowerCase() } } });
+    return row ? { id: row.id, orgId: row.orgId, domain: row.domain, createdAt: row.createdAt.toISOString() } : null;
+  }
+
+  async getOrCreateTarget(orgId: string, domain: string): Promise<Target> {
     const key = domain.toLowerCase();
     const row = await prisma.target.upsert({
-      where: { domain: key },
-      create: { domain: key },
+      where: { orgId_domain: { orgId, domain: key } },
+      create: { orgId, domain: key },
       update: {},
     });
-    return { id: row.id, domain: row.domain, createdAt: row.createdAt.toISOString() };
+    return { id: row.id, orgId: row.orgId, domain: row.domain, createdAt: row.createdAt.toISOString() };
   }
 
   async latestSnapshots(targetId: string): Promise<AssetSnapshot[]> {
@@ -65,6 +70,7 @@ export class PrismaScanStore implements ScanStore {
       await tx.scan.create({
         data: {
           id: result.scanId,
+          orgId: target.orgId,
           targetId: target.id,
           finishedAt,
           mode: result.mode,
@@ -82,6 +88,7 @@ export class PrismaScanStore implements ScanStore {
           priority: s.priority,
           technologies: s.technologies,
           status: s.status,
+          certKey: s.certKey,
           present: true,
         })),
       });
@@ -94,6 +101,7 @@ export class PrismaScanStore implements ScanStore {
     const rows = await prisma.scan.findMany({ where: { targetId }, orderBy: { finishedAt: "desc" }, take: limit });
     return rows.map((r) => ({
       id: r.id,
+      orgId: r.orgId,
       targetId: r.targetId,
       finishedAt: r.finishedAt.toISOString(),
       mode: r.mode as "passive" | "demo",
@@ -102,34 +110,30 @@ export class PrismaScanStore implements ScanStore {
     }));
   }
 
-  async getVerification(domain: string): Promise<DomainVerification | null> {
-    const row = await prisma.domainVerification.findUnique({ where: { domain: domain.toLowerCase() } });
+  async getVerification(domain: string, orgId: string): Promise<DomainVerification | null> {
+    const row = await prisma.domainVerification.findUnique({ where: { orgId_domain: { orgId, domain: domain.toLowerCase() } } });
     return row ? this.mapVerification(row) : null;
   }
 
-  async startVerification(domain: string, token: string, orgId?: string | null): Promise<DomainVerification> {
+  async startVerification(domain: string, token: string, orgId: string): Promise<DomainVerification> {
     const key = domain.toLowerCase();
-    const existing = await prisma.domainVerification.findUnique({ where: { domain: key } });
+    const existing = await prisma.domainVerification.findUnique({ where: { orgId_domain: { orgId, domain: key } } });
     if (existing) {
-      // Never overwrite the token; bind the org on the first authenticated start.
-      const row = orgId && !existing.orgId
-        ? await prisma.domainVerification.update({ where: { domain: key }, data: { orgId } })
-        : existing;
-      return this.mapVerification(row);
+      return this.mapVerification(existing);
     }
-    const row = await prisma.domainVerification.create({ data: { domain: key, token, status: "pending", orgId: orgId ?? null } });
+    const row = await prisma.domainVerification.create({ data: { domain: key, token, status: "pending", orgId } });
     return this.mapVerification(row);
   }
 
-  async markVerified(domain: string): Promise<DomainVerification> {
+  async markVerified(domain: string, orgId: string): Promise<DomainVerification> {
     const row = await prisma.domainVerification.update({
-      where: { domain: domain.toLowerCase() },
+      where: { orgId_domain: { orgId, domain: domain.toLowerCase() } },
       data: { status: "verified", verifiedAt: new Date() },
     });
     return this.mapVerification(row);
   }
 
-  private mapVerification = (r: { domain: string; token: string; status: string; orgId: string | null; createdAt: Date; verifiedAt: Date | null }): DomainVerification => ({
+  private mapVerification = (r: { domain: string; token: string; status: string; orgId: string; createdAt: Date; verifiedAt: Date | null }): DomainVerification => ({
     domain: r.domain,
     token: r.token,
     status: r.status === "verified" ? "verified" : "pending",
@@ -147,6 +151,7 @@ export class PrismaScanStore implements ScanStore {
     priority: string;
     technologies: string[];
     status: string | null;
+    certKey: string | null;
     present: boolean;
   }): AssetSnapshot => ({
     scanId: r.scanId,
@@ -157,6 +162,7 @@ export class PrismaScanStore implements ScanStore {
     priority: r.priority as AssetSnapshot["priority"],
     technologies: r.technologies,
     status: r.status ?? undefined,
+    certKey: r.certKey ?? undefined,
     present: r.present,
   });
 }

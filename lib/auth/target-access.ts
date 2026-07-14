@@ -11,8 +11,11 @@ export async function authorizedTargetOrg(
   minimumRole: Role,
 ): Promise<string | null> {
   if (!ctx) return null;
-  const verification = await (await getStore()).getVerification(target);
-  if (verification?.status !== "verified" || !verification.orgId) return null;
-  const membership = ctx.memberships.find((item) => item.org.id === verification.orgId);
-  return membership && roleAtLeast(membership.role, minimumRole) ? verification.orgId : null;
+  const store = await getStore();
+  for (const membership of ctx.memberships) {
+    if (!roleAtLeast(membership.role, minimumRole)) continue;
+    const verification = await store.getVerification(target, membership.org.id);
+    if (verification?.status === "verified") return membership.org.id;
+  }
+  return null;
 }

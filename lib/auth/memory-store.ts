@@ -1,9 +1,6 @@
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
 import { hashInviteToken, inviteExpiresAt } from "./invites";
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "org";
-}
+import { slugifyOrganization } from "./validation";
 
 /** Zero-config in-memory auth store. Resets on restart — durable path is Prisma. */
 export class InMemoryAuthStore implements AuthStore {
@@ -34,7 +31,7 @@ export class InMemoryAuthStore implements AuthStore {
   async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
     const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date().toISOString() : null, createdAt: new Date().toISOString() };
-    const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugify(input.orgName), plan: "free", createdAt: new Date().toISOString() };
+    const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free", createdAt: new Date().toISOString() };
     this.users.set(user.id, user);
     this.byEmail.set(email, user.id);
     this.orgs.set(org.id, org);
