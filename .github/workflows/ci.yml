@@ -12,9 +12,14 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
+      OUTSIDE_STORAGE_MODE: memory
+      AUTH_SECRET: ci-only-auth-secret-at-least-thirty-two-bytes
+      OUTSIDE_VERIFY_SECRET: ci-only-verify-secret-at-least-thirty-two-bytes
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 20.20.0
           cache: npm
@@ -23,8 +28,4 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
-        env:
-          AUTH_SECRET: ci-only-auth-secret-at-least-thirty-two-bytes
-          OUTSIDE_VERIFY_SECRET: ci-only-verify-secret-at-least-thirty-two-bytes
-          OUTSIDE_STORAGE_MODE: memory
       - run: npm audit --omit=dev --audit-level=high

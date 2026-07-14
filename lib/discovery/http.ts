@@ -45,8 +45,9 @@ function fetchCert(ip: string, servername: string, signal?: AbortSignal): Promis
         if (!cert || !cert.valid_to) return resolve(undefined);
         const validTo = new Date(cert.valid_to);
         const days = Math.round((validTo.getTime() - Date.now()) / 86_400_000);
+        const rawIssuer = cert.issuer?.O ?? cert.issuer?.CN;
         resolve({
-          issuer: cert.issuer?.O || cert.issuer?.CN,
+          issuer: Array.isArray(rawIssuer) ? rawIssuer[0] : rawIssuer,
           validTo: isNaN(validTo.getTime()) ? undefined : validTo.toISOString(),
           daysToExpiry: isNaN(validTo.getTime()) ? undefined : days,
           fingerprint: cert.fingerprint256 || cert.fingerprint,
