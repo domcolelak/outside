@@ -5,10 +5,12 @@
  * serverless-friendly: instead of a long-running worker/Redis queue, a
  * protected cron endpoint (`/api/cron/scan`) claims due monitors and runs them.
  * This keeps infra minimal (works on Vercel Cron, GitHub Actions, or any curl on
- * a timer) while remaining idempotent via `nextRunAt`.
+ * a timer) while remaining idempotent through atomic leases and stable run IDs.
  */
 
 import type { Organization } from "@/lib/auth/model";
+import { storageMode } from "@/lib/config/storage";
+import { randomUUID } from "node:crypto";
 
 export type Frequency = "daily" | "weekly";
 
@@ -21,6 +23,10 @@ export interface Monitor {
   lastScanAt: string | null;
   nextRunAt: string;
   createdAt: string;
+  leaseId: string | null;
+  leaseUntil: string | null;
+  attempts: number;
+  lastError: string | null;
 }
 
 /** Per-plan monitored-domain limits (aligns with landing-page pricing). */
@@ -38,24 +44,27 @@ export function nextRunAt(from: Date, frequency: Frequency): string {
 export interface MonitorStore {
   readonly durable: boolean;
   list(orgId: string): Promise<Monitor[]>;
-  create(input: { orgId: string; domain: string; frequency: Frequency }): Promise<Monitor>;
+  create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }): Promise<Monitor | null>;
   setEnabled(id: string, orgId: string, enabled: boolean): Promise<Monitor | null>;
   remove(id: string, orgId: string): Promise<boolean>;
-  /** Monitors whose nextRunAt has passed and are enabled. */
-  due(now: Date, limit: number): Promise<Monitor[]>;
-  markRan(id: string, ranAt: Date): Promise<void>;
+  /** Atomically claim due work, excluding live leases. */
+  claimDue(now: Date, limit: number, leaseMs: number): Promise<Monitor[]>;
+  complete(id: string, leaseId: string, ranAt: Date): Promise<boolean>;
+  fail(id: string, leaseId: string, error: string, retryAt: Date): Promise<boolean>;
 }
 
 class InMemoryMonitorStore implements MonitorStore {
   readonly durable = false;
   private monitors: Monitor[] = [];
   private id() {
-    return `mon_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return `mon_${randomUUID()}`;
   }
   async list(orgId: string) {
     return this.monitors.filter((m) => m.orgId === orgId);
   }
-  async create(input: { orgId: string; domain: string; frequency: Frequency }) {
+  async create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }) {
+    if (this.monitors.some((monitor) => monitor.orgId === input.orgId && monitor.domain === input.domain.toLowerCase())) return null;
+    if (this.monitors.filter((monitor) => monitor.orgId === input.orgId).length >= (input.limit ?? Number.MAX_SAFE_INTEGER)) return null;
     const now = new Date();
     const m: Monitor = {
       id: this.id(),
@@ -66,6 +75,10 @@ class InMemoryMonitorStore implements MonitorStore {
       lastScanAt: null,
       nextRunAt: now.toISOString(), // eligible immediately on first cron tick
       createdAt: now.toISOString(),
+      leaseId: null,
+      leaseUntil: null,
+      attempts: 0,
+      lastError: null,
     };
     this.monitors.push(m);
     return m;
@@ -81,14 +94,29 @@ class InMemoryMonitorStore implements MonitorStore {
     this.monitors = this.monitors.filter((x) => !(x.id === id && x.orgId === orgId));
     return this.monitors.length < before;
   }
-  async due(now: Date, limit: number) {
-    return this.monitors.filter((m) => m.enabled && new Date(m.nextRunAt) <= now).slice(0, limit);
+  async claimDue(now: Date, limit: number, leaseMs: number) {
+    const leaseId = randomUUID();
+    const rows = this.monitors.filter((m) => m.enabled && new Date(m.nextRunAt) <= now && (!m.leaseUntil || new Date(m.leaseUntil) <= now)).slice(0, limit);
+    for (const monitor of rows) {
+      monitor.leaseId = leaseId;
+      monitor.leaseUntil = new Date(now.getTime() + leaseMs).toISOString();
+      monitor.attempts += 1;
+    }
+    return rows;
   }
-  async markRan(id: string, ranAt: Date) {
-    const m = this.monitors.find((x) => x.id === id);
-    if (!m) return;
+  async complete(id: string, leaseId: string, ranAt: Date) {
+    const m = this.monitors.find((x) => x.id === id && x.leaseId === leaseId);
+    if (!m) return false;
     m.lastScanAt = ranAt.toISOString();
     m.nextRunAt = nextRunAt(ranAt, m.frequency);
+    m.leaseId = null; m.leaseUntil = null; m.lastError = null;
+    return true;
+  }
+  async fail(id: string, leaseId: string, error: string, retryAt: Date) {
+    const m = this.monitors.find((x) => x.id === id && x.leaseId === leaseId);
+    if (!m) return false;
+    m.leaseId = null; m.leaseUntil = null; m.lastError = error.slice(0, 1_000); m.nextRunAt = retryAt.toISOString();
+    return true;
   }
 }
 
@@ -98,16 +126,12 @@ const g = globalThis as unknown as { __outsideMonitorStore?: MonitorStore };
 
 export async function getMonitorStore(): Promise<MonitorStore> {
   if (g.__outsideMonitorStore) return g.__outsideMonitorStore;
-  let store: MonitorStore | null = null;
-  if (process.env.DATABASE_URL) {
-    try {
-      const mod = await import("./prisma-store");
-      store = new mod.PrismaMonitorStore();
-    } catch (err) {
-      console.warn("[monitoring] Prisma store unavailable, using in-memory:", (err as Error).message);
-    }
+  if (storageMode() === "database") {
+    const mod = await import("./prisma-store");
+    g.__outsideMonitorStore = new mod.PrismaMonitorStore();
+  } else {
+    g.__outsideMonitorStore = new InMemoryMonitorStore();
   }
-  g.__outsideMonitorStore = store ?? new InMemoryMonitorStore();
   return g.__outsideMonitorStore;
 }
 

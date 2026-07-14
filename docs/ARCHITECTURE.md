@@ -1,148 +1,70 @@
 # Architecture
 
-## Overview
+## System shape
 
-OUTSIDE is a single **Next.js 14 (App Router) + TypeScript** application. This is a deliberate
-choice: the product's value is a real-time, visual, single-tenant-feeling experience over a small
-data domain (one organization's external surface). A single deployable gives us SSR for the landing
-page, API routes for discovery, and native streaming — with the lowest possible operational and
-handover complexity.
+OUTSIDE is a modular monolith: one Next.js 15 App Router application, one PostgreSQL database through a process-wide Prisma client, and optional external providers. This keeps transactions and authorization inside one trust boundary while preserving clear module seams.
 
-```
-                         ┌────────────────────────────────────────────┐
-  Browser                │  Next.js app (Node runtime)                 │
-  ┌───────────────┐  SSE │  ┌──────────────┐   ┌───────────────────┐   │
-  │ Landing       │◀────▶│  │ /api/scan    │──▶│ Discovery engine  │   │
-  │ Scan view     │      │  │ (SSE route)  │   │  (lib/discovery)  │   │
-  │  - canvas graph│     │  └──────────────┘   └─────────┬─────────┘   │
-  │  - console     │     │        ▲                      │             │
-  │  - Attacker View│    │        │ rate limit / validate │            │
-  └───────────────┘      │  ┌─────┴───────┐    ┌─────────▼─────────┐   │
-                         │  │ lib/security│    │ Providers          │  │
-                         │  └─────────────┘    │  crt.sh / DoH      │  │
-                         │                     └─────────┬─────────┘   │
-                         └───────────────────────────────┼────────────┘
-                                                          ▼
-                                          Public sources (CT logs, DNS)
+```text
+Browser
+  |-- pages and canvas graph
+  |-- EventSource scan stream
+  v
+Next.js route handlers
+  |-- authentication, tenant authorization, entitlements
+  |-- byte limits, validation, rate and concurrency controls
+  v
+Discovery -> deterministic analysis -> tenant persistence
+  |              |                       |
+  |              +-> optional AI text    +-> history / monitors / outbox
+  +-> CT / DoH / verified HTTPS
 ```
 
-## The discovery pipeline
+## Request and trust boundaries
 
-The pipeline maps directly onto the epistemic layers the product requires:
+Anonymous users may request a bounded passive snapshot. Anonymous results are ephemeral. Authenticated functionality resolves organization access from the signed user session and database memberships. A client-supplied organization identifier is always checked against that context.
 
-| Stage | Module | Output |
-| --- | --- | --- |
-| Discovery provider | `lib/discovery/providers.ts` | Raw hostnames, DNS/MX/TXT records |
-| Normalization | `lib/security/target.ts`, provider filters | Canonical FQDNs (lowercase, no trailing dot, punycode, wildcard-stripped) |
-| Entity resolution | `filterCtHosts`, engine dedupe by `canonical` | One `Asset` per real entity across providers |
-| Graph construction | `lib/discovery/engine.ts` | `Asset[]` + `Edge[]` with relationship confidence |
-| Classification | `lib/analysis/signals.ts` | `Signal[]` (assurance + confidence + rationale) |
-| HTTP + TLS observation | `lib/discovery/http.ts` | Security headers + certificate facts on the primary web surface (SSRF-pinned) |
-| Scoring | `lib/analysis/scoring.ts` | `ExposureScore` (deterministic, component-summed) |
-| Finding generation | `lib/analysis/findings.ts` | `Finding[]` (fact/inference/concern separated) |
-| **Aegis intelligence** | `lib/aegis/recommendations.ts` | `Posture` — `Recommendation[]` + potential score |
-| **Aegis state / learning** | `lib/aegis/store.ts` | Recommendation status + audit trail (persisted) |
-| AI explanation | `lib/ai/explainer.ts` | Executive + per-finding summaries only; never mutates the above |
+Domain verification is scoped to an organization. Active HTTPS/TLS observation is allowed only after verification. DNS and file challenges bind the token, organization, target, expiry, and verification method. The HTTPS connector validates all resolved addresses and connects to a pinned public address while preserving SNI and certificate hostname checks.
 
-### One pipeline: Discover → Understand → Monitor → Protect → Improve
+## Discovery and analysis
 
-Aegis is **not** a second product bolted on — it is the layer that consumes the *same* finalized
-`ScanResult` (assets, findings, score, change history) and produces intelligence:
+`lib/discovery/engine.ts` orchestrates a typed stage sequence shared by server and client. CT and DNS providers use bounded responses, deadlines, structured `ProviderRun` telemetry, and partial-success semantics. The maintained Public Suffix List supplies registrable-domain boundaries.
 
-```
-Discovery ─▶ Normalization ─▶ Evidence ─▶ Graph + Signals ─▶ Scoring + Findings
-   └─ Guardian (scheduled scans + change detection + alerts)  [Monitor]
-        └─ Aegis (recommendations + posture + remediation + audit)  [Protect / Improve]
-```
+Observations become canonical `Asset` and `Edge` objects. Analysis remains deterministic:
 
-### Aegis lineage — merged from the Aegis AI incident investigator
+1. signal classification separates facts from inference;
+2. scoring sums explicit components to a 0-100 result;
+3. findings retain evidence, assurance, and confidence;
+4. recommendations reference those same score components;
+5. optional AI only explains the finalized structure.
 
-Aegis's intelligence is a native port of the best parts of the **Aegis AI incident investigator**
-(a separate Python project). Its guiding principle is identical to OUTSIDE's — *deterministic reduces
-the problem space; AI interprets what remains* — which is why the merge is a clean re-expression, not
-a bolted-on service. What was ported into TypeScript (`lib/aegis/investigation.ts`), operating on
-OUTSIDE's findings instead of log events:
+## Persistence and tenancy
 
-| Aegis AI (incident investigation) | OUTSIDE Aegis (exposure investigation) |
-| --- | --- |
-| Weighted correlation strategies (temporal, trace, dependency, similarity, cascade) with per-strategy score breakdown | Weighted strategies over findings (`same_asset`, `graph_adjacency`, `shared_parent`, `exposure_cascade`, `temporal_change`) — same auditable breakdown |
-| Causal graph, roots ranked by blast-radius × earliness × impact | Incidents (connected components) ranked by blast-radius × recency × severity |
-| Strongest causal chain (Dijkstra over −log score) | Correlation-chain narrative per incident |
-| Devil's Advocate attacks the leading hypothesis; Commander must report surviving contradicting evidence | `ExposureAssessment` that **always** carries `contradictingEvidence`, derived from observed facts (CDN/WAF mitigation, low org-attribution confidence, inference-based signals) |
-| PatchProposal: validated diff, path-jailed, **never auto-applied** | Concrete `ChangeProposal` (`lib/aegis/proposal.ts`): exact DNS records / headers, deterministically validated to stay in-scope of the target with declared-coverage, `autoApply: false`, previewed for approval |
-| `LLMProvider` seam + resilience (rate-limit + retry) | `Explainer` wrapped with a concurrency semaphore + transient-only retry with full-jitter backoff (`lib/ai/resilience.ts`) |
+PostgreSQL is mandatory in production. Explicit memory stores exist for development and deterministic tests only. `lib/db/prisma.ts` owns the singleton Prisma client.
 
-The deterministic assessment is the default (works offline, honest); an AI provider is an optional
-enhancement over the *same* structure, now hardened with the ported resilience wrappers. Remediation
-carries a concrete, validated `ChangeProposal` (the ported PatchProposal safety model): the exact
-records/headers to apply, checked to stay inside the target's registrable domain, **never
-auto-applied**. What is intentionally **not** ported: Aegis AI's full six-agent orchestration and
-pgvector incident memory — OUTSIDE's smaller evidence set is served better by the deterministic
-investigator with the counter-evidence discipline than by a multi-agent loop.
+Organizations own targets, verification records, scans, monitors, recommendations, audit records, AI analyses, and delivery state. Composite tenant keys prevent two organizations that monitor the same domain from sharing state. Scan records also carry `orgId`, so history queries never infer tenancy indirectly.
 
-The linchpin is **honesty by construction**: the exposure score is `100 + Σ(component impacts)`, and
-each recommendation references the score component it neutralizes, so its `estimatedReduction` (and
-therefore the "potential score", e.g. `42 → 100`) is read from the deterministic model — never
-invented. Recommendation *status* is the only mutable state Aegis owns; it lives in `lib/aegis/store.ts`
-(in-memory or Prisma) with an append-only audit trail, so "resolve once, stay resolved" and every
-change is accountable. Remediation is always **preview → approve → apply → verify → rollback**, and
-defaults to human-applied **guided** steps; connectors (`lib/aegis/integrations.ts`) are optional and,
-when connected, let Aegis *apply* what it already recommends.
+Temporal persistence separates stable `AssetIdentity` rows from per-scan `AssetSnapshot` rows. `certKey` is durable. Consecutive snapshots generate new, returned, disappeared, technology, priority, and certificate change events. The system preserves the earliest observed timestamp rather than replacing it with later CT evidence.
 
-### Epistemic separation
-Every inference is a `Signal` or `Finding` carrying an `assurance` of `observed | inferred | possible`
-and a `confidence` in `[0,1]`. The UI renders these distinctly (`AssuranceTag`). This is enforced by
-the type system — an `Asset` holds `evidence` (facts) and `signals` (inferences) in separate fields.
+## Background and external work
 
-## Entity resolution
+The cron route uses database claims with leases and `SKIP LOCKED`, bounded worker concurrency, deterministic run identifiers, and retry backoff. A crashed worker's lease can be reclaimed. Monitor creation serializes quota enforcement and duplicate checks.
 
-Providers can describe the same asset differently (`API.COMPANY.COM.`, `https://api.company.com/`,
-`api.company.com:443`). Resolution:
-1. **Normalize** to a canonical FQDN (`normalizeDomain`): strip scheme/credentials/path/port, lowercase, remove trailing dot, punycode-encode IDN, strip `*.` wildcard prefixes.
-2. **Key by `canonical`** — the engine and demo factory assign asset ids from the canonical form, so duplicate observations collapse into one node.
-3. **Boundary-safe attribution** (`filterCtHosts`) — a host is attributed to the target only if it equals the registrable domain or is a proper `.`-boundary subdomain, so `testexample.com` is never merged into `example.com`.
+Stripe webhooks verify signatures and commit event idempotency plus subscription state in one transaction. The email outbox stores idempotency keys, atomically claims work, applies provider timeouts, and retries with bounded exponential backoff. Rate limits and expensive-operation concurrency leases are also database-backed in durable mode.
 
-Shared infrastructure (CDN/cloud IPs) is represented as **relationships with confidence < 1**, never
-as ownership — the code never claims an asset belongs to the org purely from an IP relationship.
+## UI and graph
 
-## Data model (`lib/types.ts`)
+The client consumes typed SSE events. A shared stage catalog prevents server/client progress drift. The graph reconciles removed nodes and edges, uses direct repulsion for small surfaces and Barnes-Hut for larger ones, culls offscreen geometry, and suspends simulation when settled or hidden.
 
-Core entities: `RawObservation`, `Asset` (+ `Evidence`, `Signal`), `Edge`, `Finding`,
-`ScoreComponent`/`ExposureScore`, `AttackerBeat`, `ProviderRun`, `ScanResult`, and the streaming
-`ScanEvent` union.
+## Failure behavior
 
-**Temporal identity (roadmap persistence).** `Asset` carries `firstObservedAt`/`lastObservedAt` and a
-stable `canonical` identity key. The intended persistence model separates a stable `asset_identity`
-(keyed by canonical) from per-scan `asset_snapshot` rows, so an asset that disappears in scan 2 and
-returns in scan 5 keeps one identity with a gap in its snapshot history. Change detection is then a
-diff of consecutive snapshot sets. This is specified in [`ROADMAP.md`](ROADMAP.md); the in-memory core
-already produces the snapshot-shaped `ScanResult` these rows would store.
+- Production configuration errors fail startup or the affected capability closed.
+- Provider failures become sanitized partial results; secrets and raw internal errors are not returned.
+- Persistence failures in durable workflows are propagated rather than silently switching to memory.
+- Optional AI, email, OAuth, and billing are env-gated; their absence does not alter deterministic discovery.
+- Health checks query the database instead of reporting process liveness alone.
 
-## Real-time streaming
+## Operations
 
-`/api/scan` is an SSE endpoint returning a `ReadableStream`. The engine emits a typed `ScanEvent`
-sequence: `stage` (start/done), `log`, `asset`, `edge`, and a terminal `result` or `error`. Progress
-is **stage-based**, never a fabricated percentage. The client (`components/useScan.ts`) is a small
-state machine that accumulates assets/edges/logs and drives the graph and console.
+Run schema migrations before application startup. CI executes tests, lint, strict type checking, production build, and a production dependency audit. Query logging is opt-in. Provider-run and scan IDs support correlation; production should export logs and metrics to the operator's monitoring platform.
 
-## The graph (`components/graph/AssetGraph.tsx`)
-
-A dependency-free canvas renderer with a velocity-Verlet force simulation (repulsion + link springs +
-centering gravity + damping). Chosen over a library for performance, a distinctive look, and zero
-supply-chain risk. Supports pan, zoom, click hit-testing, selection highlighting, progressive
-grow-in animation, and priority/kind coloring. `O(n²)` repulsion is fine for the hundreds-of-nodes
-range; the documented path to 1,000+ nodes is a Barnes–Hut quadtree (see ROADMAP).
-
-## Deployment
-
-- **Build:** `npm run build` (lint + strict typecheck + static generation).
-- **Run:** `npm run start` (Node server; `/api/scan` is dynamic/streamed).
-- **Targets:** Vercel, Fly.io, a container, or bare Node. No database is required for the current core.
-- **Headers:** security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) are set in `next.config.mjs`.
-
-## Observability
-
-Structured scan identifiers (`scan_*`) are generated per request and included in the SSE stream;
-provider runs are modeled (`ProviderRun`) for status/timing/error reporting. Production wiring
-(structured log sink, metrics, health endpoint) is in [`ROADMAP.md`](ROADMAP.md). Secrets are never
-logged; provider errors are surfaced as user-safe messages.
+The connector registry is descriptive. It maps credentials and recommendation categories but does not implement provider mutations. Remediation proposals remain preview-only until a separately reviewed execution adapter exists.

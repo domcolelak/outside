@@ -3,6 +3,7 @@ import type { AuthStore, Role, SessionContext } from "./model";
 import { InMemoryAuthStore } from "./memory-store";
 import { SESSION_COOKIE, verifySession } from "./session";
 import { roleAtLeast } from "./model";
+import { storageMode } from "@/lib/config/storage";
 
 // Cache on globalThis so every route bundle in the same process shares one
 // in-memory store instance (module-level singletons would not be shared).
@@ -10,16 +11,12 @@ const g = globalThis as unknown as { __outsideAuthStore?: AuthStore };
 
 export async function getAuthStore(): Promise<AuthStore> {
   if (g.__outsideAuthStore) return g.__outsideAuthStore;
-  let store: AuthStore | null = null;
-  if (process.env.DATABASE_URL) {
-    try {
-      const mod = await import("./prisma-store");
-      store = new mod.PrismaAuthStore();
-    } catch (err) {
-      console.warn("[auth] Prisma store unavailable, using in-memory:", (err as Error).message);
-    }
+  if (storageMode() === "database") {
+    const mod = await import("./prisma-store");
+    g.__outsideAuthStore = new mod.PrismaAuthStore();
+  } else {
+    g.__outsideAuthStore = new InMemoryAuthStore();
   }
-  g.__outsideAuthStore = store ?? new InMemoryAuthStore();
   return g.__outsideAuthStore;
 }
 
@@ -29,12 +26,12 @@ export function __resetAuthStore(store?: AuthStore) {
 
 /** Resolve the current session from the request cookie, or null. */
 export async function getSessionContext(): Promise<SessionContext | null> {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const session = verifySession(token);
   if (!session) return null;
   const store = await getAuthStore();
   const user = await store.getUser(session.uid);
-  if (!user) return null;
+  if (!user || user.sessionVersion !== session.version) return null;
   const memberships = await store.membershipsForUser(user.id);
   const { passwordHash, ...safe } = user;
   void passwordHash;

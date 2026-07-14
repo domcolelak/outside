@@ -17,8 +17,7 @@
  */
 
 import type { Asset, Finding, Priority, ScanResult } from "@/lib/types";
-
-const PRIORITY_RANK: Record<Priority, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+import { PRIORITY_RANK } from "@/lib/analysis/priority";
 
 /* ---- Correlation strategies (each scores a relatedness signal in [0,1]) ---- */
 

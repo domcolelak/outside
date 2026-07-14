@@ -11,6 +11,7 @@
 
 import tls from "node:tls";
 import { isSafePublicIp } from "@/lib/security/target";
+import { pinnedHttpsGet } from "@/lib/security/pinned-https";
 import { resolveHost } from "./providers";
 
 const SECURITY_HEADERS: Array<{ key: string; label: string }> = [
@@ -34,7 +35,7 @@ export interface HttpObservation {
   };
 }
 
-function fetchCert(ip: string, servername: string): Promise<HttpObservation["cert"] | undefined> {
+function fetchCert(ip: string, servername: string, signal?: AbortSignal): Promise<HttpObservation["cert"] | undefined> {
   return new Promise((resolve) => {
     const socket = tls.connect(
       { host: ip, port: 443, servername, rejectUnauthorized: false, timeout: 6000 },
@@ -44,8 +45,9 @@ function fetchCert(ip: string, servername: string): Promise<HttpObservation["cer
         if (!cert || !cert.valid_to) return resolve(undefined);
         const validTo = new Date(cert.valid_to);
         const days = Math.round((validTo.getTime() - Date.now()) / 86_400_000);
+        const rawIssuer = cert.issuer?.O ?? cert.issuer?.CN;
         resolve({
-          issuer: cert.issuer?.O || cert.issuer?.CN,
+          issuer: Array.isArray(rawIssuer) ? rawIssuer[0] : rawIssuer,
           validTo: isNaN(validTo.getTime()) ? undefined : validTo.toISOString(),
           daysToExpiry: isNaN(validTo.getTime()) ? undefined : days,
           fingerprint: cert.fingerprint256 || cert.fingerprint,
@@ -53,6 +55,7 @@ function fetchCert(ip: string, servername: string): Promise<HttpObservation["cer
       },
     );
     socket.on("error", () => resolve(undefined));
+    signal?.addEventListener("abort", () => { socket.destroy(); resolve(undefined); }, { once: true });
     socket.on("timeout", () => {
       socket.destroy();
       resolve(undefined);
@@ -61,27 +64,27 @@ function fetchCert(ip: string, servername: string): Promise<HttpObservation["cer
 }
 
 /** Observe headers + certificate for a hostname, or null if it can't be reached safely. */
-export async function observeHttp(host: string): Promise<HttpObservation | null> {
-  const rec = await resolveHost(host).catch(() => null);
+export async function observeHttp(host: string, signal?: AbortSignal): Promise<HttpObservation | null> {
+  const rec = await resolveHost(host, signal).catch((error) => { if (signal?.aborted) throw error; return null; });
   const ips = [...(rec?.a ?? []), ...(rec?.aaaa ?? [])];
   if (ips.length === 0 || !ips.every(isSafePublicIp)) return null;
 
   const obs: HttpObservation = { presentHeaders: [], missingHeaders: [] };
 
-  // Headers via a bounded GET (redirects not followed).
+  // Headers via a bounded, IP-pinned GET. The response body is discarded.
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(`https://${host}/`, {
-      method: "GET",
-      redirect: "manual",
-      signal: controller.signal,
+    const res = await pinnedHttpsGet(host, ips, {
+      path: "/",
+      timeoutMs: 6_000,
+      maxBodyBytes: 0,
       headers: { "user-agent": "OUTSIDE-observation/0.1 (+https://outside.example/about)" },
-    }).finally(() => clearTimeout(timer));
+      signal,
+    });
     obs.status = res.status;
-    obs.server = res.headers.get("server") ?? undefined;
+    const server = res.headers.server;
+    obs.server = Array.isArray(server) ? server[0] : server;
     for (const h of SECURITY_HEADERS) {
-      if (res.headers.get(h.key)) obs.presentHeaders.push(h.label);
+      if (res.headers[h.key]) obs.presentHeaders.push(h.label);
       else obs.missingHeaders.push(h.label);
     }
   } catch {
@@ -89,6 +92,6 @@ export async function observeHttp(host: string): Promise<HttpObservation | null>
   }
 
   // Certificate via a pinned TLS handshake to the first validated IP.
-  obs.cert = await fetchCert(ips[0]!, host);
+  obs.cert = await fetchCert(ips[0]!, host, signal);
   return obs;
 }

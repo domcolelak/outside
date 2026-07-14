@@ -43,8 +43,14 @@ describe("isSafePublicIp — SSRF guard", () => {
   });
 
   it("blocks IPv6 loopback, link-local and unique-local", () => {
-    for (const ip of ["::1", "fe80::1", "fc00::1", "fd12::1", "::ffff:127.0.0.1"]) {
+    for (const ip of ["::1", "0:0:0:0:0:0:0:1", "::", "fe80::1", "fea0::1", "febf::1", "fc00::1", "fd12::1", "::ffff:127.0.0.1", "::ffff:7f00:1"]) {
       expect(isSafePublicIp(ip)).toBe(false);
+    }
+  });
+
+  it("blocks reserved and documentation ranges", () => {
+    for (const ip of ["192.0.2.1", "198.18.0.1", "198.51.100.1", "203.0.113.1", "64:ff9b::127.0.0.1", "2001::1", "2001:db8::1", "2002:7f00:1::", "3fff::1"]) {
+      expect(isSafePublicIp(ip), ip).toBe(false);
     }
   });
 

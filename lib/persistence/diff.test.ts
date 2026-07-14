@@ -76,18 +76,18 @@ describe("temporal identity across a gap (InMemoryScanStore)", () => {
   it("preserves one identity when an asset disappears and returns", async () => {
     const store = new InMemoryScanStore();
     // Scan 1: www + staging
-    await recordScan(store, mkScan("s1", [mkAsset("www.acme.com"), mkAsset("staging.acme.com")]));
+    await recordScan(store, mkScan("s1", [mkAsset("www.acme.com"), mkAsset("staging.acme.com")]), "org1");
     // Scan 2: staging gone
     const s2 = mkScan("s2", [mkAsset("www.acme.com")]);
-    await recordScan(store, s2);
+    await recordScan(store, s2, "org1");
     expect(s2.changeSummary?.events.some((e) => e.canonical === "staging.acme.com" && e.type === "asset_disappeared")).toBe(true);
     // Scan 3: staging returns
     const s3 = mkScan("s3", [mkAsset("www.acme.com"), mkAsset("staging.acme.com")]);
-    await recordScan(store, s3);
+    await recordScan(store, s3, "org1");
     expect(s3.changeSummary?.events.some((e) => e.canonical === "staging.acme.com" && e.type === "asset_returned")).toBe(true);
 
     // The identity id for staging must be identical in scan 1 and scan 3.
-    const identities = store.identitiesFor((await store.getOrCreateTarget("acme.com")).id);
+    const identities = store.identitiesFor((await store.getOrCreateTarget("org1", "acme.com")).id);
     const staging = identities.filter((i) => i.canonical === "staging.acme.com");
     expect(staging).toHaveLength(1);
     expect(staging[0]!.firstSeenAt < staging[0]!.lastSeenAt).toBe(true);
@@ -95,9 +95,9 @@ describe("temporal identity across a gap (InMemoryScanStore)", () => {
 
   it("flags returning/new assets as newlyObserved from real history, not naming", async () => {
     const store = new InMemoryScanStore();
-    await recordScan(store, mkScan("s1", [mkAsset("www.acme.com")]));
+    await recordScan(store, mkScan("s1", [mkAsset("www.acme.com")]), "org1");
     const s2 = mkScan("s2", [mkAsset("www.acme.com"), mkAsset("shop.acme.com")]);
-    await recordScan(store, s2);
+    await recordScan(store, s2, "org1");
     const shop = s2.graph.assets.find((a) => a.canonical === "shop.acme.com");
     expect(shop?.attrs.newlyObserved).toBe(true);
     const www = s2.graph.assets.find((a) => a.canonical === "www.acme.com");

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { getMonitorStore, PLAN_MONITOR_LIMIT, type Frequency } from "@/lib/monitoring";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
+import { getStore } from "@/lib/persistence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
   }
   const frequency: Frequency = body.frequency === "weekly" ? "weekly" : "daily";
 
+  const verification = await (await getStore()).getVerification(domain, orgId);
+  if (verification?.status !== "verified" || verification.orgId !== orgId) {
+    return NextResponse.json({ error: "Verify ownership of this domain for the organization before monitoring it." }, { status: 403 });
+  }
+
   const store = await getMonitorStore();
   const existing = await store.list(orgId);
   if (existing.some((m) => m.domain === domain)) {
@@ -50,6 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Your ${membership.org.plan} plan allows ${limit} monitored domain${limit === 1 ? "" : "s"}. Upgrade to add more.`, code: "plan_limit" }, { status: 402 });
   }
 
-  const monitor = await store.create({ orgId, domain, frequency });
+  const monitor = await store.create({ orgId, domain, frequency, limit });
+  if (!monitor) return NextResponse.json({ error: "Monitor could not be created because the domain already exists or the plan limit was reached." }, { status: 409 });
   return NextResponse.json({ monitor });
 }

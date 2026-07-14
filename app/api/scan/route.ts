@@ -2,13 +2,17 @@ import { NextRequest } from "next/server";
 import { runDemoScan, runPassiveScan, type Emit } from "@/lib/discovery/engine";
 import { findDemoOrg, isDemoDomain } from "@/lib/demo";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
+import { createHash, randomUUID } from "node:crypto";
 import { getStore } from "@/lib/persistence";
 import { recordScan } from "@/lib/persistence/record";
 import { buildPosture } from "@/lib/aegis/recommendations";
 import { buildInvestigation } from "@/lib/aegis/investigation";
 import { applyStoredRecommendationStatus } from "@/lib/aegis/store";
 import type { ScanEvent } from "@/lib/types";
+import { getSessionContext } from "@/lib/auth";
+import { authorizedTargetOrg } from "@/lib/auth/target-access";
+import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +26,13 @@ export async function GET(req: NextRequest) {
   const rawTarget = url.searchParams.get("target") ?? "";
   const mode = url.searchParams.get("mode") ?? "auto"; // "auto" | "demo"
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  const limit = rateLimit(`scan:${ip}`, 12, 60_000);
+  const client = clientIdentity(req);
+  const targetBudget = createHash("sha256").update(rawTarget.trim().toLowerCase()).digest("hex").slice(0, 24);
+  const limit = await requireBudgets([
+    { key: "scan:global", limit: 240, windowMs: 60_000 },
+    { key: `scan:client:${client}`, limit: Number(process.env.OUTSIDE_SCANS_PER_MINUTE ?? 12), windowMs: 60_000 },
+    { key: `scan:target:${targetBudget}`, limit: 20, windowMs: 60_000 },
+  ]);
   if (!limit.ok) {
     return new Response(JSON.stringify({ error: "Rate limit exceeded", retryAfter: limit.retryAfter }), {
       status: 429,
@@ -31,18 +40,22 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const scanId = `scan_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const scanId = `scan_${randomUUID()}`;
+  const cancellation = new AbortController();
+  const signal = AbortSignal.any([req.signal, cancellation.signal, AbortSignal.timeout(50_000)]);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
       const emit: Emit = (event) => {
+        signal.throwIfAborted();
         controller.enqueue(encoder.encode(sse(event)));
       };
       try {
+        await withConcurrency("scan:global", 8, 60_000, () => withConcurrency(`scan:target:${targetBudget}`, 2, 60_000, async () => {
         // Demo path: explicit demo mode, a known demo slug, or a demo domain.
         // Demo scans carry a synthetic change story and are NOT persisted.
-        const demoOrg = mode === "demo" ? findDemoOrg(rawTarget) : findDemoOrg(rawTarget);
+        const demoOrg = findDemoOrg(rawTarget) ?? (mode === "demo" ? findDemoOrg("northstar") : null);
         if (demoOrg || isDemoDomain(rawTarget)) {
           const org = demoOrg ?? findDemoOrg(rawTarget)!;
           const result = await runDemoScan(org, scanId, emit);
@@ -52,26 +65,32 @@ export async function GET(req: NextRequest) {
           emit({ type: "result", result });
         } else {
           const domain = normalizeDomain(rawTarget);
-          const result = await runPassiveScan(domain, scanId, emit);
+          const ctx = await getSessionContext();
+          const orgId = await authorizedTargetOrg(ctx, domain, "viewer");
+          const result = await runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal });
           // Persist + derive change detection against this target's history.
           const store = await getStore();
-          await recordScan(store, result);
+          if (orgId) await recordScan(store, result, orgId);
           // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
-          await applyStoredRecommendationStatus(result.target, result.posture);
+          if (orgId) await applyStoredRecommendationStatus(orgId, result.target, result.posture);
           emit({ type: "result", result });
         }
+        }));
       } catch (error) {
-        const message =
-          error instanceof InvalidTargetError
+        if (signal.aborted) return;
+        const message = error instanceof CapacityError
+          ? error.message
+          : error instanceof InvalidTargetError
             ? error.message
             : "Scan failed. The target may be unreachable or a public data source was unavailable.";
         emit({ type: "error", message });
       } finally {
-        controller.close();
+        if (!signal.aborted) controller.close();
       }
     },
+    cancel() { cancellation.abort(new Error("Scan client disconnected")); },
   });
 
   return new Response(stream, {

@@ -5,6 +5,7 @@
  */
 
 import type { Asset, Priority, ScanResult } from "@/lib/types";
+import { PRIORITY_RANK } from "@/lib/analysis/priority";
 import type { AssetSnapshot, ChangeEvent, ChangeSummary } from "./model";
 
 /** Project an asset into its temporal snapshot form. */
@@ -29,8 +30,6 @@ export function toSnapshot(asset: Asset, scanId: string, identityId: string): As
     present: true,
   };
 }
-
-const PRIORITY_RANK: Record<Priority, number> = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
 
 function maxPriority(a: Priority, b: Priority): Priority {
   return PRIORITY_RANK[a] >= PRIORITY_RANK[b] ? a : b;

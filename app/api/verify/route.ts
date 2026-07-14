@@ -1,16 +1,16 @@
 import { NextRequest } from "next/server";
 import { getStore } from "@/lib/persistence";
-import { getSessionContext } from "@/lib/auth";
+import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { resolveHost, resolveTxt } from "@/lib/discovery/providers";
 import { isSafePublicIp } from "@/lib/security/target";
 import { expectedTxtValue, isTokenInFile, isTokenPresent, issueToken, txtRecordName, WELL_KNOWN_PATH, wellKnownUrl } from "@/lib/verify/challenge";
+import { verificationSecret } from "@/lib/config/secrets";
+import { pinnedHttpsGet } from "@/lib/security/pinned-https";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const SECRET = process.env.OUTSIDE_VERIFY_SECRET ?? "outside-dev-verify-secret";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -18,29 +18,25 @@ function json(body: unknown, status = 200) {
 
 /**
  * File-based verification. SSRF-guarded: the domain's resolved IPs must all be
- * public before we fetch, redirects are refused, and the response is size-capped.
- * (A pinned-IP connector is the further hardening step noted in SECURITY.md.)
+ * public before we fetch; the connector pins the selected IP, preserves SNI,
+ * refuses redirects, and caps the response body.
  */
 async function checkFile(domain: string, token: string): Promise<boolean> {
   const rec = await resolveHost(domain).catch(() => null);
   const ips = [...(rec?.a ?? []), ...(rec?.aaaa ?? [])];
   if (ips.length === 0 || !ips.every(isSafePublicIp)) return false;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 6000);
   try {
-    const res = await fetch(wellKnownUrl(domain), {
-      signal: controller.signal,
-      redirect: "manual",
+    const res = await pinnedHttpsGet(domain, ips, {
+      path: WELL_KNOWN_PATH,
+      timeoutMs: 6_000,
+      maxBodyBytes: 4_096,
       headers: { accept: "text/plain", "user-agent": "OUTSIDE-verification/0.1" },
     });
-    if (!res.ok) return false;
-    const text = (await res.text()).slice(0, 4096);
-    return isTokenInFile(text, token);
+    if (res.status < 200 || res.status >= 300) return false;
+    return isTokenInFile(res.body, token);
   } catch {
     return false;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -53,17 +49,26 @@ export async function GET(req: NextRequest) {
   } catch {
     return json({ status: "none" });
   }
+  const ctx = await getSessionContext();
+  if (!ctx) return json({ status: "none" });
   const store = await getStore();
-  const v = await store.getVerification(domain);
+  let v = null;
+  for (const membership of ctx.memberships) {
+    v = await store.getVerification(domain, membership.org.id);
+    if (v) break;
+  }
   return json({ status: v?.status ?? "none", durable: store.durable });
 }
 
 /** POST /api/verify { domain, action: "start" | "check" }. */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`verify:${ip}`, 20, 60_000).ok) return json({ error: "Rate limit exceeded" }, 429);
+  const client = clientIdentity(req);
+  if (!(await rateLimit(`verify:${client}`, 20, 60_000)).ok) return json({ error: "Rate limit exceeded" }, 429);
 
-  let payload: { domain?: string; action?: string };
+  const ctx = await getSessionContext();
+  if (!ctx) return json({ error: "Not authenticated" }, 401);
+
+  let payload: { domain?: string; action?: string; orgId?: string };
   try {
     payload = await req.json();
   } catch {
@@ -78,13 +83,12 @@ export async function POST(req: NextRequest) {
   }
 
   const store = await getStore();
+  const orgId = String(payload.orgId ?? ctx.memberships[0]?.org.id ?? "");
+  if (!orgId || !hasOrgRole(ctx, orgId, "admin")) return json({ error: "Organization admin access required" }, 403);
+  const existing = await store.getVerification(domain, orgId);
 
   if (payload.action === "start") {
-    const existing = await store.getVerification(domain);
-    const token = existing?.token ?? issueToken(domain, SECRET);
-    // Bind the domain to the caller's organization when signed in.
-    const ctx = await getSessionContext();
-    const orgId = ctx?.memberships[0]?.org.id ?? null;
+    const token = existing?.token ?? issueToken(domain, verificationSecret());
     const v = await store.startVerification(domain, token, orgId);
     return json({
       status: v.status,
@@ -98,7 +102,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (payload.action === "check") {
-    const v = await store.getVerification(domain);
+    const v = existing;
     if (!v) return json({ error: "Start verification first." }, 409);
     if (v.status === "verified") return json({ status: "verified", verifiedAt: v.verifiedAt });
 
@@ -111,7 +115,7 @@ export async function POST(req: NextRequest) {
     }
     const ok = dnsOk || (await checkFile(domain, v.token));
     if (ok) {
-      const verified = await store.markVerified(domain);
+      const verified = await store.markVerified(domain, orgId);
       return json({ status: "verified", verifiedAt: verified.verifiedAt, method: dnsOk ? "dns" : "file" });
     }
     return json({ status: "pending", found: false, expected: expectedTxtValue(v.token) });

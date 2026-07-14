@@ -8,8 +8,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Asset, AssetKind, Edge, Priority } from "@/lib/types";
+import type { Asset, AssetKind, Edge } from "@/lib/types";
 import { applyRepulsion } from "@/lib/graph/barnesHut";
+import { staleGraphIds } from "@/lib/graph/reconcile";
+import { PRIORITY_STYLE } from "@/lib/analysis/priority";
 
 interface Node {
   id: string;
@@ -22,14 +24,6 @@ interface Node {
   born: number;
 }
 
-const PRIORITY_COLOR: Record<Priority, string> = {
-  critical: "#ff5b6e",
-  high: "#ff8a5b",
-  medium: "#f5c451",
-  low: "#5b8cff",
-  info: "#38e1c3",
-};
-
 const KIND_RADIUS: Partial<Record<AssetKind, number>> = {
   root_domain: 16,
   mail_service: 11,
@@ -39,7 +33,7 @@ const KIND_RADIUS: Partial<Record<AssetKind, number>> = {
 
 function nodeColor(a: Asset): string {
   if (a.kind === "root_domain") return "#e8edf6";
-  return PRIORITY_COLOR[a.priority];
+  return PRIORITY_STYLE[a.priority].color;
 }
 function nodeRadius(a: Asset): number {
   return KIND_RADIUS[a.kind] ?? 8;
@@ -84,6 +78,11 @@ export function AssetGraph({
   changedIdsRef.current = changedIds;
   const dragRef = useRef<{ panning: boolean; lastX: number; lastY: number }>({ panning: false, lastX: 0, lastY: 0 });
   const rafRef = useRef<number>(0);
+  const wakeRef = useRef<() => void>(() => {});
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const focusPulseIdRef = useRef(focusPulseId);
+  focusPulseIdRef.current = focusPulseId;
   const [, force] = useState(0);
 
   const edgeList = useMemo(() => edges, [edges]);
@@ -92,6 +91,7 @@ export function AssetGraph({
   useEffect(() => {
     const nodes = nodesRef.current;
     const now = performance.now();
+    for (const id of staleGraphIds(nodes.keys(), assets.map((asset) => asset.id))) nodes.delete(id);
     const root = assets.find((a) => a.kind === "root_domain");
     for (const a of assets) {
       if (!nodes.has(a.id)) {
@@ -103,7 +103,7 @@ export function AssetGraph({
           x: (anchor?.x ?? 0) + Math.cos(angle) * 40,
           y: (anchor?.y ?? 0) + Math.sin(angle) * 40,
           vx: 0,
-          vy: 0,
+          vy: 0.5,
           r: nodeRadius(a),
           asset: a,
           born: now,
@@ -112,6 +112,7 @@ export function AssetGraph({
         nodes.get(a.id)!.asset = a; // refresh (priority may have changed)
       }
     }
+    wakeRef.current();
   }, [assets]);
 
   useEffect(() => {
@@ -120,6 +121,8 @@ export function AssetGraph({
     const ctx = canvas.getContext("2d")!;
     let width = 0;
     let height = 0;
+    let running = false;
+    let settledFrames = 0;
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -129,18 +132,20 @@ export function AssetGraph({
       canvas.width = width * dpr;
       canvas.height = height * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      wakeRef.current();
     };
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
 
     const step = () => {
+      running = false;
       const nodes = [...nodesRef.current.values()];
       const idIndex = new Map(nodes.map((n, i) => [n.id, i] as const));
 
       // Repulsion. Direct all-pairs (O(n^2)) reads best for small graphs; switch
       // to the Barnes–Hut quadtree (~O(n log n)) once the surface gets large.
-      if (nodes.length > 140) {
+      if (nodes.length > 80) {
         applyRepulsion(nodes, { strength: 2200, theta: 0.85, maxForce: 26 });
       } else {
         for (let i = 0; i < nodes.length; i++) {
@@ -190,12 +195,14 @@ export function AssetGraph({
       }
       // Gravity to center + damping + velocity clamp (prevents runaway nodes).
       const MAX_SPEED = 22;
+      let maxSpeed = 0;
       for (const n of nodes) {
         n.vx += -n.x * 0.003;
         n.vy += -n.y * 0.003;
         n.vx *= 0.82;
         n.vy *= 0.82;
         const sp = Math.hypot(n.vx, n.vy);
+        maxSpeed = Math.max(maxSpeed, sp);
         if (sp > MAX_SPEED) {
           n.vx = (n.vx / sp) * MAX_SPEED;
           n.vy = (n.vy / sp) * MAX_SPEED;
@@ -228,8 +235,16 @@ export function AssetGraph({
       }
 
       draw(nodes);
+      settledFrames = maxSpeed < 0.04 ? settledFrames + 1 : 0;
+      if (settledFrames < 20) schedule();
+    };
+
+    const schedule = () => {
+      if (running || document.hidden) return;
+      running = true;
       rafRef.current = requestAnimationFrame(step);
     };
+    wakeRef.current = () => { settledFrames = 0; schedule(); };
 
     const draw = (nodes: Node[]) => {
       const view = viewRef.current;
@@ -240,13 +255,19 @@ export function AssetGraph({
 
       const filter = matchIdsRef.current;
       const withLabels = showLabelsRef.current;
-      const byId = new Map(nodes.map((n) => [n.id, n] as const));
+      const byId = nodesRef.current;
+      const left = (-width / 2 - view.x) / view.k - 80;
+      const right = (width / 2 - view.x) / view.k + 80;
+      const top = (-height / 2 - view.y) / view.k - 80;
+      const bottom = (height / 2 - view.y) / view.k + 80;
+      const visible = (node: Node) => node.x >= left && node.x <= right && node.y >= top && node.y <= bottom;
       // Edges.
       for (const e of edgeList) {
         const a = byId.get(e.from);
         const b = byId.get(e.to);
         if (!a || !b) continue;
-        const active = selectedId && (e.from === selectedId || e.to === selectedId);
+        if (!visible(a) && !visible(b)) continue;
+        const active = selectedIdRef.current && (e.from === selectedIdRef.current || e.to === selectedIdRef.current);
         const dim = filter && !(filter.has(e.from) && filter.has(e.to));
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
@@ -258,11 +279,12 @@ export function AssetGraph({
       // Nodes.
       const now = performance.now();
       for (const n of nodes) {
+        if (!visible(n)) continue;
         const color = nodeColor(n.asset);
         const grow = Math.min(1, (now - n.born) / 420);
         const r = n.r * (0.4 + 0.6 * grow);
-        const isSel = n.id === selectedId;
-        const isPulse = n.id === focusPulseId;
+        const isSel = n.id === selectedIdRef.current;
+        const isPulse = n.id === focusPulseIdRef.current;
         const dim = filter && !filter.has(n.id);
 
         if ((isPulse || isSel) && !dim) {
@@ -329,12 +351,16 @@ export function AssetGraph({
       ctx.restore();
     };
 
-    rafRef.current = requestAnimationFrame(step);
+    const onVisibility = () => { if (!document.hidden) wakeRef.current(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    schedule();
     return () => {
       cancelAnimationFrame(rafRef.current);
       ro.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+      wakeRef.current = () => {};
     };
-  }, [edgeList, selectedId, focusPulseId]);
+  }, [edgeList]);
 
   // Interaction: pan, zoom, click-to-select.
   const toWorld = (clientX: number, clientY: number) => {
@@ -360,6 +386,7 @@ export function AssetGraph({
       autoFitRef.current = false; // user took manual control
       viewRef.current.x += dx;
       viewRef.current.y += dy;
+      wakeRef.current();
     }
   };
   const onPointerUp = (e: React.PointerEvent) => {
@@ -377,6 +404,7 @@ export function AssetGraph({
       }
     }
     onSelect(hit);
+    wakeRef.current();
     force((v) => v + 1);
     void moved;
   };
@@ -384,14 +412,17 @@ export function AssetGraph({
     autoFitRef.current = false; // user took manual control
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
     viewRef.current.k = Math.max(0.4, Math.min(3.5, viewRef.current.k * factor));
+    wakeRef.current();
   };
 
   const zoomBy = (factor: number) => {
     autoFitRef.current = false;
     viewRef.current.k = Math.max(0.4, Math.min(3.5, viewRef.current.k * factor));
+    wakeRef.current();
   };
   const fitView = () => {
     autoFitRef.current = true;
+    wakeRef.current();
   };
   /** Save the current graph view as a PNG, composited over the dark background. */
   const exportImage = () => {

@@ -20,12 +20,14 @@ import type { AssetKind, Priority, ScanResult } from "@/lib/types";
 
 export interface Target {
   id: string;
+  orgId: string;
   domain: string;
   createdAt: string;
 }
 
 export interface ScanRecord {
   id: string;
+  orgId: string;
   targetId: string;
   finishedAt: string;
   mode: "passive" | "demo";
@@ -102,7 +104,8 @@ export interface DomainVerification {
 export interface ScanStore {
   /** Whether this store durably persists across process restarts. */
   readonly durable: boolean;
-  getOrCreateTarget(domain: string): Promise<Target>;
+  findTarget(orgId: string, domain: string): Promise<Target | null>;
+  getOrCreateTarget(orgId: string, domain: string): Promise<Target>;
   /** Snapshots of the most recent completed scan for a target, if any. */
   latestSnapshots(targetId: string): Promise<AssetSnapshot[]>;
   /** Canonicals ever observed for a target strictly before `beforeScanId` (or all if null). */
@@ -112,8 +115,8 @@ export interface ScanStore {
   recentScans(targetId: string, limit: number): Promise<ScanRecord[]>;
 
   /** Domain ownership verification (DNS-TXT). */
-  getVerification(domain: string): Promise<DomainVerification | null>;
+  getVerification(domain: string, orgId: string): Promise<DomainVerification | null>;
   /** Create a pending challenge if none exists; return the current one otherwise. */
-  startVerification(domain: string, token: string, orgId?: string | null): Promise<DomainVerification>;
-  markVerified(domain: string): Promise<DomainVerification>;
+  startVerification(domain: string, token: string, orgId: string): Promise<DomainVerification>;
+  markVerified(domain: string, orgId: string): Promise<DomainVerification>;
 }

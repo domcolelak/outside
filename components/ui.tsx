@@ -1,12 +1,6 @@
 import type { Assurance, Priority } from "@/lib/types";
-
-export const PRIORITY_STYLE: Record<Priority, { color: string; label: string }> = {
-  critical: { color: "#ff5b6e", label: "Critical" },
-  high: { color: "#ff8a5b", label: "High" },
-  medium: { color: "#f5c451", label: "Medium" },
-  low: { color: "#5b8cff", label: "Low" },
-  info: { color: "#38e1c3", label: "Info" },
-};
+export { PRIORITY_STYLE } from "@/lib/analysis/priority";
+import { PRIORITY_STYLE } from "@/lib/analysis/priority";
 
 export function PriorityDot({ priority, size = 8 }: { priority: Priority; size?: number }) {
   const c = PRIORITY_STYLE[priority].color;

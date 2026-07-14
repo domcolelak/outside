@@ -5,6 +5,7 @@
  */
 
 import Stripe from "stripe";
+export { APP_URL } from "@/lib/config/runtime";
 
 let client: Stripe | null = null;
 
@@ -20,5 +21,3 @@ export function getStripe(): Stripe | null {
 export function isBillingEnabled(): boolean {
   return !!process.env.STRIPE_SECRET_KEY;
 }
-
-export const APP_URL = process.env.APP_URL ?? "http://localhost:3000";

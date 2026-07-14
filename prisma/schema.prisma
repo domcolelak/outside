@@ -18,11 +18,129 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  owner
+  admin
+  analyst
+  viewer
+}
+
+enum Plan {
+  free
+  professional
+  agency
+}
+
+enum MonitorFrequency {
+  daily
+  weekly
+}
+
+enum ScanMode {
+  passive
+  demo
+}
+
+enum VerificationStatus {
+  pending
+  verified
+}
+
+enum RecommendationStatus {
+  open
+  acknowledged
+  in_progress
+  resolved
+  dismissed
+}
+
+enum Priority {
+  info
+  low
+  medium
+  high
+  critical
+}
+
+enum AssetKind {
+  root_domain
+  subdomain
+  host
+  ip
+  web_service
+  mail_service
+  dns_provider
+  nameserver
+  certificate
+  cloud_provider
+  cdn
+  technology
+  auth_surface
+  api_surface
+  third_party
+  unknown
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
+}
+
+model ConcurrencyLease {
+  id        String   @id
+  scope     String
+  expiresAt DateTime
+
+  @@index([scope, expiresAt])
+  @@map("concurrency_leases")
+}
+
+model UsageEvent {
+  id        String   @id
+  orgId     String
+  userId    String
+  kind      String
+  units     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([orgId, kind, createdAt])
+  @@index([userId, createdAt])
+  @@map("usage_events")
+}
+
+model EmailOutbox {
+  id             String    @id
+  idempotencyKey String    @unique
+  to             String
+  subject        String
+  html           String
+  text           String
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime  @default(now())
+  leaseId        String?
+  leasedUntil    DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([status, nextAttemptAt, leasedUntil])
+  @@map("email_outbox")
+}
+
 model User {
   id           String       @id @default(cuid())
   email        String       @unique
   name         String
   passwordHash String
+  // Default verifies legacy rows during additive migration; all new password
+  // signups explicitly write null until the signed verification link is used.
+  emailVerifiedAt DateTime? @default(now())
+  sessionVersion Int          @default(0)
   createdAt    DateTime     @default(now())
   memberships  Membership[]
 
@@ -33,7 +151,7 @@ model Organization {
   id                   String       @id @default(cuid())
   name                 String
   slug                 String
-  plan                 String       @default("free")
+  plan                 Plan         @default(free)
   stripeCustomerId     String?      @unique
   stripeSubscriptionId String?
   subscriptionStatus   String?
@@ -41,6 +159,8 @@ model Organization {
   memberships          Membership[]
   monitors             Monitor[]
   invites              Invite[]
+  targets              Target[]
+  verifications        DomainVerification[]
 
   @@map("organizations")
 }
@@ -48,7 +168,7 @@ model Organization {
 model Membership {
   userId        String
   orgId         String
-  role          String       @default("viewer")
+  role          Role         @default(viewer)
   notifyChanges Boolean      @default(true)
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -62,12 +182,19 @@ model Invite {
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId      String
   email      String
-  role       String       @default("analyst")
-  token      String       @unique
+  role       Role         @default(analyst)
+  // Transitional nullable columns allow an existing db-push deployment to add
+  // hashed tokens without making legacy plaintext tokens usable. The legacy
+  // token column can be dropped after operators run the security migration.
+  token      String?      @unique
+  tokenHash  String?      @unique
+  createdBy  String       @default("legacy")
   createdAt  DateTime     @default(now())
+  expiresAt  DateTime     @default(now())
   acceptedAt DateTime?
+  revokedAt  DateTime?
 
-  @@index([orgId])
+  @@index([orgId, acceptedAt, expiresAt])
   @@map("invites")
 }
 
@@ -76,32 +203,41 @@ model Monitor {
   org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId      String
   domain     String
-  frequency  String       @default("daily")
+  frequency  MonitorFrequency @default(daily)
   enabled    Boolean      @default(true)
   lastScanAt DateTime?
   nextRunAt  DateTime
   createdAt  DateTime     @default(now())
+  leaseId    String?
+  leaseUntil DateTime?
+  attempts   Int          @default(0)
+  lastError  String?
 
-  @@index([enabled, nextRunAt])
+  @@unique([orgId, domain])
+  @@index([enabled, nextRunAt, leaseUntil])
   @@map("monitors")
 }
 
 model Target {
   id         String          @id @default(cuid())
-  domain     String          @unique
+  org        Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId      String
+  domain     String
   createdAt  DateTime        @default(now())
   scans      Scan[]
   identities AssetIdentity[]
 
+  @@unique([orgId, domain])
   @@map("targets")
 }
 
 model Scan {
   id         String         @id
+  orgId      String
   target     Target         @relation(fields: [targetId], references: [id], onDelete: Cascade)
   targetId   String
   finishedAt DateTime
-  mode       String
+  mode       ScanMode
   scoreValue Int
   assetCount Int
   snapshots  AssetSnapshot[]
@@ -138,20 +274,22 @@ model AIAnalysis {
 }
 
 model RecommendationState {
+  orgId     String
   target    String
   recId     String
-  status    String
+  status    RecommendationStatus
   updatedAt DateTime @updatedAt
 
-  @@id([target, recId])
+  @@id([orgId, target, recId])
+  @@index([orgId, target])
   @@map("recommendation_states")
 }
 
 model AuditEvent {
   id        String   @id @default(cuid())
-  target    String?
-  orgId     String?
-  actor     String?
+  target    String
+  orgId     String
+  actor     String
   action    String
   detail    String?
   createdAt DateTime @default(now())
@@ -168,13 +306,16 @@ model ProcessedEvent {
 }
 
 model DomainVerification {
-  domain     String    @id
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId      String
+  domain     String
   token      String
-  status     String    @default("pending")
-  orgId      String?
+  status     VerificationStatus @default(pending)
   createdAt  DateTime  @default(now())
   verifiedAt DateTime?
 
+  @@id([orgId, domain])
+  @@index([domain, status])
   @@map("domain_verifications")
 }
 
@@ -186,10 +327,11 @@ model AssetSnapshot {
   identityId   String
   canonical    String
   label        String
-  kind         String
-  priority     String
+  kind         AssetKind
+  priority     Priority
   technologies String[]
   status       String?
+  certKey      String?
   present      Boolean       @default(true)
 
   @@index([scanId])
