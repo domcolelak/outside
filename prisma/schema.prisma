@@ -18,14 +18,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { owner admin analyst viewer }
-enum Plan { free professional agency }
-enum MonitorFrequency { daily weekly }
-enum ScanMode { passive demo }
-enum VerificationStatus { pending verified }
-enum RecommendationStatus { open acknowledged in_progress resolved dismissed }
-enum Priority { info low medium high critical }
-enum AssetKind { root_domain subdomain host ip web_service mail_service dns_provider nameserver certificate cloud_provider cdn technology auth_surface api_surface third_party unknown }
+enum Role {
+  owner
+  admin
+  analyst
+  viewer
+}
+
+enum Plan {
+  free
+  professional
+  agency
+}
+
+enum MonitorFrequency {
+  daily
+  weekly
+}
+
+enum ScanMode {
+  passive
+  demo
+}
+
+enum VerificationStatus {
+  pending
+  verified
+}
+
+enum RecommendationStatus {
+  open
+  acknowledged
+  in_progress
+  resolved
+  dismissed
+}
+
+enum Priority {
+  info
+  low
+  medium
+  high
+  critical
+}
+
+enum AssetKind {
+  root_domain
+  subdomain
+  host
+  ip
+  web_service
+  mail_service
+  dns_provider
+  nameserver
+  certificate
+  cloud_provider
+  cdn
+  technology
+  auth_surface
+  api_surface
+  third_party
+  unknown
+}
 
 model RateLimitBucket {
   key       String   @id
