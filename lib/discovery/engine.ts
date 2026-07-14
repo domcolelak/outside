@@ -18,9 +18,11 @@ import type {
   ScanEvent,
   ScanResult,
   ScanStats,
+  ProviderRun,
 } from "@/lib/types";
 import { mapPool } from "./net";
 import { certificateTransparency, resolveHost, resolveMailAndNs } from "./providers";
+import type { CtHostname } from "./providers";
 import { observeHttp } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
 
@@ -60,6 +62,7 @@ function finalize(
   linkedFromPrimary: string[],
   scanId: string,
   startedAt: string,
+  providerRuns: ProviderRun[] = [],
 ): ScanResult {
   const now = new Date().toISOString();
   const degreeById = new Map<string, number>();
@@ -96,7 +99,7 @@ function finalize(
     findings,
     score,
     timeline,
-    providerRuns: [],
+    providerRuns,
     stats,
   };
 }
@@ -164,11 +167,19 @@ function classifyKind(host: string, resolves: boolean): AssetKind {
 }
 
 /** Passive scan against a real domain using public CT + DNS. */
-export async function runPassiveScan(domain: string, scanId: string, emit: Emit): Promise<ScanResult> {
+export async function runPassiveScan(
+  domain: string,
+  scanId: string,
+  emit: Emit,
+  options: { activeObservation?: boolean; signal?: AbortSignal } = {},
+): Promise<ScanResult> {
   resetSeq();
   const startedAt = new Date().toISOString();
   const reg = registrableDomain(domain);
   const now = new Date().toISOString();
+  const signal = options.signal;
+  const providerRuns: ProviderRun[] = [];
+  signal?.throwIfAborted();
 
   const root = asset({
     kind: "root_domain",
@@ -189,23 +200,31 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
     await emit({ type: "asset", asset: root });
   });
 
-  let ctHosts: string[] = [];
+  let ctHosts: CtHostname[] = [];
   await stage(emit, "certificates", async () => {
+    const started = new Date();
     try {
-      const rows = await certificateTransparency(domain);
-      ctHosts = rows.map((r) => r.host);
+      const rows = await certificateTransparency(domain, signal);
+      ctHosts = rows;
+      providerRuns.push({ provider: "crt.sh", method: "certificate_transparency", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: rows.length, errors: [] });
       await emit({ type: "log", level: "info", message: `${ctHosts.length} candidate hostname(s) from certificate transparency` });
     } catch (e) {
+      if (signal?.aborted) throw e;
+      providerRuns.push({ provider: "crt.sh", method: "certificate_transparency", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(e as Error).message] });
       await emit({ type: "log", level: "warn", message: `Certificate transparency lookup failed: ${(e as Error).message}` });
     }
   });
 
   // Cap candidates to keep the scan bounded and responsible.
-  const MAX_HOSTS = 60;
-  const candidates = [...new Set(ctHosts)].filter((h) => h !== domain).slice(0, MAX_HOSTS);
+  const MAX_HOSTS = Math.max(1, Math.min(200, Number(process.env.OUTSIDE_MAX_HOSTS_PER_SCAN ?? 60) || 60));
+  const ctByHost = new Map(ctHosts.map((row) => [row.host, row]));
+  const candidates = [...ctByHost.keys()].filter((host) => host !== domain).slice(0, MAX_HOSTS);
 
   await stage(emit, "dns", async () => {
-    const results = await mapPool(candidates, 6, (host) => resolveHost(host));
+    const started = new Date();
+    const results = await mapPool(candidates, 6, (host) => resolveHost(host, signal), signal);
+    const errors = results.filter((item) => item.error).map((item) => (item.error as Error).message).slice(0, 20);
+    providerRuns.push({ provider: "Cloudflare DoH", method: "dns", status: errors.length ? "partial" : "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: results.filter((item) => item.value).length, errors });
     let t = 4;
     for (const r of results) {
       const host = r.item;
@@ -213,7 +232,7 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
       const resolves = !!rec && (rec.a.length > 0 || rec.aaaa.length > 0);
       if (!resolves) continue; // only surface hostnames that resolve publicly
       const kind = classifyKind(host, true);
-      const firstSeen = ctHosts.includes(host) ? undefined : now;
+      const firstSeen = ctByHost.get(host)?.firstSeen;
       const a = asset({
         kind,
         label: host,
@@ -236,8 +255,10 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
   });
 
   await stage(emit, "correlate", async () => {
+    const started = new Date();
     try {
-      const mailCfg = await resolveMailAndNs(domain);
+      const mailCfg = await resolveMailAndNs(domain, signal);
+      providerRuns.push({ provider: "Cloudflare DoH", method: "dns_mx", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: mailCfg.mx.length + mailCfg.ns.length, errors: [] });
       if (mailCfg.mx.length > 0) {
         const mail = asset({
           kind: "mail_service",
@@ -258,15 +279,24 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
         await emit({ type: "log", level: "add", message: "Mail infrastructure identified" });
       }
     } catch (e) {
+      if (signal?.aborted) throw e;
+      providerRuns.push({ provider: "Cloudflare DoH", method: "dns_mx", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(e as Error).message] });
       await emit({ type: "log", level: "warn", message: `DNS correlation partial: ${(e as Error).message}` });
     }
   });
 
   // HTTP + TLS observation of the primary web surface (headers + certificate).
   await stage(emit, "http", async () => {
+    if (!options.activeObservation) {
+      providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: "skipped", startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [] });
+      await emit({ type: "log", level: "info", message: "Active HTTPS observation skipped until ownership is verified" });
+      return;
+    }
     const primary = assets.find((a) => a.canonical === `www.${reg}`) ?? assets.find((a) => a.kind === "web_service") ?? root;
+    const started = new Date();
     try {
-      const obs = await observeHttp(primary.canonical);
+      const obs = await observeHttp(primary.canonical, signal);
+      providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: obs ? "ok" : "partial", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: obs ? 1 : 0, errors: [] });
       if (obs) {
         primary.attrs.missingHeaders = obs.missingHeaders;
         primary.attrs.presentHeaders = obs.presentHeaders;
@@ -294,11 +324,13 @@ export async function runPassiveScan(domain: string, scanId: string, emit: Emit)
         });
       }
     } catch (e) {
+      if (signal?.aborted) throw e;
+      providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(e as Error).message] });
       await emit({ type: "log", level: "warn", message: `HTTP observation skipped: ${(e as Error).message}` });
     }
   });
 
-  const result = finalize(domain, "passive", assets, edges, timeline, linkedFromPrimary, scanId, startedAt);
+  const result = finalize(domain, "passive", assets, edges, timeline, linkedFromPrimary, scanId, startedAt, providerRuns);
   await stage(emit, "classify", async () => {
     await emit({ type: "log", level: "signal", message: `${result.stats.shadowAssets} possible shadow asset signal(s), ${result.stats.nonProdSignals} non-production signal(s)` });
   });

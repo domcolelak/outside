@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore } from "@/lib/auth";
 import { hashPassword, passwordProblem } from "@/lib/auth/password";
 import { sessionCookie, signSession } from "@/lib/auth/session";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
+import { issueEmailVerification } from "@/lib/auth/email-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`signup:${ip}`, 6, 60_000).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
+  const client = clientIdentity(req);
+  if (!(await rateLimit(`signup:${client}`, 6, 60_000)).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
 
   let body: { email?: string; name?: string; password?: string; orgName?: string };
   try {
@@ -39,8 +40,10 @@ export async function POST(req: NextRequest) {
   const { user, org } = await store.createUserWithOrg({ email, name, passwordHash, orgName });
 
   // Fire-and-forget welcome email (no-op console transport unless configured).
+  const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const verifyUrl = `${appUrl}/api/auth/verify-email?token=${encodeURIComponent(issueEmailVerification(user.id, user.email))}`;
   import("@/lib/email/provider")
-    .then(({ getEmailProvider }) => import("@/lib/email/templates").then(({ welcomeEmail }) => getEmailProvider().send(welcomeEmail(user.email, user.name))))
+    .then(({ getEmailProvider }) => import("@/lib/email/templates").then(({ welcomeEmail }) => getEmailProvider().send(welcomeEmail(user.email, user.name, verifyUrl))))
     .catch(() => {});
 
   const res = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name }, org: { id: org.id, name: org.name, plan: org.plan } });

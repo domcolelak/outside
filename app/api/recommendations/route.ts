@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { getRecommendationStatuses, listAudit, setRecommendationStatus } from "@/lib/aegis/store";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { normalizeDomain } from "@/lib/security/target";
 import type { RecommendationStatus } from "@/lib/aegis/types";
 
@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
 
 /** Update a recommendation's status (acknowledge / start / resolve / dismiss). */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`rec:${ip}`, 40, 60_000).ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  const client = clientIdentity(req);
+  if (!(await rateLimit(`rec:${client}`, 40, 60_000)).ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
 
   let body: { target?: string; recId?: string; status?: string };
   try {

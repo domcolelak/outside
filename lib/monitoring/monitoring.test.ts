@@ -24,12 +24,13 @@ describe("monitor store (in-memory)", () => {
     expect((await store.list("org1"))).toHaveLength(1);
 
     // Eligible immediately on first tick.
-    const dueNow = await store.due(new Date(), 10);
+    const dueNow = await store.claimDue(new Date(), 10, 60_000);
     expect(dueNow.map((x) => x.id)).toContain(m.id);
+    expect(await store.claimDue(new Date(), 10, 60_000)).toHaveLength(0);
 
     // After running, nextRunAt advances so it is not due again immediately.
-    await store.markRan(m.id, new Date());
-    expect(await store.due(new Date(), 10)).toHaveLength(0);
+    expect(await store.complete(m.id, dueNow[0]!.leaseId!, new Date())).toBe(true);
+    expect(await store.claimDue(new Date(), 10, 60_000)).toHaveLength(0);
 
     // Paused monitors are never due.
     await store.setEnabled(m.id, "org1", false);

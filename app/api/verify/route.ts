@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getStore } from "@/lib/persistence";
 import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { resolveHost, resolveTxt } from "@/lib/discovery/providers";
 import { isSafePublicIp } from "@/lib/security/target";
 import { expectedTxtValue, isTokenInFile, isTokenPresent, issueToken, txtRecordName, WELL_KNOWN_PATH, wellKnownUrl } from "@/lib/verify/challenge";
@@ -56,8 +56,8 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/verify { domain, action: "start" | "check" }. */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`verify:${ip}`, 20, 60_000).ok) return json({ error: "Rate limit exceeded" }, 429);
+  const client = clientIdentity(req);
+  if (!(await rateLimit(`verify:${client}`, 20, 60_000)).ok) return json({ error: "Rate limit exceeded" }, 429);
 
   const ctx = await getSessionContext();
   if (!ctx) return json({ error: "Not authenticated" }, 401);

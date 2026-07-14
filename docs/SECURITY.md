@@ -1,62 +1,35 @@
-# Security model & responsible use
+# Security model and responsible use
 
-OUTSIDE is a **defensive** product that helps an organization understand its own public digital
-footprint. It is engineered so it cannot easily be turned into an offensive or mass-scanning tool.
+OUTSIDE is a defensive product for understanding an organization’s public digital footprint. Exploitation, credential attacks, payload delivery, persistence, and unauthorized-access features are explicit non-goals.
 
-## Explicit non-goals (never to be added)
-No exploitation, vulnerability execution, password attacks, credential stuffing, brute force, payload
-delivery, persistence, malware, or unauthorized-access features. The product observes public data; it
-does not attack.
+## Discovery boundary
 
-## Discovery safety
+- Anonymous and unverified scans use public Certificate Transparency and DNS-over-HTTPS data only.
+- A bounded HTTPS/TLS observation is enabled only for a signed-in organization that completed domain ownership verification.
+- Work is capped by per-scan deadlines, provider timeouts, response-byte limits, host limits, shared rate limits, and global/target concurrency leases.
+- Client disconnects abort provider work. Provider failures are isolated and reported in `providerRuns`.
 
-- **Passive by default.** The current engine queries only Certificate Transparency (crt.sh) and
-  DNS-over-HTTPS (Cloudflare) — public, non-invasive sources. It does not connect to the target's own
-  services beyond public DNS/CT lookups.
-- **Bounded work.** `MAX_HOSTS` per scan (default 60), per-request timeouts (`lib/discovery/net.ts`),
-  and a bounded concurrency pool (`mapPool`) cap the work any single scan can perform.
-- **Partial success.** Provider failures are isolated (`try/catch` per provider, `.catch(() => [])`
-  per DoH query); one failing source degrades results but never crashes a scan.
+## SSRF and egress controls
 
-## SSRF & egress controls — `lib/security/target.ts`
+All target input passes through `lib/security/target.ts`. Targets must be public DNS names; IP literals and reserved/internal TLDs are rejected. Resolved IPv4 and IPv6 addresses are checked against private, loopback, link-local, carrier-grade NAT, documentation, transition, multicast, and reserved ranges.
 
-All target handling funnels through one tested chokepoint:
+Active observation and file verification resolve once through the configured DoH provider, reject every non-global address, and connect directly to a validated IP while preserving Host and SNI. Redirects are refused and response bodies are capped. This prevents DNS rebinding between validation and connection.
 
-- **`normalizeDomain`** strips scheme/credentials/path/port, lowercases, removes trailing dots,
-  punycode-encodes IDN, strips `*.` wildcard prefixes, rejects IP literals, and rejects reserved/
-  internal TLDs (`local`, `internal`, `test`, `example`, `invalid`, `onion`, …).
-- **`isSafePublicIp`** refuses, for any resolved address before a future active probe could connect:
-  - IPv4: `0.0.0.0/8`, `10/8`, `127/8`, `169.254/16` (incl. `169.254.169.254` metadata), `172.16/12`, `192.168/16`, `100.64/10` (CGNAT), multicast/reserved.
-  - IPv6: `::1`, `::`, `fe80::/10` link-local, `fc00::/7` unique-local, and IPv4-mapped addresses (validated against the IPv4 rules).
+## Authorization and abuse controls
 
-These are covered by unit tests in `lib/security/target.test.ts` (IPv4 + IPv6 vectors).
+- Tenant-owned state uses organization keys and a single verified-target authorization policy.
+- Domain verification requires organization-admin access; an existing claim cannot be rebound.
+- Recommendation changes require analyst access and audit records never become public.
+- Monitoring requires verified ownership by the same organization.
+- Production rate limits are stored in PostgreSQL and cover global, client, user, organization, recipient, target, usage, and concurrency dimensions. Development memory buckets are swept and capped.
+- Invite senders and recipients must verify their account email. Invite tokens are hashed, expiring, email-bound, revocable, and atomically consumed.
 
-> **DNS-rebinding / redirect note (roadmap).** Active HTTP observation must resolve the host, validate
-> **every** resolved IP with `isSafePublicIp`, pin the connection to a validated address, and re-validate
-> on each redirect hop. The guard is already in place; the pinning connector is specified in ROADMAP
-> and must land before any active-probe provider is enabled.
+## AI and report boundary
 
-## Abuse prevention
+AI and PDF endpoints require authenticated, verified target access. Paid AI calls additionally require a paid organization plan. Bodies are rejected at the byte boundary before buffering, then projected through bounded schemas. Usage is persisted and expensive work has shared concurrency leases. AI output remains separate from deterministic facts and scoring.
 
-- **Rate limiting** — `lib/security/ratelimit.ts` (fixed-window per client; default 12 scans/min).
-  Production should swap the in-memory store for Redis/Upstash so limits hold across instances.
-- **Ownership verification (roadmap)** — DNS-TXT and file-based verification gate any deeper
-  inspection. Unverified targets receive a clearly-labeled **Unverified external view** built purely
-  from public data; verified organizations unlock monitoring and deeper (still safe) inspection.
-- **Audit logging (roadmap)** — scan attribution, target, requester, and outcome are modeled for an
-  append-only audit trail.
-- **Transport headers** — set in `next.config.mjs`.
+## Operations
 
-## AI safety boundary
+Production fails readiness without a durable database unless an operator explicitly selects ephemeral demo storage. The health endpoint executes a real database query. Cron work uses atomic leases and deterministic run IDs; Stripe event markers commit in the same transaction as subscription changes.
 
-Deterministic discovery, correlation, scoring, and timestamps never depend on AI. The optional AI
-layer (roadmap) may only **explain** existing evidence in natural language. It is architecturally
-prevented from inventing assets, findings, or evidence: it receives the finalized `ScanResult` as
-read-only input and its output is stored as a separate `AIAnalysis` artifact, never merged into the
-deterministic graph or score.
-
-## Responsible framing
-
-**Attacker View** depicts external *discovery*, not compromise. Copy never claims a hack, breach, or
-attack path. Findings distinguish observed fact from inference from possible concern, and state
-"unknown" when evidence is insufficient.
+Security headers are configured in `next.config.mjs`. Secrets are never logged. Rotate `AUTH_SECRET` by setting the new value and temporarily listing old values in `AUTH_SECRET_PREVIOUS`.

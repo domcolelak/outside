@@ -31,15 +31,22 @@ export class InMemoryAuthStore implements AuthStore {
     return this.users.get(id) ?? null;
   }
 
-  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string }) {
+  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
-    const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, createdAt: new Date().toISOString() };
+    const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date().toISOString() : null, createdAt: new Date().toISOString() };
     const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugify(input.orgName), plan: "free", createdAt: new Date().toISOString() };
     this.users.set(user.id, user);
     this.byEmail.set(email, user.id);
     this.orgs.set(org.id, org);
     this.memberships.push({ userId: user.id, orgId: org.id, role: "owner", notifyChanges: true });
     return { user, org };
+  }
+
+  async markEmailVerified(userId: string, email: string): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user || user.email !== email.toLowerCase()) return false;
+    user.emailVerifiedAt = new Date().toISOString();
+    return true;
   }
 
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {

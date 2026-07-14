@@ -13,6 +13,7 @@ export interface PinnedHttpsOptions {
   timeoutMs?: number;
   maxBodyBytes?: number;
   headers?: Record<string, string>;
+  signal?: AbortSignal;
 }
 
 /**
@@ -98,6 +99,10 @@ function requestAddress(hostname: string, address: string, options: PinnedHttpsO
     );
 
     req.setTimeout(timeoutMs, () => req.destroy(new Error("Target HTTPS request timed out.")));
+    if (options.signal) {
+      if (options.signal.aborted) req.destroy(options.signal.reason);
+      else options.signal.addEventListener("abort", () => req.destroy(options.signal?.reason), { once: true });
+    }
     req.on("error", (error) => finish(() => reject(error)));
     req.end();
   });

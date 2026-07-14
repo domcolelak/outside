@@ -18,11 +18,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
+}
+
+model ConcurrencyLease {
+  id        String   @id
+  scope     String
+  expiresAt DateTime
+
+  @@index([scope, expiresAt])
+  @@map("concurrency_leases")
+}
+
+model UsageEvent {
+  id        String   @id
+  orgId     String
+  userId    String
+  kind      String
+  units     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([orgId, kind, createdAt])
+  @@index([userId, createdAt])
+  @@map("usage_events")
+}
+
 model User {
   id           String       @id @default(cuid())
   email        String       @unique
   name         String
   passwordHash String
+  // Default verifies legacy rows during additive migration; all new password
+  // signups explicitly write null until the signed verification link is used.
+  emailVerifiedAt DateTime? @default(now())
   createdAt    DateTime     @default(now())
   memberships  Membership[]
 
@@ -88,8 +122,13 @@ model Monitor {
   lastScanAt DateTime?
   nextRunAt  DateTime
   createdAt  DateTime     @default(now())
+  leaseId    String?
+  leaseUntil DateTime?
+  attempts   Int          @default(0)
+  lastError  String?
 
-  @@index([enabled, nextRunAt])
+  @@unique([orgId, domain])
+  @@index([enabled, nextRunAt, leaseUntil])
   @@map("monitors")
 }
 

@@ -5,14 +5,9 @@
  * runs on top — this class only provides durability.
  */
 
-import { PrismaClient } from "@prisma/client";
 import type { ScanResult } from "@/lib/types";
 import type { AssetSnapshot, DomainVerification, ScanRecord, ScanStore, Target } from "./model";
-
-// Reuse a single client across hot reloads / lambda invocations.
-const g = globalThis as unknown as { __outsidePrisma?: PrismaClient };
-const prisma = g.__outsidePrisma ?? new PrismaClient();
-if (process.env.NODE_ENV !== "production") g.__outsidePrisma = prisma;
+import { prisma } from "@/lib/db/prisma";
 
 export class PrismaScanStore implements ScanStore {
   readonly durable = true;

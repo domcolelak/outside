@@ -9,10 +9,21 @@
 export class Semaphore {
   private queue: Array<() => void> = [];
   private active = 0;
-  constructor(private readonly max: number) {}
+  constructor(private readonly max: number, private readonly maxQueue = 32, private readonly queueTimeoutMs = 10_000) {}
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.active >= this.max) await new Promise<void>((resolve) => this.queue.push(resolve));
+    if (this.active >= this.max) {
+      if (this.queue.length >= this.maxQueue) throw new Error("AI concurrency queue is full");
+      await new Promise<void>((resolve, reject) => {
+        const release = () => { clearTimeout(timer); resolve(); };
+        const timer = setTimeout(() => {
+          const index = this.queue.indexOf(release);
+          if (index >= 0) this.queue.splice(index, 1);
+          reject(new Error("AI concurrency queue timed out"));
+        }, this.queueTimeoutMs);
+        this.queue.push(release);
+      });
+    }
     this.active += 1;
     try {
       return await fn();
