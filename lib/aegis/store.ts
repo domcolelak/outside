@@ -78,15 +78,18 @@ export async function listAudit(orgId: string, target: string, limit = 50): Prom
   const db = await prisma();
   if (db) {
     const rows = await db.auditEvent.findMany({ where: { orgId, target: key }, orderBy: { createdAt: "desc" }, take: limit });
-    return rows.map((row) => ({
-      id: row.id,
-      orgId: row.orgId!,
-      target: row.target,
-      actor: row.actor,
-      action: row.action,
-      detail: row.detail,
-      createdAt: row.createdAt.toISOString(),
-    }));
+    return rows.map((row) => {
+      if (!row.orgId || !row.target || !row.actor) throw new Error("Audit row violates tenant invariants.");
+      return {
+        id: row.id,
+        orgId: row.orgId,
+        target: row.target,
+        actor: row.actor,
+        action: row.action,
+        detail: row.detail,
+        createdAt: row.createdAt.toISOString(),
+      };
+    });
   }
   return memAudit().filter((event) => event.orgId === orgId && event.target === key).slice(0, limit);
 }
