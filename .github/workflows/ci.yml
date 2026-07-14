@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
       OUTSIDE_STORAGE_MODE: memory
       AUTH_SECRET: ci-only-auth-secret-at-least-thirty-two-bytes
       OUTSIDE_VERIFY_SECRET: ci-only-verify-secret-at-least-thirty-two-bytes
@@ -24,6 +23,8 @@ jobs:
           node-version: 20.20.0
           cache: npm
       - run: npm ci
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
