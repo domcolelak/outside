@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore } from "@/lib/auth";
 import { hashPassword, passwordProblem } from "@/lib/auth/password";
-import { sessionCookie, signSession } from "@/lib/auth/session";
+import { SESSION_MAX_AGE, sessionCookie, signSession } from "@/lib/auth/session";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { issueEmailVerification } from "@/lib/auth/email-verification";
 import { sendDurably } from "@/lib/email/outbox";
@@ -46,6 +46,6 @@ export async function POST(req: NextRequest) {
   await sendDurably(welcomeEmail(user.email, user.name, verifyUrl), `welcome:${user.id}`);
 
   const res = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name }, org: { id: org.id, name: org.name, plan: org.plan } });
-  res.headers.append("Set-Cookie", sessionCookie(signSession(user.id)));
+  res.headers.append("Set-Cookie", sessionCookie(signSession(user.id, SESSION_MAX_AGE, user.sessionVersion)));
   return res;
 }

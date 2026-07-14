@@ -8,6 +8,7 @@
 
 import type { ScanResult } from "@/lib/types";
 import type { AssetIdentity, AssetSnapshot, DomainVerification, ScanRecord, ScanStore, Target } from "./model";
+import { randomUUID } from "node:crypto";
 
 interface TargetState {
   target: Target;
@@ -23,7 +24,7 @@ export class InMemoryScanStore implements ScanStore {
   private verifications = new Map<string, DomainVerification>(); // orgId + domain -> verification
 
   private id(prefix: string): string {
-    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return `${prefix}_${randomUUID()}`;
   }
 
   private scope(orgId: string, domain: string) { return `${orgId}\u0000${domain.toLowerCase()}`; }

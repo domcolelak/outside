@@ -31,6 +31,11 @@ export class PrismaAuthStore implements AuthStore {
     return result.count === 1;
   }
 
+  async revokeSessions(userId: string): Promise<number> {
+    const user = await prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } }, select: { sessionVersion: true } });
+    return user.sessionVersion;
+  }
+
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
     const rows = await prisma.membership.findMany({ where: { userId }, include: { org: true } });
     return rows.map((r) => ({ org: this.mapOrg(r.org), role: r.role as Role, notifyChanges: r.notifyChanges }));
@@ -119,12 +124,13 @@ export class PrismaAuthStore implements AuthStore {
     });
   }
 
-  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; emailVerifiedAt: Date | null; createdAt: Date }): User => ({
+  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; emailVerifiedAt: Date | null; sessionVersion: number; createdAt: Date }): User => ({
     id: u.id,
     email: u.email,
     name: u.name,
     passwordHash: u.passwordHash,
     emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
+    sessionVersion: u.sessionVersion,
     createdAt: u.createdAt.toISOString(),
   });
   private mapOrg = (o: {

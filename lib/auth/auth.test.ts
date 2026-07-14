@@ -22,9 +22,10 @@ describe("password hashing", () => {
 
 describe("signed sessions", () => {
   it("round-trips a valid session", () => {
-    const token = signSession("usr_123");
-    expect(verifySession(token)?.uid).toBe("usr_123");
+    const token = signSession("usr_123", 60, 7);
+    expect(verifySession(token)).toEqual({ uid: "usr_123", version: 7 });
   });
+
   it("rejects tampered or malformed tokens", () => {
     const token = signSession("usr_123");
     expect(verifySession(token + "x")).toBeNull();
@@ -43,12 +44,14 @@ describe("signed sessions", () => {
   it("refuses the public fallback secret in production", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     const previousSecret = process.env.AUTH_SECRET;
+    const env = process.env as Record<string, string | undefined>;
     try {
-      Object.defineProperty(process.env, "NODE_ENV", { value: "production", configurable: true, writable: true });
+      env.NODE_ENV = "production";
       delete process.env.AUTH_SECRET;
       expect(() => signSession("usr_prod")).toThrow(/AUTH_SECRET/);
     } finally {
-      Object.defineProperty(process.env, "NODE_ENV", { value: previousNodeEnv, configurable: true, writable: true });
+      if (previousNodeEnv === undefined) delete env.NODE_ENV;
+      else env.NODE_ENV = previousNodeEnv;
       if (previousSecret === undefined) delete process.env.AUTH_SECRET;
       else process.env.AUTH_SECRET = previousSecret;
     }
@@ -100,6 +103,14 @@ describe("accounts, organizations, RBAC", () => {
     expect((await store.membershipsForUser(user.id))[0]!.notifyChanges).toBe(true);
     await store.setNotifyChanges(user.id, org.id, false);
     expect((await store.orgMembers(org.id))[0]!.notifyChanges).toBe(false);
+  });
+
+  it("increments the session version to revoke existing sessions", async () => {
+    const store = new InMemoryAuthStore();
+    const { user } = await store.createUserWithOrg({ email: "sessions@example.com", name: "Sessions", passwordHash: "h", orgName: "Sessions Co" });
+    expect(user.sessionVersion).toBe(0);
+    expect(await store.revokeSessions(user.id)).toBe(1);
+    expect((await store.getUser(user.id))?.sessionVersion).toBe(1);
   });
 
   it("updates the org plan", async () => {
