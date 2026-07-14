@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const ctx = await getSessionContext();
   if (!ctx) return NextResponse.json({ error: "Not authenticated", needsAuth: true }, { status: 401 });
+  if (!ctx.user.emailVerifiedAt) return NextResponse.json({ error: "Verify your email before accepting an invitation.", code: "email_unverified" }, { status: 403 });
 
   let body: { token?: string };
   try {

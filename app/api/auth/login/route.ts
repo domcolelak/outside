@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore } from "@/lib/auth";
 import { verifyPassword } from "@/lib/auth/password";
 import { sessionCookie, signSession } from "@/lib/auth/session";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const client = clientIdentity(req);
   // Tighter limit on login to blunt credential guessing.
-  if (!rateLimit(`login:${ip}`, 8, 60_000).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
+  if (!(await rateLimit(`login:${client}`, 8, 60_000)).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
 
   let body: { email?: string; password?: string };
   try {

@@ -1,10 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
 import { hashInviteToken, inviteExpiresAt } from "./invites";
-
-const g = globalThis as unknown as { __outsidePrisma?: PrismaClient };
-const prisma = g.__outsidePrisma ?? new PrismaClient();
-if (process.env.NODE_ENV !== "production") g.__outsidePrisma = prisma;
+import { prisma } from "@/lib/db/prisma";
 
 function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "org";
@@ -22,15 +18,20 @@ export class PrismaAuthStore implements AuthStore {
     return u ? this.mapUser(u) : null;
   }
 
-  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string }) {
+  async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({ data: { email, name: input.name, passwordHash: input.passwordHash } });
+      const user = await tx.user.create({ data: { email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date() : null } });
       const org = await tx.organization.create({ data: { name: input.orgName, slug: slugify(input.orgName), plan: "free" } });
       await tx.membership.create({ data: { userId: user.id, orgId: org.id, role: "owner" } });
       return { user, org };
     });
     return { user: this.mapUser(result.user), org: this.mapOrg(result.org) };
+  }
+
+  async markEmailVerified(userId: string, email: string): Promise<boolean> {
+    const result = await prisma.user.updateMany({ where: { id: userId, email: email.toLowerCase() }, data: { emailVerifiedAt: new Date() } });
+    return result.count === 1;
   }
 
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
@@ -121,11 +122,12 @@ export class PrismaAuthStore implements AuthStore {
     });
   }
 
-  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; createdAt: Date }): User => ({
+  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; emailVerifiedAt: Date | null; createdAt: Date }): User => ({
     id: u.id,
     email: u.email,
     name: u.name,
     passwordHash: u.passwordHash,
+    emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
   });
   private mapOrg = (o: {

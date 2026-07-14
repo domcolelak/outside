@@ -35,7 +35,7 @@ export interface HttpObservation {
   };
 }
 
-function fetchCert(ip: string, servername: string): Promise<HttpObservation["cert"] | undefined> {
+function fetchCert(ip: string, servername: string, signal?: AbortSignal): Promise<HttpObservation["cert"] | undefined> {
   return new Promise((resolve) => {
     const socket = tls.connect(
       { host: ip, port: 443, servername, rejectUnauthorized: false, timeout: 6000 },
@@ -54,6 +54,7 @@ function fetchCert(ip: string, servername: string): Promise<HttpObservation["cer
       },
     );
     socket.on("error", () => resolve(undefined));
+    signal?.addEventListener("abort", () => { socket.destroy(); resolve(undefined); }, { once: true });
     socket.on("timeout", () => {
       socket.destroy();
       resolve(undefined);
@@ -62,8 +63,8 @@ function fetchCert(ip: string, servername: string): Promise<HttpObservation["cer
 }
 
 /** Observe headers + certificate for a hostname, or null if it can't be reached safely. */
-export async function observeHttp(host: string): Promise<HttpObservation | null> {
-  const rec = await resolveHost(host).catch(() => null);
+export async function observeHttp(host: string, signal?: AbortSignal): Promise<HttpObservation | null> {
+  const rec = await resolveHost(host, signal).catch((error) => { if (signal?.aborted) throw error; return null; });
   const ips = [...(rec?.a ?? []), ...(rec?.aaaa ?? [])];
   if (ips.length === 0 || !ips.every(isSafePublicIp)) return null;
 
@@ -76,6 +77,7 @@ export async function observeHttp(host: string): Promise<HttpObservation | null>
       timeoutMs: 6_000,
       maxBodyBytes: 0,
       headers: { "user-agent": "OUTSIDE-observation/0.1 (+https://outside.example/about)" },
+      signal,
     });
     obs.status = res.status;
     const server = res.headers.server;
@@ -89,6 +91,6 @@ export async function observeHttp(host: string): Promise<HttpObservation | null>
   }
 
   // Certificate via a pinned TLS handshake to the first validated IP.
-  obs.cert = await fetchCert(ips[0]!, host);
+  obs.cert = await fetchCert(ips[0]!, host, signal);
   return obs;
 }

@@ -1,94 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { getAuthStore } from "@/lib/auth";
 import { getStripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { planForPriceId } from "@/lib/billing/plans";
-import { markProcessedOnce } from "@/lib/billing/idempotency";
+import { processWebhookOnce } from "@/lib/billing/idempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function resolveOrgId(auth: Awaited<ReturnType<typeof getAuthStore>>, metaOrgId: string | undefined, customerId: string | undefined): Promise<string | null> {
-  if (metaOrgId) return metaOrgId;
-  if (customerId && auth.findOrgByStripeCustomer) {
-    const org = await auth.findOrgByStripeCustomer(customerId);
-    return org?.id ?? null;
+async function orgIdFor(tx: Prisma.TransactionClient, metadataId: string | undefined, customerId: string | undefined) {
+  if (metadataId) return (await tx.organization.findUnique({ where: { id: metadataId }, select: { id: true } }))?.id ?? null;
+  if (!customerId) return null;
+  return (await tx.organization.findUnique({ where: { stripeCustomerId: customerId }, select: { id: true } }))?.id ?? null;
+}
+
+async function processDurable(tx: Prisma.TransactionClient, event: Stripe.Event): Promise<void> {
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const orgId = await orgIdFor(tx, session.metadata?.orgId, session.customer as string | undefined);
+    const plan = session.metadata?.plan;
+    if (orgId && (plan === "professional" || plan === "agency")) await tx.organization.update({ where: { id: orgId }, data: { plan, stripeCustomerId: session.customer as string, stripeSubscriptionId: session.subscription as string, subscriptionStatus: "active" } });
+  } else if (event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const orgId = await orgIdFor(tx, subscription.metadata?.orgId, subscription.customer as string);
+    const plan = planForPriceId(subscription.items.data[0]?.price.id) ?? "professional";
+    const active = subscription.status === "active" || subscription.status === "trialing";
+    if (orgId) await tx.organization.update({ where: { id: orgId }, data: { plan: active ? plan : "free", stripeSubscriptionId: subscription.id, subscriptionStatus: subscription.status } });
+  } else if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const orgId = await orgIdFor(tx, subscription.metadata?.orgId, subscription.customer as string);
+    if (orgId) await tx.organization.update({ where: { id: orgId }, data: { plan: "free", stripeSubscriptionId: null, subscriptionStatus: "canceled" } });
+  } else if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object as Stripe.Invoice;
+    const customerId = invoice.customer as string;
+    const orgId = await orgIdFor(tx, undefined, customerId);
+    if (orgId) await tx.organization.update({ where: { id: orgId }, data: { subscriptionStatus: "past_due" } });
   }
-  return null;
+}
+
+async function processMemory(event: Stripe.Event): Promise<void> {
+  const auth = await getAuthStore();
+  const customer = (event.data.object as { customer?: string | null }).customer ?? undefined;
+  const metadata = (event.data.object as { metadata?: { orgId?: string; plan?: string } }).metadata;
+  const org = customer && auth.findOrgByStripeCustomer ? await auth.findOrgByStripeCustomer(customer) : null;
+  const orgId = metadata?.orgId ?? org?.id;
+  if (!orgId || !auth.setSubscription) return;
+  if (event.type === "checkout.session.completed" && (metadata?.plan === "professional" || metadata?.plan === "agency")) {
+    const session = event.data.object as Stripe.Checkout.Session;
+    await auth.setSubscription(orgId, { plan: metadata.plan, stripeCustomerId: customer, stripeSubscriptionId: session.subscription as string, status: "active" });
+  } else if (event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription;
+    const plan = planForPriceId(subscription.items.data[0]?.price.id) ?? "professional";
+    const active = subscription.status === "active" || subscription.status === "trialing";
+    await auth.setSubscription(orgId, { plan: active ? plan : "free", stripeSubscriptionId: subscription.id, status: subscription.status });
+  } else if (event.type === "customer.subscription.deleted") {
+    await auth.setSubscription(orgId, { plan: "free", stripeSubscriptionId: null, status: "canceled" });
+  } else if (event.type === "invoice.payment_failed") {
+    await auth.setSubscription(orgId, { plan: org?.plan ?? "free", status: "past_due" });
+  }
 }
 
 export async function POST(req: NextRequest) {
   if (!isBillingEnabled()) return NextResponse.json({ error: "Billing not configured" }, { status: 503 });
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return NextResponse.json({ error: "Webhook secret not configured" }, { status: 503 });
-
-  const stripe = getStripe()!;
-  const sig = req.headers.get("stripe-signature") ?? "";
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declared) && declared > 1_000_000) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   const raw = await req.text();
-
+  if (Buffer.byteLength(raw) > 1_000_000) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(raw, sig, secret);
-  } catch (err) {
-    return NextResponse.json({ error: `Signature verification failed: ${(err as Error).message}` }, { status: 400 });
-  }
-
-  // Idempotency: acknowledge duplicates without reprocessing (durable when a DB
-  // is configured, in-memory otherwise).
-  if (!(await markProcessedOnce(event.id))) {
-    return NextResponse.json({ received: true, duplicate: true });
-  }
-
-  const auth = await getAuthStore();
+  try { event = getStripe()!.webhooks.constructEvent(raw, req.headers.get("stripe-signature") ?? "", secret); }
+  catch { return NextResponse.json({ error: "Signature verification failed" }, { status: 400 }); }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const s = event.data.object as Stripe.Checkout.Session;
-        const orgId = await resolveOrgId(auth, s.metadata?.orgId, s.customer as string);
-        const plan = (s.metadata?.plan as "professional" | "agency") ?? null;
-        if (orgId && plan) {
-          await auth.setSubscription?.(orgId, { plan, stripeCustomerId: s.customer as string, stripeSubscriptionId: s.subscription as string, status: "active" });
-        }
-        break;
-      }
-      case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
-        const orgId = await resolveOrgId(auth, sub.metadata?.orgId, sub.customer as string);
-        const priceId = sub.items.data[0]?.price.id;
-        const plan = planForPriceId(priceId) ?? "professional";
-        const active = sub.status === "active" || sub.status === "trialing";
-        if (orgId) {
-          await auth.setSubscription?.(orgId, { plan: active ? plan : "free", stripeSubscriptionId: sub.id, status: sub.status });
-        }
-        break;
-      }
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const orgId = await resolveOrgId(auth, sub.metadata?.orgId, sub.customer as string);
-        if (orgId) {
-          await auth.setSubscription?.(orgId, { plan: "free", stripeSubscriptionId: null, status: "canceled" });
-        }
-        break;
-      }
-      case "invoice.payment_failed": {
-        const inv = event.data.object as Stripe.Invoice;
-        const orgId = await resolveOrgId(auth, undefined, inv.customer as string);
-        if (orgId) {
-          // Keep the plan but flag the org so the UI can prompt for payment update.
-          const org = auth.findOrgByStripeCustomer ? await auth.findOrgByStripeCustomer(inv.customer as string) : null;
-          await auth.setSubscription?.(orgId, { plan: org?.plan ?? "free", status: "past_due" });
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  } catch (err) {
-    console.error(`[stripe] handler error for ${event.type}:`, (err as Error).message);
-    // Let Stripe retry.
+    const outcome = await processWebhookOnce(event.id, (tx) => tx ? processDurable(tx, event) : processMemory(event));
+    return NextResponse.json({ received: true, duplicate: outcome === "duplicate" });
+  } catch (error) {
+    console.error(`[stripe] handler error for ${event.type}`, error);
     return NextResponse.json({ error: "Handler error" }, { status: 500 });
   }
-
-  return NextResponse.json({ received: true });
 }

@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       name: profile.name,
       passwordHash,
       orgName: `${profile.name.split(" ")[0]} workspace`,
+      emailVerified: true,
     });
     user = created.user;
   }

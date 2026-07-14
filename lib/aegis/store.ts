@@ -1,6 +1,7 @@
 /** Organization-isolated Aegis recommendation state and audit trail. */
 
 import type { AuditEvent, Posture, RecommendationStatus } from "./types";
+import { prisma as database } from "@/lib/db/prisma";
 
 const g = globalThis as unknown as {
   __outsideRecStatus?: Map<string, Map<string, RecommendationStatus>>;
@@ -19,15 +20,7 @@ function scopeKey(orgId: string, target: string) {
 
 async function prisma() {
   if (!process.env.DATABASE_URL) return null;
-  try {
-    const { PrismaClient } = await import("@prisma/client");
-    const gp = globalThis as unknown as { __outsidePrisma?: InstanceType<typeof PrismaClient> };
-    const client = gp.__outsidePrisma ?? new PrismaClient();
-    if (process.env.NODE_ENV !== "production") gp.__outsidePrisma = client;
-    return client;
-  } catch {
-    return null;
-  }
+  return database;
 }
 
 export async function getRecommendationStatuses(orgId: string, target: string): Promise<Map<string, RecommendationStatus>> {

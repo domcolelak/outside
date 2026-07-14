@@ -21,6 +21,7 @@ export interface User {
   email: string;
   name: string;
   passwordHash: string;
+  emailVerifiedAt: string | null;
   createdAt: string;
 }
 
@@ -65,7 +66,8 @@ export interface AuthStore {
   findUserByEmail(email: string): Promise<User | null>;
   getUser(id: string): Promise<User | null>;
   /** Create a user together with a personal organization + owner membership. */
-  createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string }): Promise<{ user: User; org: Organization }>;
+  createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }): Promise<{ user: User; org: Organization }>;
+  markEmailVerified(userId: string, email: string): Promise<boolean>;
   membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>>;
   getMembership(userId: string, orgId: string): Promise<Membership | null>;
   /** Members of an organization (for notifications). */

@@ -1,61 +1,43 @@
-import { NextRequest } from "next/server";
-import type { ScanResult } from "@/lib/types";
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionContext } from "@/lib/auth";
+import { targetEntitlement } from "@/lib/auth/entitlements";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
+import { sanitizeScanResult } from "@/lib/http/scan-input";
 import { renderReport } from "@/lib/report/render";
-import { rateLimit } from "@/lib/security/ratelimit";
+import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
+import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
+import { recordUsage } from "@/lib/usage/record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BODY = 3_000_000; // 3 MB — a scan result is far smaller in practice.
-
-/** Validate and defensively bound the client-supplied result before rendering. */
-function sanitize(raw: unknown): ScanResult | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as ScanResult;
-  if (!r.scanId || !r.target || !r.graph || !Array.isArray(r.graph.assets) || !r.score) return null;
-  // Bound array sizes to keep rendering cheap and abuse-resistant.
-  r.graph.assets = r.graph.assets.slice(0, 500);
-  r.graph.edges = Array.isArray(r.graph.edges) ? r.graph.edges.slice(0, 2000) : [];
-  r.findings = Array.isArray(r.findings) ? r.findings.slice(0, 200) : [];
-  return r;
-}
+function json(body: unknown, status: number) { return NextResponse.json(body, { status, headers: { "cache-control": "no-store" } }); }
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  const limit = rateLimit(`report:${ip}`, 20, 60_000);
-  if (!limit.ok) {
-    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { "content-type": "application/json" } });
-  }
-
-  const text = await req.text();
-  if (text.length > MAX_BODY) {
-    return new Response(JSON.stringify({ error: "Payload too large" }), { status: 413, headers: { "content-type": "application/json" } });
-  }
-
-  let parsed: unknown;
+  const ctx = await getSessionContext();
+  if (!ctx) return json({ error: "Not authenticated" }, 401);
+  let raw: unknown;
+  try { raw = await readLimitedJson(req, 1_000_000); }
+  catch (error) { return json({ error: (error as Error).message }, error instanceof RequestBodyError ? error.status : 400); }
+  const result = sanitizeScanResult(raw);
+  if (!result) return json({ error: "Invalid scan result" }, 422);
+  const entitlement = await targetEntitlement(ctx, result.target, { allowDemo: true });
+  if (!entitlement) return json({ error: "Verified target access is required" }, 403);
+  const limit = await requireBudgets([
+    { key: "report:global", limit: 120, windowMs: 60_000 },
+    { key: `report:client:${clientIdentity(req)}`, limit: 10, windowMs: 60_000 },
+    { key: `report:user:${ctx.user.id}`, limit: 50, windowMs: 24 * 60 * 60_000 },
+    { key: `report:org:${entitlement.orgId}`, limit: 500, windowMs: 30 * 24 * 60 * 60_000 },
+  ]);
+  if (!limit.ok) return json({ error: "Report usage limit exceeded", retryAfter: limit.retryAfter }, 429);
   try {
-    parsed = JSON.parse(text);
-  } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400, headers: { "content-type": "application/json" } });
-  }
-
-  const result = sanitize(parsed);
-  if (!result) {
-    return new Response(JSON.stringify({ error: "Invalid scan result" }), { status: 422, headers: { "content-type": "application/json" } });
-  }
-
-  try {
-    const pdf = await renderReport(result);
+    const pdf = await withConcurrency("report:global", 4, 60_000, () => renderReport(result));
+    await recordUsage(entitlement.orgId, ctx.user.id, "report");
     const safeName = result.target.replace(/[^a-z0-9.-]/gi, "_");
-    return new Response(pdf, {
-      headers: {
-        "content-type": "application/pdf",
-        "content-disposition": `attachment; filename="outside-${safeName}.pdf"`,
-        "cache-control": "no-store",
-      },
-    });
-  } catch (err) {
-    console.error("[report] generation failed:", err);
-    return new Response(JSON.stringify({ error: "Report generation failed" }), { status: 500, headers: { "content-type": "application/json" } });
+    return new Response(pdf, { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="outside-${safeName}.pdf"`, "cache-control": "no-store" } });
+  } catch (error) {
+    if (error instanceof CapacityError) return json({ error: error.message }, 503);
+    console.error("[report] generation failed", error);
+    return json({ error: "Report generation failed" }, 500);
   }
 }

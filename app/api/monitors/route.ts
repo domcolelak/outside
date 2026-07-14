@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { getMonitorStore, PLAN_MONITOR_LIMIT, type Frequency } from "@/lib/monitoring";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
+import { getStore } from "@/lib/persistence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof InvalidTargetError ? e.message : "Invalid domain" }, { status: 422 });
   }
   const frequency: Frequency = body.frequency === "weekly" ? "weekly" : "daily";
+
+  const verification = await (await getStore()).getVerification(domain);
+  if (verification?.status !== "verified" || verification.orgId !== orgId) {
+    return NextResponse.json({ error: "Verify ownership of this domain for the organization before monitoring it." }, { status: 403 });
+  }
 
   const store = await getMonitorStore();
   const existing = await store.list(orgId);
