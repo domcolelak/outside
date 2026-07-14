@@ -49,8 +49,14 @@ export async function GET(req: NextRequest) {
   } catch {
     return json({ status: "none" });
   }
+  const ctx = await getSessionContext();
+  if (!ctx) return json({ status: "none" });
   const store = await getStore();
-  const v = await store.getVerification(domain);
+  let v = null;
+  for (const membership of ctx.memberships) {
+    v = await store.getVerification(domain, membership.org.id);
+    if (v) break;
+  }
   return json({ status: v?.status ?? "none", durable: store.durable });
 }
 
@@ -77,12 +83,11 @@ export async function POST(req: NextRequest) {
   }
 
   const store = await getStore();
-  const existing = await store.getVerification(domain);
+  const orgId = String(payload.orgId ?? ctx.memberships[0]?.org.id ?? "");
+  if (!orgId || !hasOrgRole(ctx, orgId, "admin")) return json({ error: "Organization admin access required" }, 403);
+  const existing = await store.getVerification(domain, orgId);
 
   if (payload.action === "start") {
-    const orgId = String(payload.orgId ?? ctx.memberships[0]?.org.id ?? "");
-    if (!orgId || !hasOrgRole(ctx, orgId, "admin")) return json({ error: "Organization admin access required" }, 403);
-    if (existing?.orgId && existing.orgId !== orgId) return json({ error: "Domain is already claimed by another organization" }, 409);
     const token = existing?.token ?? issueToken(domain, verificationSecret());
     const v = await store.startVerification(domain, token, orgId);
     return json({
@@ -99,7 +104,6 @@ export async function POST(req: NextRequest) {
   if (payload.action === "check") {
     const v = existing;
     if (!v) return json({ error: "Start verification first." }, 409);
-    if (!v.orgId || !hasOrgRole(ctx, v.orgId, "admin")) return json({ error: "Organization admin access required" }, 403);
     if (v.status === "verified") return json({ status: "verified", verifiedAt: v.verifiedAt });
 
     // Accept EITHER method: DNS TXT or the well-known file.
@@ -111,7 +115,7 @@ export async function POST(req: NextRequest) {
     }
     const ok = dnsOk || (await checkFile(domain, v.token));
     if (ok) {
-      const verified = await store.markVerified(domain);
+      const verified = await store.markVerified(domain, orgId);
       return json({ status: "verified", verifiedAt: verified.verifiedAt, method: dnsOk ? "dns" : "file" });
     }
     return json({ status: "pending", found: false, expected: expectedTxtValue(v.token) });

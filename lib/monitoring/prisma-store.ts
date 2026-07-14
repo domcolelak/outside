@@ -27,11 +27,19 @@ export class PrismaMonitorStore implements MonitorStore {
   async list(orgId: string) {
     return (await prisma.monitor.findMany({ where: { orgId }, orderBy: { createdAt: "desc" } })).map(map);
   }
-  async create(input: { orgId: string; domain: string; frequency: Frequency }) {
-    const row = await prisma.monitor.create({
-      data: { orgId: input.orgId, domain: input.domain.toLowerCase(), frequency: input.frequency, nextRunAt: new Date() },
-    });
-    return map(row);
+  async create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`monitor:${input.orgId}`}))`;
+        const count = await tx.monitor.count({ where: { orgId: input.orgId } });
+        if (count >= (input.limit ?? Number.MAX_SAFE_INTEGER)) return null;
+        const row = await tx.monitor.create({ data: { orgId: input.orgId, domain: input.domain.toLowerCase(), frequency: input.frequency, nextRunAt: new Date() } });
+        return map(row);
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2002") return null;
+      throw error;
+    }
   }
   async setEnabled(id: string, orgId: string, enabled: boolean) {
     const res = await prisma.monitor.updateMany({ where: { id, orgId }, data: { enabled } });

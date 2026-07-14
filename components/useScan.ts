@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Asset, Edge, ScanEvent, ScanResult, ScanStage } from "@/lib/types";
+import { SCAN_STAGES } from "@/lib/discovery/stages";
 
 export interface LogLine {
   level: "info" | "add" | "signal" | "warn";
@@ -14,15 +15,6 @@ export interface StageState {
   label: string;
   status: "pending" | "active" | "done";
 }
-
-const STAGE_ORDER: Array<{ stage: ScanStage; label: string }> = [
-  { stage: "init", label: "Initializing external view" },
-  { stage: "certificates", label: "Reviewing certificate evidence" },
-  { stage: "dns", label: "Inspecting public DNS relationships" },
-  { stage: "correlate", label: "Correlating observed hostnames" },
-  { stage: "classify", label: "Classifying exposure signals" },
-  { stage: "score", label: "Calculating exposure score" },
-];
 
 export interface ScanState {
   status: "idle" | "scanning" | "done" | "error";
@@ -41,7 +33,7 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
     assets: [],
     edges: [],
     logs: [],
-    stages: STAGE_ORDER.map((s) => ({ ...s, status: "pending" })),
+    stages: SCAN_STAGES.map((s) => ({ ...s, status: "pending" })),
     result: null,
     error: null,
     latestAssetId: null,
@@ -56,7 +48,7 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
       assets: [],
       edges: [],
       logs: [],
-      stages: STAGE_ORDER.map((s) => ({ ...s, status: "pending" })),
+      stages: SCAN_STAGES.map((s) => ({ ...s, status: "pending" })),
       result: null,
       error: null,
       latestAssetId: null,

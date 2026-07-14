@@ -22,7 +22,7 @@ describe("authorizedTargetOrg", () => {
     await store.startVerification("acme.com", "token", "org_1");
     expect(await authorizedTargetOrg(context, "acme.com", "viewer")).toBeNull();
 
-    await store.markVerified("acme.com");
+    await store.markVerified("acme.com", "org_1");
     expect(await authorizedTargetOrg(context, "acme.com", "analyst")).toBe("org_1");
     expect(await authorizedTargetOrg({ ...context, memberships: [] }, "acme.com", "viewer")).toBeNull();
     expect(await authorizedTargetOrg(null, "acme.com", "viewer")).toBeNull();

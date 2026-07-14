@@ -44,7 +44,7 @@ export function nextRunAt(from: Date, frequency: Frequency): string {
 export interface MonitorStore {
   readonly durable: boolean;
   list(orgId: string): Promise<Monitor[]>;
-  create(input: { orgId: string; domain: string; frequency: Frequency }): Promise<Monitor>;
+  create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }): Promise<Monitor | null>;
   setEnabled(id: string, orgId: string, enabled: boolean): Promise<Monitor | null>;
   remove(id: string, orgId: string): Promise<boolean>;
   /** Atomically claim due work, excluding live leases. */
@@ -62,7 +62,9 @@ class InMemoryMonitorStore implements MonitorStore {
   async list(orgId: string) {
     return this.monitors.filter((m) => m.orgId === orgId);
   }
-  async create(input: { orgId: string; domain: string; frequency: Frequency }) {
+  async create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }) {
+    if (this.monitors.some((monitor) => monitor.orgId === input.orgId && monitor.domain === input.domain.toLowerCase())) return null;
+    if (this.monitors.filter((monitor) => monitor.orgId === input.orgId).length >= (input.limit ?? Number.MAX_SAFE_INTEGER)) return null;
     const now = new Date();
     const m: Monitor = {
       id: this.id(),

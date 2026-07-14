@@ -4,11 +4,10 @@ import { hashPassword } from "@/lib/auth/password";
 import { sessionCookie, signSession } from "@/lib/auth/session";
 import { exchangeGoogleCode, googleConfigured, OAUTH_STATE_COOKIE, verifyState } from "@/lib/auth/oauth";
 import { randomBytes } from "node:crypto";
+import { APP_URL } from "@/lib/config/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
 /** Google OAuth callback: verify state, exchange code, find-or-create the user. */
 export async function GET(req: NextRequest) {
