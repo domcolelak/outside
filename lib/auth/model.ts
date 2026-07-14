@@ -47,9 +47,11 @@ export interface Invite {
   orgId: string;
   email: string;
   role: Role;
-  token: string;
+  createdBy: string;
   createdAt: string;
+  expiresAt: string;
   acceptedAt: string | null;
+  revokedAt: string | null;
 }
 
 /** A user with the organizations they can access (for the session context). */
@@ -71,11 +73,11 @@ export interface AuthStore {
   setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void>;
   setPlan(orgId: string, plan: Organization["plan"]): Promise<void>;
   // Team invites.
-  createInvite(orgId: string, email: string, role: Role, token: string): Promise<Invite>;
+  createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite>;
   listInvites(orgId: string): Promise<Invite[]>;
   getInviteByToken(token: string): Promise<Invite | null>;
   /** Accept an invite: add membership + mark accepted. Returns the org/role, or null. */
-  acceptInvite(token: string, userId: string): Promise<{ orgId: string; role: Role } | null>;
+  acceptInvite(token: string, userId: string, userEmail: string): Promise<{ orgId: string; role: Role } | null>;
   /** Look up an org by its Stripe customer id (billing webhooks). */
   findOrgByStripeCustomer?(customerId: string): Promise<Organization | null>;
   setSubscription?(orgId: string, data: { plan: Organization["plan"]; stripeCustomerId?: string; stripeSubscriptionId?: string | null; status?: string | null }): Promise<void>;

@@ -22,7 +22,14 @@ export async function POST(req: NextRequest) {
   const invite = await store.getInviteByToken(token);
   if (!invite || invite.acceptedAt) return NextResponse.json({ error: "This invitation is invalid or already used." }, { status: 410 });
 
-  const result = await store.acceptInvite(token, ctx.user.id);
+  if (invite.revokedAt || Date.parse(invite.expiresAt) <= Date.now()) {
+    return NextResponse.json({ error: "This invitation has expired or was revoked." }, { status: 410 });
+  }
+  if (invite.email !== ctx.user.email.toLowerCase()) {
+    return NextResponse.json({ error: "Sign in with the email address this invitation was sent to." }, { status: 403 });
+  }
+
+  const result = await store.acceptInvite(token, ctx.user.id, ctx.user.email);
   if (!result) return NextResponse.json({ error: "Could not accept invitation." }, { status: 409 });
   return NextResponse.json({ ok: true, orgId: result.orgId, role: result.role });
 }

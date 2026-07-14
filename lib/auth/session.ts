@@ -5,8 +5,8 @@
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { authSecret, authVerificationSecrets } from "@/lib/config/secrets";
 
-const SECRET = process.env.AUTH_SECRET ?? "outside-dev-auth-secret-change-me";
 export const SESSION_COOKIE = "outside_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
@@ -16,8 +16,8 @@ function b64url(input: string): string {
 function unb64url(input: string): string {
   return Buffer.from(input, "base64url").toString("utf8");
 }
-function sign(payload: string): string {
-  return createHmac("sha256", SECRET).update(payload).digest("base64url");
+function sign(payload: string, secret = authSecret()): string {
+  return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
 export function signSession(uid: string, maxAgeSeconds = SESSION_MAX_AGE): string {
@@ -32,10 +32,12 @@ export function verifySession(token: string | undefined): { uid: string } | null
   if (dot < 1) return null;
   const payload = token.slice(0, dot);
   const sig = token.slice(dot + 1);
-  const expected = sign(payload);
   const sigBuf = Buffer.from(sig);
-  const expBuf = Buffer.from(expected);
-  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) return null;
+  const validSignature = authVerificationSecrets().some((secret) => {
+    const expected = Buffer.from(sign(payload, secret));
+    return sigBuf.length === expected.length && timingSafeEqual(sigBuf, expected);
+  });
+  if (!validSignature) return null;
   try {
     const { uid, exp } = JSON.parse(unb64url(payload)) as { uid: string; exp: number };
     if (!uid || typeof exp !== "number" || exp < Math.floor(Date.now() / 1000)) return null;
