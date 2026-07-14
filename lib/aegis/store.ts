@@ -2,6 +2,7 @@
 
 import type { AuditEvent, Posture, RecommendationStatus } from "./types";
 import { prisma as database } from "@/lib/db/prisma";
+import { storageMode } from "@/lib/config/storage";
 
 const g = globalThis as unknown as {
   __outsideRecStatus?: Map<string, Map<string, RecommendationStatus>>;
@@ -19,7 +20,7 @@ function scopeKey(orgId: string, target: string) {
 }
 
 async function prisma() {
-  if (!process.env.DATABASE_URL) return null;
+  if (storageMode() !== "database") return null;
   return database;
 }
 
