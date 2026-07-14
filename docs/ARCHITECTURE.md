@@ -45,6 +45,14 @@ Organizations own targets, verification records, scans, monitors, recommendation
 
 Temporal persistence separates stable `AssetIdentity` rows from per-scan `AssetSnapshot` rows. `certKey` is durable. Consecutive snapshots generate new, returned, disappeared, technology, priority, and certificate change events. The system preserves the earliest observed timestamp rather than replacing it with later CT evidence.
 
+## Guardian continuous intelligence
+
+Guardian is a premium subsystem layered on the same verified discovery pipeline. It does not run a second scanner. Each paid-organization scan produces a full normalized `GuardianSnapshot` containing the current inventory, checklist evidence, and aggregate metrics. Correlation compares consecutive observations and longer presence history to distinguish a new asset from a returning or flapping asset, detect exact DNS/mail/certificate/redirect/provider transitions, and emit expiry milestones only when thresholds are crossed.
+
+Exposure Drift compares the latest observation with a factual monthly baseline across asset count, shadow signals, identity/API surfaces, non-production exposure, technology diversity, provider complexity, checklist posture, and exposure score. Recommendations are deterministic projections of actionable checklist states or correlated events. Every recommendation retains evidence, confidence, reasoning, affected assets, suggested review, business impact, and provider-aware remediation guides. AI is not in this decision path.
+
+Guardian notification records form a durable outbox with atomic `SKIP LOCKED` claims, leases, bounded exponential retries, delivery history, and five-attempt terminal failure. High-severity events notify immediately; medium events require a related group of at least three. Channel credentials are encrypted with AES-256-GCM under an independent key. Slack, Teams, Discord, generic webhooks, Jira, GitHub Issues, and Linear requests resolve destinations immediately before each request, reject any special-use address, and pin HTTPS to the validated IP to prevent DNS rebinding. Weekly digests are unique by organization, target, and ISO week.
+
 ## Background and external work
 
 The cron route uses database claims with leases and `SKIP LOCKED`, bounded worker concurrency, deterministic run identifiers, and retry backoff. A crashed worker's lease can be reclaimed. Monitor creation serializes quota enforcement and duplicate checks.

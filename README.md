@@ -2,6 +2,8 @@
 
 OUTSIDE is a defensive external-surface discovery and monitoring application. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and an exposure score, and tracks change for verified organizations.
 
+OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe.
+
 The application is a single Next.js 15 App Router deployment using TypeScript, React 19, Prisma, PostgreSQL, Vitest, and `@react-pdf/renderer`.
 
 ## Capability boundary
@@ -59,6 +61,7 @@ Key areas:
 - `lib/persistence`: tenant-scoped temporal identity, snapshots, diffs, and history.
 - `lib/monitoring`: atomic monitor claims, retry/backoff, and scheduled scans.
 - `lib/aegis`: recommendations, proposal validation, status, and audit trail.
+- `lib/guardian`: continuous snapshots, event correlation, Exposure Drift, checklist controls, recommendation/remediation generation, encrypted integrations, retryable delivery, and executive digests.
 - `lib/auth`: signed sessions, RBAC, invites, OAuth, and email verification.
 - `lib/email`: durable outbox, templates, provider deadlines, and alerts.
 - `components/graph`: canvas graph with Barnes-Hut scaling, reconciliation, culling, and idle suspension.
@@ -90,6 +93,8 @@ npm run start
 ```
 
 Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
+
+Paid deployments that enable Guardian workflow integrations must configure an independent 32-byte `GUARDIAN_ENCRYPTION_KEY`. Integration destinations are validated as HTTPS, resolved immediately before delivery, required to resolve exclusively to public IP addresses, and contacted through an IP-pinned connection with hostname verification.
 
 ## License
 
