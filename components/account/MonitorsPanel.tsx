@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Monitor } from "@/lib/monitoring";
 
 const LIMIT: Record<string, number> = { free: 1, professional: 5, agency: 30 };
@@ -13,15 +13,15 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
   const [loading, setLoading] = useState(true);
   const limit = LIMIT[plan] ?? 1;
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await fetch(`/api/monitors?orgId=${orgId}`);
     const data = await res.json();
     setMonitors(data.monitors ?? []);
     setLoading(false);
-  };
-  useEffect(() => {
-    load();
   }, [orgId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -5,7 +5,7 @@ import type { SessionContext } from "./model";
 import { authorizedTargetOrg } from "./target-access";
 
 const context: SessionContext = {
-  user: { id: "user_1", email: "owner@acme.com", name: "Owner", emailVerifiedAt: new Date(0).toISOString(), createdAt: new Date(0).toISOString() },
+  user: { id: "user_1", email: "owner@acme.com", name: "Owner", emailVerifiedAt: new Date(0).toISOString(), sessionVersion: 0, createdAt: new Date(0).toISOString() },
   memberships: [{
     org: { id: "org_1", name: "Acme", slug: "acme", plan: "free", createdAt: new Date(0).toISOString() },
     role: "owner",

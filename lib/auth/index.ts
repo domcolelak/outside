@@ -31,7 +31,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
   if (!session) return null;
   const store = await getAuthStore();
   const user = await store.getUser(session.uid);
-  if (!user) return null;
+  if (!user || user.sessionVersion !== session.version) return null;
   const memberships = await store.membershipsForUser(user.id);
   const { passwordHash, ...safe } = user;
   void passwordHash;

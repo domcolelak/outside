@@ -22,6 +22,7 @@ export interface User {
   name: string;
   passwordHash: string;
   emailVerifiedAt: string | null;
+  sessionVersion: number;
   createdAt: string;
 }
 
@@ -68,6 +69,8 @@ export interface AuthStore {
   /** Create a user together with a personal organization + owner membership. */
   createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }): Promise<{ user: User; org: Organization }>;
   markEmailVerified(userId: string, email: string): Promise<boolean>;
+  /** Invalidates every previously issued session for the user. */
+  revokeSessions(userId: string): Promise<number>;
   membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>>;
   getMembership(userId: string, orgId: string): Promise<Membership | null>;
   /** Members of an organization (for notifications). */

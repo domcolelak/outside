@@ -1,6 +1,7 @@
 import type { AuthStore, Invite, Membership, Organization, Role, User } from "./model";
 import { hashInviteToken, inviteExpiresAt } from "./invites";
 import { slugifyOrganization } from "./validation";
+import { randomUUID } from "node:crypto";
 
 /** Zero-config in-memory auth store. Resets on restart — durable path is Prisma. */
 export class InMemoryAuthStore implements AuthStore {
@@ -17,7 +18,7 @@ export class InMemoryAuthStore implements AuthStore {
   }
 
   private id(p: string) {
-    return `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return `${p}_${randomUUID()}`;
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
@@ -30,7 +31,7 @@ export class InMemoryAuthStore implements AuthStore {
 
   async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
-    const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date().toISOString() : null, createdAt: new Date().toISOString() };
+    const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date().toISOString() : null, sessionVersion: 0, createdAt: new Date().toISOString() };
     const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free", createdAt: new Date().toISOString() };
     this.users.set(user.id, user);
     this.byEmail.set(email, user.id);
@@ -44,6 +45,13 @@ export class InMemoryAuthStore implements AuthStore {
     if (!user || user.email !== email.toLowerCase()) return false;
     user.emailVerifiedAt = new Date().toISOString();
     return true;
+  }
+
+  async revokeSessions(userId: string): Promise<number> {
+    const user = this.users.get(userId);
+    if (!user) return 0;
+    user.sessionVersion += 1;
+    return user.sessionVersion;
   }
 
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {

@@ -6,7 +6,9 @@ export function appUrl(): string {
   const configured = process.env.APP_URL?.trim();
   if (!configured) return DEFAULT_APP_URL;
   try {
-    return new URL(configured).origin;
+    const url = new URL(configured);
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("unsupported protocol");
+    return url.origin;
   } catch {
     throw new Error("APP_URL must be an absolute http(s) URL.");
   }

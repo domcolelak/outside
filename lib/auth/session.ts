@@ -20,13 +20,13 @@ function sign(payload: string, secret = authSecret()): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-export function signSession(uid: string, maxAgeSeconds = SESSION_MAX_AGE): string {
+export function signSession(uid: string, maxAgeSeconds = SESSION_MAX_AGE, version = 0): string {
   const exp = Math.floor(Date.now() / 1000) + maxAgeSeconds;
-  const payload = b64url(JSON.stringify({ uid, exp }));
+  const payload = b64url(JSON.stringify({ uid, exp, ver: version }));
   return `${payload}.${sign(payload)}`;
 }
 
-export function verifySession(token: string | undefined): { uid: string } | null {
+export function verifySession(token: string | undefined): { uid: string; version: number } | null {
   if (!token) return null;
   const dot = token.indexOf(".");
   if (dot < 1) return null;
@@ -39,9 +39,9 @@ export function verifySession(token: string | undefined): { uid: string } | null
   });
   if (!validSignature) return null;
   try {
-    const { uid, exp } = JSON.parse(unb64url(payload)) as { uid: string; exp: number };
-    if (!uid || typeof exp !== "number" || exp < Math.floor(Date.now() / 1000)) return null;
-    return { uid };
+    const { uid, exp, ver } = JSON.parse(unb64url(payload)) as { uid: string; exp: number; ver: number };
+    if (!uid || typeof exp !== "number" || !Number.isSafeInteger(ver) || ver < 0 || exp < Math.floor(Date.now() / 1000)) return null;
+    return { uid, version: ver };
   } catch {
     return null;
   }
@@ -53,5 +53,6 @@ export function sessionCookie(token: string): string {
 }
 
 export function clearedSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax;${secure} Max-Age=0`;
 }
