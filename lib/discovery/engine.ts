@@ -22,7 +22,7 @@ import type {
   ProviderRun,
 } from "@/lib/types";
 import { mapPool } from "./net";
-import { certificateTransparency, resolveHost, resolveMailAndNs } from "./providers";
+import { certificateTransparency, domainRegistration, resolveHost, resolveMailAndNs } from "./providers";
 import type { CtHostname } from "./providers";
 import { observeHttp } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
@@ -191,15 +191,27 @@ export async function runPassiveScan(
   let ctHosts: CtHostname[] = [];
   await stage(emit, "certificates", async () => {
     const started = new Date();
-    try {
-      const rows = await certificateTransparency(domain, signal);
-      ctHosts = rows;
-      providerRuns.push({ provider: "crt.sh", method: "certificate_transparency", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: rows.length, errors: [] });
+    const [certificateResult, registrationResult] = await Promise.allSettled([
+      certificateTransparency(domain, signal),
+      domainRegistration(domain, signal),
+    ]);
+    signal?.throwIfAborted();
+    if (certificateResult.status === "fulfilled") {
+      ctHosts = certificateResult.value;
+      providerRuns.push({ provider: "crt.sh", method: "certificate_transparency", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: ctHosts.length, errors: [] });
       await emit({ type: "log", level: "info", message: `${ctHosts.length} candidate hostname(s) from certificate transparency` });
-    } catch (e) {
-      if (signal?.aborted) throw e;
-      providerRuns.push({ provider: "crt.sh", method: "certificate_transparency", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(e as Error).message] });
-      await emit({ type: "log", level: "warn", message: `Certificate transparency lookup failed: ${(e as Error).message}` });
+    } else {
+      providerRuns.push({ provider: "crt.sh", method: "certificate_transparency", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(certificateResult.reason as Error).message] });
+      await emit({ type: "log", level: "warn", message: `Certificate transparency lookup failed: ${(certificateResult.reason as Error).message}` });
+    }
+    if (registrationResult.status === "fulfilled") {
+      const registration = registrationResult.value;
+      if (registration.expiresAt) root.attrs.domainExpiresAt = registration.expiresAt;
+      if (typeof registration.daysToExpiry === "number") root.attrs.domainDaysToExpiry = registration.daysToExpiry;
+      if (registration.registrar) root.attrs.registrar = registration.registrar;
+      providerRuns.push({ provider: "RDAP bootstrap", method: "domain_registration", status: registration.expiresAt ? "ok" : "partial", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: registration.expiresAt ? 1 : 0, errors: [] });
+    } else {
+      providerRuns.push({ provider: "RDAP bootstrap", method: "domain_registration", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(registrationResult.reason as Error).message] });
     }
   });
 
@@ -210,7 +222,7 @@ export async function runPassiveScan(
 
   await stage(emit, "dns", async () => {
     const started = new Date();
-    const results = await mapPool(candidates, 6, (host) => resolveHost(host, signal), signal);
+    const results = await mapPool([domain, ...candidates], 6, (host) => resolveHost(host, signal), signal);
     const errors = results.filter((item) => item.error).map((item) => (item.error as Error).message).slice(0, 20);
     providerRuns.push({ provider: "Cloudflare DoH", method: "dns", status: errors.length ? "partial" : "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: results.filter((item) => item.value).length, errors });
     let t = 4;
@@ -219,6 +231,11 @@ export async function runPassiveScan(
       const rec = r.value;
       const resolves = !!rec && (rec.a.length > 0 || rec.aaaa.length > 0);
       if (!resolves) continue; // only surface hostnames that resolve publicly
+      if (host === domain) {
+        root.attrs.addresses = [...rec.a, ...rec.aaaa];
+        root.evidence.push(ev("dns", "DoH", `Root domain resolves publicly (${[...rec.a, ...rec.aaaa].slice(0, 2).join(", ")}).`, undefined, now));
+        continue;
+      }
       const kind = classifyKind(host, true);
       const firstSeen = ctByHost.get(host)?.firstSeen;
       const a = asset({
@@ -246,18 +263,23 @@ export async function runPassiveScan(
     const started = new Date();
     try {
       const mailCfg = await resolveMailAndNs(domain, signal);
-      providerRuns.push({ provider: "Cloudflare DoH", method: "dns_mx", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: mailCfg.mx.length + mailCfg.ns.length, errors: [] });
-      if (mailCfg.mx.length > 0) {
+      root.attrs.nameservers = mailCfg.ns;
+      root.attrs.dnssec = mailCfg.dnssec;
+      if (mailCfg.dnsProvider) root.attrs.dnsProvider = mailCfg.dnsProvider;
+      root.evidence.push(ev("dns", "DoH", `Observed ${mailCfg.ns.length} authoritative nameserver(s); DNSSEC DS ${mailCfg.dnssec}.`, mailCfg.dnsProvider ? `provider signal: ${mailCfg.dnsProvider}` : undefined, now));
+      providerRuns.push({ provider: "Cloudflare DoH", method: "dns_mx", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: mailCfg.mx.length + mailCfg.ns.length + 4, errors: [] });
+      if (mailCfg.mx.length > 0 || [mailCfg.spf, mailCfg.dmarc, mailCfg.mtaSts].some((value) => value !== "missing")) {
         const mail = asset({
           kind: "mail_service",
-          label: mailCfg.mx[0]!,
-          discoveredVia: ["dns_mx"],
+          label: `mail:${reg}`,
+          discoveredVia: ["dns_mx", "dns_txt"],
           evidence: [
             ev("dns_mx", "DoH", `MX record designates ${mailCfg.mx.length} mail exchanger(s).`, undefined, now),
             ev("dns_txt", "DoH", mailCfg.spf === "present" ? "SPF policy present." : "No SPF policy observed.", undefined, now),
+            ev("dns_txt", "DoH", `DMARC policy state: ${mailCfg.dmarc}; MTA-STS TXT state: ${mailCfg.mtaSts}.`, undefined, now),
           ],
           orgConfidence: 0.9,
-          attrs: { protocols: ["SMTP"], spf: mailCfg.spf, mx: mailCfg.mx },
+          attrs: { protocols: ["SMTP"], spf: mailCfg.spf, dmarc: mailCfg.dmarc, mtaSts: mailCfg.mtaSts, mx: mailCfg.mx, ...(mailCfg.mailProvider ? { mailProvider: mailCfg.mailProvider } : {}) },
         });
         assets.push(mail);
         const e = edge(root, mail, "mail_for", 0.95, [ev("dns_mx", "DoH", "MX record for the root domain.", undefined, now)]);
@@ -290,6 +312,11 @@ export async function runPassiveScan(
         primary.attrs.presentHeaders = obs.presentHeaders;
         if (obs.server) primary.attrs.server = obs.server;
         if (obs.status) primary.attrs.status = String(obs.status);
+        primary.attrs.https = obs.httpsVerified ? "observed" : "unverified";
+        primary.attrs.tlsValidation = obs.httpsVerified ? "valid" : "unverified";
+        primary.attrs.securityTxt = obs.securityTxt;
+        if (obs.redirectLocation) primary.attrs.redirectLocation = obs.redirectLocation;
+        if (!primary.discoveredVia.includes("http_observation")) primary.discoveredVia.push("http_observation");
         if (obs.cert?.issuer) primary.attrs.certIssuer = obs.cert.issuer;
         if (obs.cert?.validTo) primary.attrs.certNotAfter = obs.cert.validTo;
         if (typeof obs.cert?.daysToExpiry === "number") primary.attrs.certDaysToExpiry = obs.cert.daysToExpiry;

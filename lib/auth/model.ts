@@ -73,6 +73,7 @@ export interface AuthStore {
   revokeSessions(userId: string): Promise<number>;
   membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>>;
   getMembership(userId: string, orgId: string): Promise<Membership | null>;
+  getOrganization(orgId: string): Promise<Organization | null>;
   /** Members of an organization (for notifications). */
   orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>>;
   setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void>;

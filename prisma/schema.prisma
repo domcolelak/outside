@@ -133,34 +133,41 @@ model EmailOutbox {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String
-  passwordHash String
+  id              String       @id @default(cuid())
+  email           String       @unique
+  name            String
+  passwordHash    String
   // Default verifies legacy rows during additive migration; all new password
   // signups explicitly write null until the signed verification link is used.
-  emailVerifiedAt DateTime? @default(now())
-  sessionVersion Int          @default(0)
-  createdAt    DateTime     @default(now())
-  memberships  Membership[]
+  emailVerifiedAt DateTime?    @default(now())
+  sessionVersion  Int          @default(0)
+  createdAt       DateTime     @default(now())
+  memberships     Membership[]
 
   @@map("users")
 }
 
 model Organization {
-  id                   String       @id @default(cuid())
-  name                 String
-  slug                 String
-  plan                 Plan         @default(free)
-  stripeCustomerId     String?      @unique
-  stripeSubscriptionId String?
-  subscriptionStatus   String?
-  createdAt            DateTime     @default(now())
-  memberships          Membership[]
-  monitors             Monitor[]
-  invites              Invite[]
-  targets              Target[]
-  verifications        DomainVerification[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  slug                    String
+  plan                    Plan                     @default(free)
+  stripeCustomerId        String?                  @unique
+  stripeSubscriptionId    String?
+  subscriptionStatus      String?
+  createdAt               DateTime                 @default(now())
+  memberships             Membership[]
+  monitors                Monitor[]
+  invites                 Invite[]
+  targets                 Target[]
+  verifications           DomainVerification[]
+  guardianSnapshots       GuardianSnapshot[]
+  guardianEvents          GuardianEvent[]
+  guardianRecommendations GuardianRecommendation[]
+  guardianChannels        GuardianChannel[]
+  guardianDeliveries      GuardianDelivery[]
+  guardianDigests         GuardianDigest[]
+  guardianActivities      GuardianActivity[]
 
   @@map("organizations")
 }
@@ -199,18 +206,18 @@ model Invite {
 }
 
 model Monitor {
-  id         String       @id @default(cuid())
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  org        Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId      String
   domain     String
   frequency  MonitorFrequency @default(daily)
-  enabled    Boolean      @default(true)
+  enabled    Boolean          @default(true)
   lastScanAt DateTime?
   nextRunAt  DateTime
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime         @default(now())
   leaseId    String?
   leaseUntil DateTime?
-  attempts   Int          @default(0)
+  attempts   Int              @default(0)
   lastError  String?
 
   @@unique([orgId, domain])
@@ -232,18 +239,157 @@ model Target {
 }
 
 model Scan {
-  id         String         @id
-  orgId      String
-  target     Target         @relation(fields: [targetId], references: [id], onDelete: Cascade)
-  targetId   String
-  finishedAt DateTime
-  mode       ScanMode
-  scoreValue Int
-  assetCount Int
-  snapshots  AssetSnapshot[]
+  id               String            @id
+  orgId            String
+  target           Target            @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  targetId         String
+  finishedAt       DateTime
+  mode             ScanMode
+  scoreValue       Int
+  assetCount       Int
+  snapshots        AssetSnapshot[]
+  guardianSnapshot GuardianSnapshot?
+  guardianEvents   GuardianEvent[]
 
   @@index([targetId, finishedAt])
   @@map("scans")
+}
+
+model GuardianSnapshot {
+  id            String       @id @default(cuid())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId         String
+  scan          Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId        String       @unique
+  target        String
+  observedAt    DateTime
+  exposureScore Int
+  metrics       Json
+  inventory     Json
+  checklist     Json
+
+  @@index([orgId, target, observedAt])
+  @@map("guardian_snapshots")
+}
+
+model GuardianEvent {
+  id             String       @id
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId          String
+  scan           Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId         String
+  target         String
+  type           String
+  category       String
+  severity       Priority
+  confidence     Float
+  title          String
+  summary        String
+  why            String
+  affectedAssets String[]
+  evidence       Json
+  groupKey       String
+  observedAt     DateTime
+
+  @@unique([orgId, scanId, groupKey])
+  @@index([orgId, target, observedAt])
+  @@index([orgId, severity, observedAt])
+  @@map("guardian_events")
+}
+
+model GuardianRecommendation {
+  id              String               @id
+  org             Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId           String
+  target          String
+  code            String
+  status          RecommendationStatus @default(open)
+  priority        Priority
+  confidence      Float
+  title           String
+  why             String
+  reasoning       String
+  affectedAssets  String[]
+  evidence        Json
+  suggestedReview String
+  businessImpact  String
+  guides          Json
+  firstObservedAt DateTime
+  lastObservedAt  DateTime
+
+  @@unique([orgId, target, code])
+  @@index([orgId, target, status, priority])
+  @@map("guardian_recommendations")
+}
+
+model GuardianChannel {
+  id              String             @id @default(cuid())
+  org             Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId           String
+  type            String
+  name            String
+  encryptedConfig String
+  destinationHint String
+  enabled         Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deliveries      GuardianDelivery[]
+
+  @@index([orgId, enabled])
+  @@map("guardian_channels")
+}
+
+model GuardianDelivery {
+  id             String           @id @default(cuid())
+  idempotencyKey String           @unique
+  org            Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId          String
+  channel        GuardianChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  channelId      String?
+  channelType    String
+  target         String
+  kind           String
+  status         String           @default("pending")
+  itemCount      Int
+  payload        Json
+  attempts       Int              @default(0)
+  nextAttemptAt  DateTime         @default(now())
+  leaseId        String?
+  leasedUntil    DateTime?
+  lastError      String?
+  createdAt      DateTime         @default(now())
+  deliveredAt    DateTime?
+
+  @@index([status, nextAttemptAt, leasedUntil])
+  @@index([orgId, createdAt])
+  @@map("guardian_deliveries")
+}
+
+model GuardianDigest {
+  id          String       @id @default(cuid())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  target      String
+  weekOf      DateTime
+  generatedAt DateTime
+  content     Json
+
+  @@unique([orgId, target, weekOf])
+  @@index([orgId, generatedAt])
+  @@map("guardian_digests")
+}
+
+model GuardianActivity {
+  id        String       @id
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  target    String
+  type      String
+  message   String
+  createdAt DateTime
+
+  @@index([orgId, createdAt])
+  @@map("guardian_activity")
 }
 
 model AssetIdentity {
@@ -278,7 +424,7 @@ model RecommendationState {
   target    String
   recId     String
   status    RecommendationStatus
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime             @updatedAt
 
   @@id([orgId, target, recId])
   @@index([orgId, target])
@@ -306,12 +452,12 @@ model ProcessedEvent {
 }
 
 model DomainVerification {
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId      String
   domain     String
   token      String
   status     VerificationStatus @default(pending)
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime           @default(now())
   verifiedAt DateTime?
 
   @@id([orgId, domain])

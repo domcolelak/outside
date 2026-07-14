@@ -46,6 +46,11 @@ export class PrismaAuthStore implements AuthStore {
     return m ? { userId: m.userId, orgId: m.orgId, role: m.role as Role, notifyChanges: m.notifyChanges } : null;
   }
 
+  async getOrganization(orgId: string): Promise<Organization | null> {
+    const row = await prisma.organization.findUnique({ where: { id: orgId } });
+    return row ? this.mapOrg(row) : null;
+  }
+
   async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>> {
     const rows = await prisma.membership.findMany({ where: { orgId }, include: { user: true } });
     return rows.map((r) => ({ email: r.user.email, name: r.user.name, role: r.role as Role, notifyChanges: r.notifyChanges }));

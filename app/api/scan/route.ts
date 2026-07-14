@@ -13,6 +13,7 @@ import type { ScanEvent } from "@/lib/types";
 import { getSessionContext } from "@/lib/auth";
 import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
+import { processGuardianScan } from "@/lib/guardian/process";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,10 @@ export async function GET(req: NextRequest) {
           const result = await runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal });
           // Persist + derive change detection against this target's history.
           const store = await getStore();
-          if (orgId) await recordScan(store, result, orgId);
+          if (orgId) {
+            const persisted = await recordScan(store, result, orgId);
+            if (persisted) await processGuardianScan(orgId, result, { notify: false, weeklyDigest: false });
+          }
           // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
