@@ -51,6 +51,7 @@ export class PrismaMonitorStore implements MonitorStore {
     const res = await prisma.monitor.deleteMany({ where: { id, orgId } });
     return res.count > 0;
   }
+  async scheduleNow(orgIds: string[], at = new Date()) { if (!orgIds.length) return 0; return (await prisma.monitor.updateMany({ where: { orgId: { in: orgIds }, enabled: true }, data: { nextRunAt: at, leaseId: null, leaseUntil: null } })).count; }
   async claimDue(now: Date, limit: number, leaseMs: number) {
     const leaseId = randomUUID();
     const rows = await prisma.$queryRaw<MonitorRow[]>`

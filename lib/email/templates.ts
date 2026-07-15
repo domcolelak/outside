@@ -60,6 +60,17 @@ export function inviteEmail(to: string, orgName: string, role: string, acceptUrl
   return { to, subject: `You're invited to ${orgName} on OUTSIDE`, html, text: `You've been invited to join ${orgName} as ${role} on OUTSIDE.\nAccept: ${acceptUrl}` };
 }
 
+export function agencyInviteEmail(to: string, agencyName: string, role: string, acceptUrl: string, branding?: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }): EmailMessage {
+  const sender = branding?.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`;
+  const color = /^#[0-9a-f]{6}$/i.test(branding?.primaryColor ?? "") ? branding!.primaryColor! : "#38e1c3";
+  const footer = branding?.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : "";
+  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">You've been invited to the <strong style="color:#e8edf6;">${escapeHtml(agencyName)}</strong> security workspace as <strong style="color:#e8edf6;">${escapeHtml(role)}</strong>.</p><a href="${escapeHtml(acceptUrl)}" style="display:inline-block;margin:12px 0;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Open secure invitation</a>${footer}`;
+  const html = branding?.whiteLabel
+    ? `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-size:15px;letter-spacing:2px;font-weight:700;color:#e8edf6;">${escapeHtml(sender)}</div><div style="height:1px;background:rgba(148,173,214,0.14);margin:20px 0;"></div><h1 style="font-size:20px;margin:0 0 12px;color:#e8edf6;">You're invited by ${escapeHtml(agencyName)}</h1>${body}</div></body></html>`
+    : shell(`You're invited by ${agencyName}`, body);
+  return { to, subject: `${sender}: secure workspace invitation`, html, text: `${agencyName} invited you as ${role}. Accept: ${acceptUrl}${branding?.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
+}
+
 export function welcomeEmail(to: string, name: string, verificationUrl?: string): EmailMessage {
   const actionUrl = verificationUrl ?? APP_URL;
   const actionLabel = verificationUrl ? "Verify email" : "Open OUTSIDE";

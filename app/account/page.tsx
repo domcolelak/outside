@@ -22,6 +22,7 @@ export default async function AccountPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link href="/"><Wordmark className="h-6" /></Link>
           <div className="flex items-center gap-3">
+            {ctx.memberships.some((m) => m.org.plan === "agency") && <Link href="/agency" className="mono text-xs text-signal hover:text-signal-bright">Agency Suite</Link>}
             <Link href="/guardian" className="mono text-xs text-signal hover:text-signal-bright">Guardian</Link>
             <Link href="/integrations" className="mono text-xs text-ink-soft hover:text-ink">Integrations</Link>
             <Link href="/scan?target=northstar&mode=demo" className="mono text-xs text-ink-soft hover:text-ink">Run a scan</Link>

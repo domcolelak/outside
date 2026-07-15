@@ -83,6 +83,19 @@ The complete design and operational trade-offs are in [`docs/ARCHITECTURE.md`](d
 
 This is defensive discovery software. It intentionally contains no exploitation, credential attack, brute-force, or payload capability.
 
+## Agency Suite
+
+Agency Suite is the Agency-plan control plane for MSPs, MSSPs, consultants, and resellers. It layers an explicitly authorized portfolio relationship over existing organizations; it does not weaken organization tenancy or copy Guardian evidence into a second source of truth.
+
+- `/agency` provides portfolio health, customer grouping, risk heatmaps, Portfolio Guardian, cross-customer asset/finding search, analyst priorities, change feeds, and bulk scan/report workflows.
+- Agency RBAC separates owner, admin, manager, analyst, billing, and viewer duties. API keys use hashed secrets and narrow scopes.
+- Client linking requires an owner session for the client organization. Client portal invitations are hashed, expiring, single-use grants and the portal exposes only shared findings and notes.
+- White-label branding includes verified custom domains, branded email, logo/colors, support identity, and report-ready branding snapshots.
+- Per-client service tier, SLA target, notification routing, portal mode, billing mode, price, currency, grouping, and external reference support agency operations and reseller billing hierarchies.
+- Bulk jobs are idempotent. Bulk scans only make already-configured, verified monitors due; they never create or scan an unverified target.
+
+Set `OUTSIDE_AGENCY_SEAT_LIMIT` to the licensed active-seat plus pending-invite ceiling (default `100`). Apply migrations before enabling Agency Suite in database mode.
+
 ## Deployment
 
 Deploy to a Node.js host with PostgreSQL. Run migrations before starting the application:
