@@ -1,10 +1,13 @@
-import type { AgencyActivity, AgencyApiKey, AgencyBulkJob, AgencyClient, AgencyFindingShare, AgencyGroup, AgencyInvite, AgencyMembership, AgencyNote, AgencyReport, AgencyRole, AgencyWorkspace } from "./types";
+import type { AgencyActivity, AgencyApiKey, AgencyBulkJob, AgencyClient, AgencyFindingShare, AgencyGroup, AgencyInvite, AgencyMembership, AgencyNote, AgencyReport, AgencyRole, AgencySlaEvent, AgencyWorkspace } from "./types";
 
 export interface AgencyStore {
   readonly durable: boolean;
   workspaceForUser(userId: string): Promise<{ workspace: AgencyWorkspace; membership: AgencyMembership } | null>;
+  workspacesForUser(userId: string): Promise<Array<{ workspace: AgencyWorkspace; membership: AgencyMembership }>>;
+  workspaceByCustomDomain(domain: string): Promise<AgencyWorkspace | null>;
   membershipForUser(agencyId: string, userId: string): Promise<AgencyMembership | null>;
   workspace(id: string): Promise<AgencyWorkspace | null>;
+  allWorkspaces(): Promise<AgencyWorkspace[]>;
   createWorkspace(input: { ownerOrgId: string; ownerUserId: string; name: string; slug: string }): Promise<AgencyWorkspace>;
   updateWorkspace(id: string, patch: Partial<Pick<AgencyWorkspace, "name" | "consultantMode" | "resellerParentId">> & { branding?: Partial<AgencyWorkspace["branding"]> }): Promise<AgencyWorkspace | null>;
   memberships(agencyId: string): Promise<AgencyMembership[]>;
@@ -34,4 +37,11 @@ export interface AgencyStore {
   hasPortalInvite(agencyId: string, clientId: string, userId: string): Promise<boolean>;
   createReport(input: { agencyId: string; clientOrgId?: string | null; periodStart: string; periodEnd: string; kind: AgencyReport["kind"]; title: string; content: Record<string, unknown>; branding: AgencyWorkspace["branding"]; createdBy: string }): Promise<AgencyReport>;
   reports(agencyId: string, limit?: number): Promise<AgencyReport[]>;
+  report(agencyId: string, id: string): Promise<AgencyReport | null>;
+  createReportShare(input: { agencyId: string; reportId: string; email: string; tokenHash: string; expiresAt: string }): Promise<void>;
+  authorizeReportShare(agencyId: string, reportId: string, tokenHash: string, now: Date): Promise<boolean>;
+  purgeExpiredReportShares(now: Date): Promise<number>;
+  slaEvents(agencyId: string, clientId?: string): Promise<AgencySlaEvent[]>;
+  upsertSlaEvent(input: { agencyId: string; clientId: string; findingId: string; priority: AgencySlaEvent["priority"]; openedAt: string; dueAt: string; lastObservedAt: string; resolved: boolean }): Promise<AgencySlaEvent>;
+  updateSlaEvent(agencyId: string, id: string, patch: { acknowledgeBy?: string; resolve?: boolean; escalated?: boolean }): Promise<AgencySlaEvent | null>;
 }

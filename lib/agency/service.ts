@@ -13,12 +13,12 @@ async function mapConcurrent<T, R>(items: T[], concurrency: number, work: (item:
 export async function portfolioOverview(agencyId: string, role: AgencyRole): Promise<PortfolioOverview> {
   const store = await getAgencyStore();
   const workspace = await store.workspace(agencyId); if (!workspace) throw new Error("Agency workspace not found");
-  const [clients, groups, activity] = await Promise.all([store.clients(agencyId), store.groups(agencyId), store.activity(agencyId, 80)]);
+  const [clients, groups, activity, slaEvents] = await Promise.all([store.clients(agencyId), store.groups(agencyId), store.activity(agencyId, 80), store.slaEvents(agencyId)]);
   const guardianStore = await getGuardianStore();
   const overviews = await mapConcurrent(clients, 8, async (client) => {
     try { return await guardianStore.overview(client.orgId); } catch { return null; }
   });
-  const health = clients.map((client, index) => clientHealth(client, overviews[index] ?? null));
+  const health = clients.map((client, index) => ({ ...clientHealth(client, overviews[index] ?? null), slaBreaches: slaEvents.filter((event) => event.clientId === client.id && event.breached && event.status !== "resolved").length }));
   const linked = clients.map((client, index) => ({ client, guardian: overviews[index] as GuardianOverview | null }));
   const recentChanges = linked.flatMap(({ client, guardian }) => (guardian?.recentEvents ?? []).map((event) => ({ ...event, clientOrgId: client.orgId, clientName: client.organizationName }))).sort((a,b) => b.observedAt.localeCompare(a.observedAt)).slice(0, 60);
   const topRecommendations = linked.flatMap(({ client, guardian }) => (guardian?.recommendations ?? []).filter((item) => !["resolved", "dismissed"].includes(item.status)).map((item) => ({ ...item, clientOrgId: client.orgId, clientName: client.organizationName }))).sort((a,b) => ({ critical: 5, high: 4, medium: 3, low: 2, info: 1 }[b.priority] - { critical: 5, high: 4, medium: 3, low: 2, info: 1 }[a.priority])).slice(0, 40);

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (!(await requireBudgets([{ key: `agency:invite:${access.workspace.id}`, limit: 50, windowMs: 86_400_000 }, { key: `agency:invite:recipient:${recipientHash}`, limit: 3, windowMs: 604_800_000 }])).ok) return NextResponse.json({ error: "Invitation quota exceeded" }, { status: 429 });
   const token = randomBytes(32).toString("base64url");
   const invite = await store.createInvite({ agencyId: access.workspace.id, email, role: kind === "client_portal" ? "viewer" : role, kind, clientId, tokenHash: createHash("sha256").update(token).digest("hex"), createdBy: access.actorId, expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString() });
-  const url = `${APP_URL}/agency/invite/${token}`;
+  const baseUrl = access.workspace.branding.whiteLabel && access.workspace.branding.customDomain ? `https://${access.workspace.branding.customDomain}` : APP_URL; const url = `${baseUrl}/agency/invite/${token}`;
   await sendDurably(agencyInviteEmail(email, access.workspace.name, kind === "client_portal" ? "client portal viewer" : role, url, access.workspace.branding), `agency-invite:${invite.id}`);
   return NextResponse.json({ invite, acceptUrl: url }, { status: 201 });
 }

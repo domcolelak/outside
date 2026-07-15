@@ -89,9 +89,9 @@ Agency Suite is the Agency-plan control plane for MSPs, MSSPs, consultants, and 
 
 - `/agency` provides portfolio health, customer grouping, risk heatmaps, Portfolio Guardian, cross-customer asset/finding search, analyst priorities, change feeds, and bulk scan/report workflows.
 - Agency RBAC separates owner, admin, manager, analyst, billing, and viewer duties. API keys use hashed secrets and narrow scopes.
-- Client linking requires an owner session for the client organization. Client portal invitations are hashed, expiring, single-use grants and the portal exposes only shared findings and notes.
-- White-label branding includes verified custom domains, branded email, logo/colors, support identity, and report-ready branding snapshots.
-- Per-client service tier, SLA target, notification routing, portal mode, billing mode, price, currency, grouping, and external reference support agency operations and reseller billing hierarchies.
+- Client linking requires an owner session for the client organization. Client portal invitations are hashed, expiring, single-use grants; the portal exposes only shared findings, shared notes, deterministic posture and published reports.
+- White-label branding includes verified custom-domain routing, branded email, logo/colors, support identity, PDF reports and immutable report-time branding snapshots. Emailed report links use random, hashed, tenant-scoped, seven-day access grants.
+- Per-client service tier, persistent SLA lifecycle, validated notification routing, portal mode, billing mode, price, currency, grouping, and external reference support agency operations and reseller billing hierarchies. The management center includes usage trends, MRR rollups and billing CSV export.
 - Bulk jobs are idempotent. Bulk scans only make already-configured, verified monitors due; they never create or scan an unverified target.
 
 Set `OUTSIDE_AGENCY_SEAT_LIMIT` to the licensed active-seat plus pending-invite ceiling (default `100`). Apply migrations before enabling Agency Suite in database mode.
@@ -107,7 +107,7 @@ npm run build
 npm run start
 ```
 
-Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan` and `/api/cron/retention`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
+Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`, `/api/cron/agency`, and `/api/cron/retention`. Run the Agency job after monitoring to synchronize SLA state and enqueue deduplicated client-specific notifications. For portfolios over its bounded batch size, continue with the returned `nextCursor` as the `after` query parameter until it is `null`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
 
 Paid deployments that enable Guardian workflow integrations must configure an independent 32-byte `GUARDIAN_ENCRYPTION_KEY`. Integration destinations are validated as HTTPS, resolved immediately before delivery, required to resolve exclusively to public IP addresses, and contacted through an IP-pinned connection with hostname verification.
 

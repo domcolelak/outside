@@ -387,9 +387,24 @@ model AgencyReport {
   branding    Json
   createdBy   String
   createdAt   DateTime        @default(now())
+  shares      AgencyReportShare[]
 
   @@index([agencyId, clientOrgId, createdAt])
   @@map("agency_reports")
+}
+
+model AgencyReportShare {
+  id        String       @id @default(cuid())
+  report    AgencyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId  String
+  agencyId  String
+  email     String
+  tokenHash String       @unique
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+
+  @@index([agencyId, reportId, expiresAt])
+  @@map("agency_report_shares")
 }
 
 model AgencyApiKey {
@@ -420,6 +435,11 @@ model AgencySlaEvent {
   dueAt      DateTime
   resolvedAt DateTime?
   breached   Boolean      @default(false)
+  status     String       @default("open")
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  lastObservedAt DateTime @default(now())
+  escalatedAt DateTime?
 
   @@unique([clientId, findingId])
   @@index([clientId, breached, dueAt])

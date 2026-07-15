@@ -71,6 +71,13 @@ export function agencyInviteEmail(to: string, agencyName: string, role: string, 
   return { to, subject: `${sender}: secure workspace invitation`, html, text: `${agencyName} invited you as ${role}. Accept: ${acceptUrl}${branding?.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
 }
 
+export function agencyReportReadyEmail(to: string, reportTitle: string, reportUrl: string, agencyName: string, branding: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }): EmailMessage {
+  const sender = branding.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`; const color = /^#[0-9a-f]{6}$/i.test(branding.primaryColor ?? "") ? branding.primaryColor! : "#38e1c3";
+  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">Your security report <strong style="color:#e8edf6;">${escapeHtml(reportTitle)}</strong> is ready for secure review.</p><a href="${escapeHtml(reportUrl)}" style="display:inline-block;margin:12px 0;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Open report</a>${branding.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : ""}`;
+  const html = branding.whiteLabel ? `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-weight:700;letter-spacing:2px;">${escapeHtml(sender)}</div><h1 style="font-size:20px;">Security report ready</h1>${body}</div></body></html>` : shell("Security report ready", body);
+  return { to, subject: `${sender}: ${reportTitle}`, html, text: `${reportTitle} is ready: ${reportUrl}${branding.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
+}
+
 export function welcomeEmail(to: string, name: string, verificationUrl?: string): EmailMessage {
   const actionUrl = verificationUrl ?? APP_URL;
   const actionLabel = verificationUrl ? "Verify email" : "Open OUTSIDE";
