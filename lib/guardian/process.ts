@@ -21,13 +21,15 @@ export async function processGuardianScan(orgId: string, result: ScanResult, opt
   const history = await store.history(orgId, result.target, 40);
   const priorRecommendations = await store.recommendations(orgId, result.target);
   const existing = history.find((snapshot) => snapshot.scanId === result.scanId);
-  const analysis = existing ? {
+  const existingEvidence = (await store.evidenceSnapshots(orgId, result.target, 40)).find((snapshot) => snapshot.scanId === result.scanId);
+  const analysis = existing && existingEvidence ? {
     snapshot: existing,
+    evidenceSnapshot: existingEvidence,
     events: (await store.events(orgId, result.target, 500)).filter((event) => event.scanId === result.scanId),
     drift: calculateDrift(history.filter((snapshot) => snapshot.scanId !== result.scanId), existing),
     recommendations: priorRecommendations,
   } : analyzeGuardianScan(orgId, result, history, priorRecommendations);
-  if (!existing) await store.saveAnalysis(analysis);
+  if (!existing || !existingEvidence) await store.saveAnalysis(analysis);
 
   let notificationsQueued = options.notify ? await queueGuardianEventNotifications(store, analysis) : 0;
   let digestCreated = false;

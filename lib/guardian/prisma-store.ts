@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { calculateDrift } from "./drift";
+import { explainEvidence } from "./evidence";
 import { guardianId } from "./identity";
 import type { CreateChannelInput, GuardianChannelRecord, GuardianDeliveryJob, GuardianStore, QueueDeliveryInput } from "./store-model";
-import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianOverview, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot, GuardianTargetView } from "./types";
+import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianEvidenceSnapshot, GuardianOverview, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot, GuardianTargetView } from "./types";
 
 interface ModelClient {
   findMany(args: object): Promise<unknown[]>;
@@ -20,6 +21,7 @@ interface GuardianDb {
   guardianSnapshot: ModelClient;
   guardianEvent: ModelClient;
   guardianRecommendation: ModelClient;
+  guardianEvidenceSnapshot: ModelClient;
   guardianChannel: ModelClient;
   guardianDelivery: ModelClient;
   guardianDigest: ModelClient;
@@ -29,6 +31,7 @@ interface GuardianDb {
 interface SnapshotRow { orgId: string; target: string; scanId: string; observedAt: Date; exposureScore: number; metrics: unknown; inventory: unknown; checklist: unknown }
 interface EventRow { id: string; orgId: string; target: string; scanId: string; type: string; category: string; severity: string; confidence: number; title: string; summary: string; why: string; affectedAssets: string[]; evidence: unknown; groupKey: string; observedAt: Date }
 interface RecommendationRow { id: string; orgId: string; target: string; code: string; status: string; priority: string; confidence: number; title: string; why: string; reasoning: string; affectedAssets: string[]; evidence: unknown; suggestedReview: string; businessImpact: string; guides: unknown; firstObservedAt: Date; lastObservedAt: Date }
+interface EvidenceSnapshotRow { id: string; orgId: string; target: string; scanId: string; observedAt: Date; contentHash: string; recordCount: number; snapshot: unknown }
 interface ChannelRow { id: string; orgId: string; type: string; name: string; encryptedConfig: string; destinationHint: string; enabled: boolean; createdAt: Date }
 interface DeliveryRow { id: string; idempotencyKey: string; orgId: string; channelId: string | null; channelType: string; target: string; kind: string; status: string; itemCount: number; payload: unknown; attempts: number; leaseId: string | null; lastError: string | null; createdAt: Date; deliveredAt: Date | null }
 interface ActivityRow { id: string; orgId: string; target: string; type: string; message: string; createdAt: Date }
@@ -83,10 +86,35 @@ export class PrismaGuardianStore implements GuardianStore {
     return rows.map(recommendation);
   }
 
+  async evidenceSnapshots(orgId: string, target: string, limit = 40) {
+    const rows = await this.db.guardianEvidenceSnapshot.findMany({ where: { orgId, target }, orderBy: { observedAt: "desc" }, take: Math.min(100, Math.max(1, limit)) }) as EvidenceSnapshotRow[];
+    return rows.map((row) => row.snapshot as GuardianEvidenceSnapshot).reverse();
+  }
+
+  async evidenceIntelligence(orgId: string, target: string, findingId?: string) {
+    const history = await this.evidenceSnapshots(orgId, target, 40);
+    const latest = history.at(-1);
+    if (!latest) return null;
+    const [recommendations, events] = await Promise.all([this.recommendations(orgId, target), this.events(orgId, target, 500)]);
+    const recommendation = recommendations.find((item) => item.id === findingId);
+    const event = events.find((item) => item.id === findingId);
+    const scanFinding = latest.findings?.find((item) => item.id === findingId);
+    if (findingId && !recommendation && !event && !scanFinding) return null;
+    const finding = recommendation ? { ...recommendation, kind: "recommendation" as const } : event ? { ...event, kind: "event" as const } : scanFinding ? { id: scanFinding.id, title: scanFinding.title, affectedAssets: [scanFinding.asset], confidence: scanFinding.confidence, kind: "finding" as const } : { id: `target:${target}`, title: `Evidence baseline for ${target}`, affectedAssets: [] as string[], confidence: 1, kind: "target" as const };
+    return explainEvidence(latest, history, finding);
+  }
+
   async saveAnalysis(analysis: GuardianAnalysis) {
     await prisma.$transaction(async (transaction) => {
       const db = transaction as unknown as GuardianDb;
       const current = analysis.snapshot;
+      const existingEvidence = await db.guardianEvidenceSnapshot.findMany({ where: { scanId: analysis.evidenceSnapshot.scanId }, take: 1 }) as EvidenceSnapshotRow[];
+      if (existingEvidence[0] && existingEvidence[0].contentHash !== analysis.evidenceSnapshot.contentHash) throw new Error("Immutable evidence snapshot integrity violation.");
+      if (!existingEvidence.length) await db.guardianEvidenceSnapshot.create({ data: {
+        id: analysis.evidenceSnapshot.id, orgId: analysis.evidenceSnapshot.orgId, scanId: analysis.evidenceSnapshot.scanId,
+        target: analysis.evidenceSnapshot.target, observedAt: new Date(analysis.evidenceSnapshot.observedAt), contentHash: analysis.evidenceSnapshot.contentHash,
+        recordCount: analysis.evidenceSnapshot.recordCount, snapshot: json(analysis.evidenceSnapshot),
+      } });
       await db.guardianSnapshot.createMany({
         data: [{ id: guardianId("guardian-snapshot", current.orgId, current.scanId), orgId: current.orgId, scanId: current.scanId, target: current.target, observedAt: new Date(current.observedAt), exposureScore: current.exposureScore, metrics: json(current.metrics), inventory: json(current.inventory), checklist: json(current.checklist) }],
         skipDuplicates: true,

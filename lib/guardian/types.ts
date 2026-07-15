@@ -22,6 +22,101 @@ export interface GuardianEvidence {
   asset?: string;
 }
 
+export type GuardianEvidenceCategory = "identity" | "discovery" | "dns" | "certificate" | "http" | "technology" | "mail" | "provider" | "registration";
+export type GuardianEvidenceAssurance = "observed" | "normalized" | "inferred";
+
+/** One immutable, deterministic observation carried into Guardian. */
+export interface GuardianEvidenceRecord {
+  id: string;
+  contentHash: string;
+  scanId: string;
+  subject: string;
+  entityId: string;
+  category: GuardianEvidenceCategory;
+  method: string;
+  provider: string;
+  assurance: GuardianEvidenceAssurance;
+  summary: string;
+  observedAt: string;
+  rawObservation: Record<string, unknown>;
+  normalized: { key: string; value: string | number | boolean | string[] };
+  discoveryPath: string[];
+  provenance: { origin: "scan_asset" | "scan_edge" | "provider_run"; sourceId: string; collectedAt: string };
+  providerConfidence: number;
+  evidenceScore: number;
+  findingIds: string[];
+}
+
+export interface GuardianProviderAssessment {
+  provider: string;
+  methods: string[];
+  status: "ok" | "partial" | "error" | "skipped" | "not_reported";
+  reliability: number;
+  observations: number;
+  explanation: string;
+}
+
+export interface GuardianEntityResolution {
+  entityId: string;
+  canonical: string;
+  label: string;
+  kind: string;
+  confidence: number;
+  explanation: string;
+  discoveryPath: string[];
+}
+
+export interface GuardianEvidenceSnapshot {
+  id: string;
+  orgId: string;
+  target: string;
+  scanId: string;
+  observedAt: string;
+  contentHash: string;
+  recordCount: number;
+  records: GuardianEvidenceRecord[];
+  providers: GuardianProviderAssessment[];
+  entities: GuardianEntityResolution[];
+  findings: Array<{ id: string; title: string; confidence: number; assetId: string; asset: string }>;
+}
+
+export interface GuardianEvidenceContradiction {
+  subject: string;
+  key: string;
+  values: Array<{ value: string; provider: string; recordId: string }>;
+  explanation: string;
+}
+
+export interface GuardianEvidenceHistory {
+  category: "dns" | "certificate" | "http" | "technology";
+  subject: string;
+  key: string;
+  points: Array<{ observedAt: string; scanId: string; value: string; provider: string; changed: boolean }>;
+}
+
+export interface GuardianEvidenceGraph {
+  nodes: Array<{ id: string; kind: "finding" | "entity" | "observation" | "provider"; label: string; confidence: number }>;
+  edges: Array<{ id: string; from: string; to: string; kind: "supports" | "observed_by" | "resolves_to" | "contradicts" }>;
+}
+
+export interface GuardianEvidenceIntelligence {
+  finding: { id: string; title: string; kind: "finding" | "recommendation" | "event" | "target" };
+  snapshot: { id: string; scanId: string; observedAt: string; contentHash: string; immutable: true };
+  whyWeBelieveThis: string;
+  confidence: number;
+  confidenceExplanation: string;
+  evidenceScore: number;
+  supportingEvidence: GuardianEvidenceRecord[];
+  contradictions: GuardianEvidenceContradiction[];
+  missingEvidence: string[];
+  correlations: string[];
+  providers: GuardianProviderAssessment[];
+  entityResolution: GuardianEntityResolution[];
+  timeline: Array<{ observedAt: string; scanId: string; type: "observed" | "changed"; summary: string; recordIds: string[] }>;
+  history: GuardianEvidenceHistory[];
+  graph: GuardianEvidenceGraph;
+}
+
 export interface GuardianChecklistItem {
   code: GuardianChecklistCode;
   label: string;
@@ -187,6 +282,7 @@ export interface GuardianRecommendation {
 
 export interface GuardianAnalysis {
   snapshot: GuardianSnapshot;
+  evidenceSnapshot: GuardianEvidenceSnapshot;
   events: GuardianEvent[];
   drift: GuardianDrift;
   recommendations: GuardianRecommendation[];

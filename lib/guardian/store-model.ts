@@ -1,4 +1,4 @@
-import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianChannelType, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianOverview, GuardianQueueMetrics, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot } from "./types";
+import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianChannelType, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianEvidenceIntelligence, GuardianEvidenceSnapshot, GuardianOverview, GuardianQueueMetrics, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot } from "./types";
 
 export interface GuardianChannelRecord extends GuardianChannel {
   encryptedConfig: string;
@@ -34,6 +34,8 @@ export interface GuardianStore {
   history(orgId: string, target: string, limit?: number): Promise<GuardianSnapshot[]>;
   events(orgId: string, target?: string, limit?: number): Promise<GuardianEvent[]>;
   recommendations(orgId: string, target?: string): Promise<GuardianRecommendation[]>;
+  evidenceSnapshots(orgId: string, target: string, limit?: number): Promise<GuardianEvidenceSnapshot[]>;
+  evidenceIntelligence(orgId: string, target: string, findingId?: string): Promise<GuardianEvidenceIntelligence | null>;
   saveAnalysis(analysis: GuardianAnalysis): Promise<void>;
   updateRecommendation(orgId: string, id: string, status: GuardianRecommendationStatus, actor: string): Promise<boolean>;
   overview(orgId: string): Promise<GuardianOverview>;

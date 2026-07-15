@@ -194,6 +194,7 @@ model Organization {
   targets                 Target[]
   verifications           DomainVerification[]
   guardianSnapshots       GuardianSnapshot[]
+  guardianEvidence        GuardianEvidenceSnapshot[]
   guardianEvents          GuardianEvent[]
   guardianRecommendations GuardianRecommendation[]
   guardianChannels        GuardianChannel[]
@@ -539,6 +540,7 @@ model Scan {
   assetCount        Int
   snapshots         AssetSnapshot[]
   guardianSnapshots GuardianSnapshot[]
+  guardianEvidence  GuardianEvidenceSnapshot[]
   guardianEvents    GuardianEvent[]
 
   @@index([targetId, finishedAt])
@@ -562,6 +564,25 @@ model GuardianSnapshot {
   @@unique([scanId, observedAt])
   @@index([orgId, target, observedAt])
   @@map("guardian_snapshots")
+}
+
+model GuardianEvidenceSnapshot {
+  id          String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  scan        Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId      String
+  target      String
+  observedAt  DateTime
+  contentHash String
+  recordCount Int
+  snapshot    Json
+
+  @@id([id, observedAt])
+  @@unique([scanId, observedAt])
+  @@index([orgId, target, observedAt])
+  @@index([orgId, contentHash])
+  @@map("guardian_evidence_snapshots")
 }
 
 model GuardianEvent {
