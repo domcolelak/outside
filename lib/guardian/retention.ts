@@ -76,7 +76,9 @@ export async function runGuardianRetention(now = new Date(), batchSize = 2_000, 
   const result = await prisma.$transaction(async (tx) => {
     const lock = await tx.$queryRaw<Array<{ acquired: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtext('outside:guardian:retention')) AS acquired`;
     if (!lock[0]?.acquired) return { acquired: false, organizations: 0, deleted: { scans: 0, snapshots: 0, events: 0, deliveries: 0, activity: 0, digests: 0 }, saturated: false, durationMs: Date.now() - started };
-    await tx.$queryRaw`SELECT guardian_ensure_monthly_partitions(${now}, 1, 12)`;
+    // The maintenance function returns PostgreSQL `void`; execute it without
+    // asking Prisma to deserialize that unsupported pseudo-type.
+    await tx.$executeRaw`SELECT guardian_ensure_monthly_partitions(${now}, 1, 12)`;
     await tx.$executeRaw`
       INSERT INTO "guardian_retention_policies" ("orgId", "scanDays", "snapshotDays", "eventDays", "deliveryDays", "activityDays", "digestDays", "updatedAt")
       SELECT "id",
