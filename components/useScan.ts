@@ -78,7 +78,14 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
             return { ...prev, stages };
           }
           case "result":
-            return { ...prev, result: event.result, status: "done", assets: event.result.graph.assets, edges: event.result.graph.edges };
+            return {
+              ...prev,
+              result: event.result,
+              status: "done",
+              assets: event.result.graph.assets,
+              edges: event.result.graph.edges,
+              stages: prev.stages.map((stage) => ({ ...stage, status: "done" })),
+            };
           case "error":
             return { ...prev, status: "error", error: event.message };
           default:

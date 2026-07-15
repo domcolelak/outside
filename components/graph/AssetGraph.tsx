@@ -38,6 +38,11 @@ function nodeColor(a: Asset): string {
 function nodeRadius(a: Asset): number {
   return KIND_RADIUS[a.kind] ?? 8;
 }
+function stableAngle(id: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < id.length; index += 1) hash = Math.imul(hash ^ id.charCodeAt(index), 16777619);
+  return ((hash >>> 0) / 4294967295) * Math.PI * 2;
+}
 
 export function AssetGraph({
   assets,
@@ -84,6 +89,8 @@ export function AssetGraph({
   const focusPulseIdRef = useRef(focusPulseId);
   focusPulseIdRef.current = focusPulseId;
   const [, force] = useState(0);
+  const hoveredIdRef = useRef<string | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const edgeList = useMemo(() => edges, [edges]);
 
@@ -97,7 +104,7 @@ export function AssetGraph({
       if (!nodes.has(a.id)) {
         // Spawn near the root (or center) so new nodes fly outward.
         const anchor = root && nodes.get(root.id);
-        const angle = Math.random() * Math.PI * 2;
+        const angle = stableAngle(a.id);
         nodes.set(a.id, {
           id: a.id,
           x: (anchor?.x ?? 0) + Math.cos(angle) * 40,
@@ -272,7 +279,8 @@ export function AssetGraph({
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = dim ? "rgba(148,173,214,0.05)" : active ? "rgba(56,225,195,0.55)" : "rgba(148,173,214,0.14)";
+        const edgeAge = Math.min(1, Math.max(0, (performance.now() - Math.max(a.born, b.born)) / 600));
+        ctx.strokeStyle = dim ? "rgba(148,173,214,0.05)" : active ? `rgba(56,225,195,${0.55 * edgeAge})` : `rgba(148,173,214,${0.14 * edgeAge})`;
         ctx.lineWidth = active ? 1.6 : 1;
         ctx.stroke();
       }
@@ -285,13 +293,14 @@ export function AssetGraph({
         const r = n.r * (0.4 + 0.6 * grow);
         const isSel = n.id === selectedIdRef.current;
         const isPulse = n.id === focusPulseIdRef.current;
+        const isHover = n.id === hoveredIdRef.current;
         const dim = filter && !filter.has(n.id);
 
-        if ((isPulse || isSel) && !dim) {
+        if ((isPulse || isSel || isHover) && !dim) {
           const ring = (Math.sin(now / 260) + 1) / 2;
           ctx.beginPath();
           ctx.arc(n.x, n.y, r + 6 + ring * 5, 0, Math.PI * 2);
-          ctx.strokeStyle = isPulse ? "rgba(56,225,195,0.5)" : "rgba(255,255,255,0.35)";
+          ctx.strokeStyle = isPulse ? "rgba(56,225,195,0.5)" : isHover ? "rgba(91,140,255,.55)" : "rgba(255,255,255,0.35)";
           ctx.lineWidth = 1.4;
           ctx.stroke();
         }
@@ -318,7 +327,7 @@ export function AssetGraph({
         ctx.globalAlpha = 1;
 
         // Label for larger / selected / matched nodes.
-        if (withLabels && !dim && (n.r >= 10 || isSel || !!filter || view.k > 1.15)) {
+        if (withLabels && !dim && (n.r >= 10 || isSel || isHover || !!filter || view.k > 1.15)) {
           ctx.font = "11px ui-monospace, monospace";
           ctx.fillStyle = isSel ? "#e8edf6" : "rgba(170,182,204,0.8)";
           ctx.textAlign = "center";
@@ -377,7 +386,17 @@ export function AssetGraph({
     (e.target as Element).setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current.panning) return;
+    if (!dragRef.current.panning) {
+      const { x, y } = toWorld(e.clientX, e.clientY);
+      let hovered: string | null = null;
+      for (const node of nodesRef.current.values()) if ((node.x - x) ** 2 + (node.y - y) ** 2 <= (node.r + 8) ** 2) { hovered = node.id; break; }
+      if (hovered !== hoveredIdRef.current) {
+        hoveredIdRef.current = hovered;
+        setHoverInfo(hovered ? { id: hovered, x: e.clientX, y: e.clientY } : null);
+        wakeRef.current();
+      } else if (hovered) setHoverInfo({ id: hovered, x: e.clientX, y: e.clientY });
+      return;
+    }
     const dx = e.clientX - dragRef.current.lastX;
     const dy = e.clientY - dragRef.current.lastY;
     dragRef.current.lastX = e.clientX;
@@ -452,10 +471,12 @@ export function AssetGraph({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerLeave={() => { hoveredIdRef.current = null; setHoverInfo(null); wakeRef.current(); }}
         onWheel={onWheel}
       />
+      {hoverInfo && (() => { const asset = nodesRef.current.get(hoverInfo.id)?.asset; if (!asset) return null; return <div className="pointer-events-none fixed z-[60] max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[10px] text-ink">{asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[8px] uppercase text-ink-faint"><span>{asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(asset) }}>{asset.priority}</span></div><div className="mt-1 text-[9px] text-ink-faint">Click to inspect evidence</div></div>; })()}
       {controls && (
-        <div className="absolute right-3 top-3 flex flex-col gap-1">
+        <div data-capture-hide className="absolute right-3 top-3 flex flex-col gap-1">
           <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
           <ControlButton label="Zoom out" onClick={() => zoomBy(0.83)}>−</ControlButton>
           <ControlButton label="Fit to view" onClick={fitView}>⤢</ControlButton>
