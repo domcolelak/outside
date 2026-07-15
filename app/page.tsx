@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HeroInput } from "@/components/HeroInput";
 import { HeroBackdrop } from "@/components/HeroBackdrop";
 import { Wordmark } from "@/components/Wordmark";
+import { LandingDemo } from "@/components/experience/LandingDemo";
 
 export default function Landing() {
   return (
@@ -29,35 +30,40 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0"><HeroBackdrop /></div>
+      <section className="relative min-h-[760px] overflow-hidden">
+        <div className="absolute inset-0 opacity-35"><HeroBackdrop /></div>
         <div className="grid-backdrop pointer-events-none absolute inset-0" />
-        <div className="relative mx-auto flex max-w-6xl flex-col items-start px-6 pb-28 pt-24 md:pt-32">
-          <span className="mono mb-6 inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-[11px] uppercase tracking-widest text-signal">
-            <span className="h-1.5 w-1.5 rounded-full bg-signal" /> External exposure intelligence
-          </span>
-          <h1 className="max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight text-ink md:text-6xl">
-            See your company <span className="text-gradient">from the outside.</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-soft">
-            You know your company from the inside. OUTSIDE maps your publicly observable digital footprint and
-            reveals the forgotten, unexpected, and changing external assets everyone else can see.
-          </p>
-          <div className="mt-9"><HeroInput /></div>
+        <div className="hero-orb pointer-events-none absolute left-[18%] top-20 h-[520px] w-[520px] rounded-full" />
+        <div className="relative mx-auto grid max-w-[1380px] gap-16 px-6 pb-24 pt-20 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:pt-28">
+          <div className="min-w-0 animate-rise-in">
+            <span className="mono mb-7 inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/[.04] px-3 py-1.5 text-[10px] uppercase tracking-[.2em] text-signal">
+              <span className="relative flex h-1.5 w-1.5"><span className="absolute h-full w-full animate-ping rounded-full bg-signal opacity-30"/><span className="relative h-1.5 w-1.5 rounded-full bg-signal"/></span> External exposure intelligence
+            </span>
+            <h1 className="display-type max-w-3xl text-4xl font-semibold leading-[.98] tracking-[-.045em] text-ink sm:text-5xl md:text-7xl">
+              See what the internet knows <span className="text-gradient">about your company.</span>
+            </h1>
+            <p className="mt-7 max-w-xl text-lg leading-8 text-ink-soft">
+              OUTSIDE turns public infrastructure evidence into a living map—then Guardian watches every meaningful change, every day.
+            </p>
+            <div className="mt-9"><HeroInput /></div>
+            <div className="mt-8 grid max-w-xl grid-cols-3 gap-4 border-t border-line pt-5">{[["Passive", "by default"], ["Traceable", "evidence"], ["Continuous", "Guardian"]].map(([value, label]) => <div key={value}><div className="text-sm font-medium text-ink">{value}</div><div className="mono mt-1 text-[8px] uppercase tracking-wider text-ink-faint">{label}</div></div>)}</div>
+          </div>
+          <div className="min-w-0 animate-rise-in [animation-delay:180ms]"><LandingDemo /></div>
         </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-base-950 to-transparent"/>
       </section>
 
       {/* Guardian */}
       <section id="guardian" className="relative overflow-hidden border-t border-line/60">
         <div className="grid-backdrop pointer-events-none absolute inset-0 opacity-40" />
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-24 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
+        <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-28 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
           <div>
             <div className="mono inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/5 px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-signal"><span className="relative flex h-2 w-2"><span className="absolute h-full w-full animate-ping rounded-full bg-signal opacity-30"/><span className="relative h-2 w-2 rounded-full bg-signal"/></span>OUTSIDE Guardian</div>
             <h2 className="mt-6 text-4xl font-semibold tracking-tight text-ink">A senior security analyst.<br/><span className="text-gradient">Watching every day.</span></h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-ink-soft">Guardian correlates every verified observation into meaningful change intelligence: Exposure Drift, a living security checklist, evidence-backed recommendations, tailored remediation, grouped workflow alerts, and a weekly executive digest.</p>
             <div className="mt-7 flex flex-wrap gap-2">{["Exposure Drift", "Security checklist", "Remediation guides", "Executive digest", "Slack · Teams · Jira"].map((item) => <span key={item} className="mono rounded-full border border-line bg-base-900/70 px-3 py-1.5 text-[10px] text-ink-soft">{item}</span>)}</div>
           </div>
-          <div className="panel relative overflow-hidden p-5 md:p-7">
+          <div className="premium-surface relative overflow-hidden p-5 md:p-7">
             <div className="absolute right-5 top-5 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-signal shadow-glow"/><span className="mono text-[9px] uppercase text-signal">watching</span></div>
             <div className="mono text-[9px] uppercase tracking-[.18em] text-ink-faint">Exposure Drift · 30 days</div>
             <div className="mt-3 text-2xl font-medium text-ink">External exposure is becoming <span className="text-signal">simpler.</span></div>

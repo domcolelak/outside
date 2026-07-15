@@ -18,29 +18,31 @@ export function HeroInput() {
   };
 
   return (
-    <div className="w-full max-w-xl">
+    <div className="min-w-0 w-full max-w-xl">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           go(value);
         }}
-        className="panel flex items-center gap-2 p-2"
+        className="panel flex flex-col items-stretch gap-2 p-2 sm:flex-row sm:items-center"
       >
-        <span className="mono pl-3 text-ink-faint">https://</span>
-        <input
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            setError(null);
-          }}
-          placeholder="yourcompany.com"
-          spellCheck={false}
-          autoComplete="off"
-          className="mono flex-1 bg-transparent py-3 text-ink placeholder:text-ink-faint focus:outline-none"
-        />
+        <div className="flex min-w-0 flex-1 items-center">
+          <span className="mono pl-3 text-ink-faint">https://</span>
+          <input
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setError(null);
+            }}
+            placeholder="yourcompany.com"
+            spellCheck={false}
+            autoComplete="off"
+            className="mono min-w-0 flex-1 bg-transparent px-2 py-3 text-ink placeholder:text-ink-faint focus:outline-none"
+          />
+        </div>
         <button
           type="submit"
-          className="shrink-0 rounded-lg bg-signal px-4 py-3 text-sm font-semibold text-base-950 shadow-glow transition hover:bg-signal-bright"
+          className="w-full shrink-0 rounded-lg bg-signal px-4 py-3 text-sm font-semibold text-base-950 shadow-glow transition hover:bg-signal-bright sm:w-auto"
         >
           See my external surface
         </button>
@@ -62,7 +64,7 @@ export function HeroInput() {
           </button>
         ))}
       </div>
-      <p className="mono mt-3 text-[11px] text-ink-faint">
+      <p className="mono mt-3 max-w-full text-[11px] leading-5 text-ink-faint">
         Passive, public sources only · No login required for an external snapshot
       </p>
     </div>
