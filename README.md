@@ -2,7 +2,7 @@
 
 OUTSIDE is a defensive external-surface discovery and monitoring application. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and an exposure score, and tracks change for verified organizations.
 
-OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe.
+OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe. Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP, and technology history for every persisted finding.
 
 The application is a single Next.js 15 App Router deployment using TypeScript, React 19, Prisma, PostgreSQL, Vitest, and `@react-pdf/renderer`.
 
@@ -111,7 +111,7 @@ Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api
 
 Paid deployments that enable Guardian workflow integrations must configure an independent 32-byte `GUARDIAN_ENCRYPTION_KEY`. Integration destinations are validated as HTTPS, resolved immediately before delivery, required to resolve exclusively to public IP addresses, and contacted through an IP-pinned connection with hostname verification.
 
-Guardian history, events, and activity use native monthly PostgreSQL range partitions. Paid organizations receive plan-aware retention defaults; organization administrators can manage bounded policy values through `/api/guardian/retention`. Set an OTLP/HTTP metrics endpoint to export `outside.provider.duration`, `outside.guardian.queue.oldest_age`, queue depth, delivery outcomes, and retention throughput without tenant or domain labels.
+Guardian history, immutable evidence snapshots, events, and activity use native monthly PostgreSQL range partitions. Paid organizations receive plan-aware retention defaults; organization administrators can manage bounded policy values through `/api/guardian/retention`. Evidence snapshots follow the snapshot retention window and reject database updates. Set an OTLP/HTTP metrics endpoint to export `outside.provider.duration`, `outside.guardian.queue.oldest_age`, queue depth, delivery outcomes, and retention throughput without tenant or domain labels.
 
 ## License
 

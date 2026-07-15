@@ -7,6 +7,7 @@ import { AssuranceTag, Confidence, PriorityDot, PRIORITY_STYLE } from "@/compone
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { ProtectionPanel } from "@/components/panels/ProtectionPanel";
 import { InvestigationPanel } from "@/components/panels/InvestigationPanel";
+import { EvidenceIntelligencePanel } from "@/components/guardian/EvidenceIntelligence";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -321,6 +322,7 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
             <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Recommended review</div>
             <p className="mt-0.5 leading-relaxed text-ink">{finding.recommendation}</p>
           </div>
+          <EvidenceIntelligencePanel orgId="" target={target} findingId={finding.id} />
           {explain.state === "done" ? (
             <div className="rounded-lg border border-line bg-base-850 p-2.5">
               <div className="mono mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-ink-faint">

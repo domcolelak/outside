@@ -63,7 +63,7 @@ export async function setRetentionPolicy(orgId: string, values: RetentionValues)
 export interface RetentionRunResult {
   acquired: boolean;
   organizations: number;
-  deleted: Record<"scans" | "snapshots" | "events" | "deliveries" | "activity" | "digests", number>;
+  deleted: Record<"scans" | "snapshots" | "evidence" | "events" | "deliveries" | "activity" | "digests", number>;
   saturated: boolean;
   durationMs: number;
 }
@@ -75,7 +75,7 @@ export async function runGuardianRetention(now = new Date(), batchSize = 2_000, 
   if (!Number.isInteger(maxBatches) || maxBatches < 1 || maxBatches > 100) throw new Error("Retention maxBatches must be between 1 and 100.");
   const result = await prisma.$transaction(async (tx) => {
     const lock = await tx.$queryRaw<Array<{ acquired: boolean }>>`SELECT pg_try_advisory_xact_lock(hashtext('outside:guardian:retention')) AS acquired`;
-    if (!lock[0]?.acquired) return { acquired: false, organizations: 0, deleted: { scans: 0, snapshots: 0, events: 0, deliveries: 0, activity: 0, digests: 0 }, saturated: false, durationMs: Date.now() - started };
+    if (!lock[0]?.acquired) return { acquired: false, organizations: 0, deleted: { scans: 0, snapshots: 0, evidence: 0, events: 0, deliveries: 0, activity: 0, digests: 0 }, saturated: false, durationMs: Date.now() - started };
     // The maintenance function returns PostgreSQL `void`; execute it without
     // asking Prisma to deserialize that unsupported pseudo-type.
     await tx.$executeRaw`SELECT guardian_ensure_monthly_partitions(${now}, 1, 12)`;
@@ -93,7 +93,7 @@ export async function runGuardianRetention(now = new Date(), batchSize = 2_000, 
       ON CONFLICT ("orgId") DO NOTHING
     `;
     const policyCount = await tx.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "guardian_retention_policies"`;
-    const deleted = { scans: 0, snapshots: 0, events: 0, deliveries: 0, activity: 0, digests: 0 };
+    const deleted = { scans: 0, snapshots: 0, evidence: 0, events: 0, deliveries: 0, activity: 0, digests: 0 };
     let saturated = false;
 
     const drain = async (operation: () => Promise<number>, bucket: keyof typeof deleted) => {
@@ -106,6 +106,7 @@ export async function runGuardianRetention(now = new Date(), batchSize = 2_000, 
     };
 
     await drain(() => tx.$executeRaw(Prisma.sql`WITH doomed AS (SELECT item."id", item."observedAt" FROM "guardian_events" item JOIN "guardian_retention_policies" policy ON policy."orgId" = item."orgId" WHERE item."observedAt" < ${now} - policy."eventDays" * INTERVAL '1 day' ORDER BY item."observedAt" LIMIT ${batchSize} FOR UPDATE OF item SKIP LOCKED) DELETE FROM "guardian_events" item USING doomed WHERE item."id" = doomed."id" AND item."observedAt" = doomed."observedAt"`), "events");
+    await drain(() => tx.$executeRaw(Prisma.sql`WITH doomed AS (SELECT item."id", item."observedAt" FROM "guardian_evidence_snapshots" item JOIN "guardian_retention_policies" policy ON policy."orgId" = item."orgId" WHERE item."observedAt" < ${now} - policy."snapshotDays" * INTERVAL '1 day' ORDER BY item."observedAt" LIMIT ${batchSize} FOR UPDATE OF item SKIP LOCKED) DELETE FROM "guardian_evidence_snapshots" item USING doomed WHERE item."id" = doomed."id" AND item."observedAt" = doomed."observedAt"`), "evidence");
     await drain(() => tx.$executeRaw(Prisma.sql`WITH doomed AS (SELECT item."id", item."observedAt" FROM "guardian_snapshots" item JOIN "guardian_retention_policies" policy ON policy."orgId" = item."orgId" WHERE item."observedAt" < ${now} - policy."snapshotDays" * INTERVAL '1 day' ORDER BY item."observedAt" LIMIT ${batchSize} FOR UPDATE OF item SKIP LOCKED) DELETE FROM "guardian_snapshots" item USING doomed WHERE item."id" = doomed."id" AND item."observedAt" = doomed."observedAt"`), "snapshots");
     await drain(() => tx.$executeRaw(Prisma.sql`WITH doomed AS (SELECT item."id" FROM "guardian_deliveries" item JOIN "guardian_retention_policies" policy ON policy."orgId" = item."orgId" WHERE item."createdAt" < ${now} - policy."deliveryDays" * INTERVAL '1 day' ORDER BY item."createdAt" LIMIT ${batchSize} FOR UPDATE OF item SKIP LOCKED) DELETE FROM "guardian_deliveries" item USING doomed WHERE item."id" = doomed."id"`), "deliveries");
     await drain(() => tx.$executeRaw(Prisma.sql`WITH doomed AS (SELECT item."id", item."createdAt" FROM "guardian_activity" item JOIN "guardian_retention_policies" policy ON policy."orgId" = item."orgId" WHERE item."createdAt" < ${now} - policy."activityDays" * INTERVAL '1 day' ORDER BY item."createdAt" LIMIT ${batchSize} FOR UPDATE OF item SKIP LOCKED) DELETE FROM "guardian_activity" item USING doomed WHERE item."id" = doomed."id" AND item."createdAt" = doomed."createdAt"`), "activity");

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { calculateDrift } from "./drift";
+import { explainEvidence } from "./evidence";
 import { guardianId } from "./identity";
 import type { CreateChannelInput, GuardianChannelRecord, GuardianDeliveryJob, GuardianStore, QueueDeliveryInput } from "./store-model";
-import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianOverview, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot, GuardianTargetView } from "./types";
+import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianEvidenceSnapshot, GuardianOverview, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot, GuardianTargetView } from "./types";
 
 interface StoredDelivery extends GuardianDelivery {
   idempotencyKey: string;
@@ -17,6 +18,7 @@ export class InMemoryGuardianStore implements GuardianStore {
   private snapshots: GuardianSnapshot[] = [];
   private eventRows: GuardianEvent[] = [];
   private recommendationRows: GuardianRecommendation[] = [];
+  private evidenceRows: GuardianEvidenceSnapshot[] = [];
   private channelRows: GuardianChannelRecord[] = [];
   private deliveryRows: StoredDelivery[] = [];
   private digestRows: GuardianDigest[] = [];
@@ -34,7 +36,26 @@ export class InMemoryGuardianStore implements GuardianStore {
     return this.recommendationRows.filter((row) => row.orgId === orgId && (!target || row.target === target));
   }
 
+  async evidenceSnapshots(orgId: string, target: string, limit = 40) {
+    return structuredClone(this.evidenceRows.filter((row) => row.orgId === orgId && row.target === target).sort((a, b) => Date.parse(a.observedAt) - Date.parse(b.observedAt)).slice(-limit));
+  }
+
+  async evidenceIntelligence(orgId: string, target: string, findingId?: string) {
+    const history = await this.evidenceSnapshots(orgId, target, 40);
+    const latest = history.at(-1);
+    if (!latest) return null;
+    const recommendation = this.recommendationRows.find((item) => item.orgId === orgId && item.target === target && item.id === findingId);
+    const event = this.eventRows.find((item) => item.orgId === orgId && item.target === target && item.id === findingId);
+    const scanFinding = latest.findings?.find((item) => item.id === findingId);
+    if (findingId && !recommendation && !event && !scanFinding) return null;
+    const finding = recommendation ? { ...recommendation, kind: "recommendation" as const } : event ? { ...event, kind: "event" as const } : scanFinding ? { id: scanFinding.id, title: scanFinding.title, affectedAssets: [scanFinding.asset], confidence: scanFinding.confidence, kind: "finding" as const } : { id: `target:${target}`, title: `Evidence baseline for ${target}`, affectedAssets: [] as string[], confidence: 1, kind: "target" as const };
+    return explainEvidence(latest, history, finding);
+  }
+
   async saveAnalysis(analysis: GuardianAnalysis) {
+    const evidence = this.evidenceRows.find((row) => row.scanId === analysis.evidenceSnapshot.scanId);
+    if (evidence && evidence.contentHash !== analysis.evidenceSnapshot.contentHash) throw new Error("Immutable evidence snapshot integrity violation.");
+    if (!evidence) this.evidenceRows.push(structuredClone(analysis.evidenceSnapshot));
     if (this.snapshots.some((row) => row.scanId === analysis.snapshot.scanId)) return;
     this.snapshots.push(structuredClone(analysis.snapshot));
     this.eventRows.push(...structuredClone(analysis.events));

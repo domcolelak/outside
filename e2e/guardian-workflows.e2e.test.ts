@@ -102,18 +102,30 @@ describe.sequential("Guardian PostgreSQL integration workflows", () => {
     const events = await prisma.$queryRaw<Array<{ partition: string }>>`
       SELECT tableoid::regclass::text AS partition FROM "guardian_events" WHERE "scanId" = 'e2e_scan_current'
     `;
+    const evidence = await prisma.$queryRaw<Array<{ partition: string; contentHash: string }>>`
+      SELECT tableoid::regclass::text AS partition, "contentHash" FROM "guardian_evidence_snapshots" WHERE "scanId" = 'e2e_scan_current'
+    `;
     const activities = await prisma.$queryRaw<Array<{ partition: string }>>`
       SELECT tableoid::regclass::text AS partition FROM "guardian_activity" WHERE "orgId" = ${ORG_A} AND "createdAt" = ${observedAt}
     `;
 
     expect(snapshots).toHaveLength(1);
     expect(events.length).toBeGreaterThan(0);
+    expect(evidence).toHaveLength(1);
     expect(snapshots[0]?.partition).toMatch(/^guardian_snapshots_\d{4}_\d{2}$/);
     expect(events[0]?.partition).toMatch(/^guardian_events_\d{4}_\d{2}$/);
+    expect(evidence[0]?.partition).toMatch(/^guardian_evidence_snapshots_\d{4}_\d{2}$/);
+    expect(evidence[0]?.contentHash).toMatch(/^[0-9a-f]{64}$/);
     expect(activities[0]?.partition).toMatch(/^guardian_activity_\d{4}_\d{2}$/);
     expect((await store.overview(ORG_A)).targets).toHaveLength(1);
     expect((await store.overview(ORG_B)).targets).toHaveLength(0);
     expect(await store.events(ORG_B)).toEqual([]);
+    expect(await store.evidenceSnapshots(ORG_B, DOMAIN_A)).toEqual([]);
+    const intelligence = await store.evidenceIntelligence(ORG_A, DOMAIN_A);
+    expect(intelligence?.snapshot.immutable).toBe(true);
+    expect(intelligence?.supportingEvidence.length).toBeGreaterThan(0);
+    expect(await store.evidenceIntelligence(ORG_B, DOMAIN_A)).toBeNull();
+    await expect(prisma.$executeRaw`UPDATE "guardian_evidence_snapshots" SET "contentHash" = ${"f".repeat(64)} WHERE "scanId" = 'e2e_scan_current'`).rejects.toThrow(/immutable/i);
   });
 
   it("claims notification work once and supports observable retry completion", async () => {
@@ -177,6 +189,7 @@ describe.sequential("Guardian PostgreSQL integration workflows", () => {
 
     expect(result.acquired).toBe(true);
     expect(result.deleted.snapshots).toBeGreaterThanOrEqual(1);
+    expect(result.deleted.evidence).toBeGreaterThanOrEqual(1);
     expect(result.deleted.events).toBeGreaterThanOrEqual(1);
     expect(result.deleted.deliveries).toBeGreaterThanOrEqual(1);
     expect(result.deleted.activity).toBeGreaterThanOrEqual(1);
@@ -185,5 +198,7 @@ describe.sequential("Guardian PostgreSQL integration workflows", () => {
     expect(await prisma.scan.count({ where: { id: "e2e_scan_historical" } })).toBe(1);
     expect(await prisma.scan.count({ where: { id: "e2e_scan_expired" } })).toBe(0);
     expect(await prisma.guardianSnapshot.count({ where: { scanId: "e2e_scan_historical" } })).toBe(0);
+    const retainedEvidence = await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS count FROM "guardian_evidence_snapshots" WHERE "scanId" = 'e2e_scan_historical'`;
+    expect(Number(retainedEvidence[0]?.count ?? 0n)).toBe(0);
   });
 });
