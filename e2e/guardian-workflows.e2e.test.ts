@@ -137,6 +137,7 @@ describe.sequential("Guardian PostgreSQL integration workflows", () => {
     const first = await store.queueDelivery(input);
     const duplicate = await store.queueDelivery(input);
     expect(duplicate.id).toBe(first.id);
+    expect(await prisma.guardianActivity.count({ where: { orgId: ORG_A, type: "notification_queued" } })).toBe(1);
     expect((await store.channels(ORG_A, true))[0]).toHaveProperty("encryptedConfig");
     expect(await store.channels(ORG_B, true)).toEqual([]);
 

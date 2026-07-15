@@ -7,7 +7,7 @@
 
 import { generateFindings } from "@/lib/analysis/findings";
 import { computeExposureScore } from "@/lib/analysis/scoring";
-import { assetPriority, detectAssetSignals, type SignalContext } from "@/lib/analysis/signals";
+import { assetPriority, detectAssetSignals, environmentSignal, type SignalContext } from "@/lib/analysis/signals";
 import type { DemoOrg } from "@/lib/demo";
 import { registrableDomain } from "@/lib/security/target";
 import { SCAN_STAGE_LABELS } from "@/lib/discovery/stages";
@@ -22,9 +22,9 @@ import type {
   ProviderRun,
 } from "@/lib/types";
 import { mapPool } from "./net";
-import { certificateTransparency, domainRegistration, resolveHost, resolveMailAndNs } from "./providers";
-import type { CtHostname } from "./providers";
-import { observeHttp } from "./http";
+import { certificateTransparency, domainRegistration, identifyInfrastructureProvider, resolveHost, resolveMailAndNs } from "./providers";
+import type { CtHostname, DnsRecord } from "./providers";
+import { observeHttp, type HttpObservation } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
 import { recordProviderMetrics } from "@/lib/observability/metrics";
 
@@ -157,6 +157,54 @@ function classifyKind(host: string, resolves: boolean): AssetKind {
   return resolves ? "web_service" : "subdomain";
 }
 
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function applyDnsInfrastructure(target: Asset, record: DnsRecord, observedAt: string): void {
+  if (record.cname.length) target.attrs.cnames = record.cname;
+  const signal = identifyInfrastructureProvider(record.cname);
+  if (signal.cloudProvider) target.attrs.cloudProvider = signal.cloudProvider;
+  if (signal.cdn) target.attrs.cdn = signal.cdn;
+  if (!signal.providerEvidence.length) return;
+  target.attrs.providerEvidence = [...new Set([...strings(target.attrs.providerEvidence), ...signal.providerEvidence])];
+  target.evidence.push(ev("dns", "Cloudflare DoH", `Observed infrastructure provider signal for ${target.label}.`, signal.providerEvidence.join(" "), observedAt));
+}
+
+function applyHttpObservation(target: Asset, observation: HttpObservation, observedAt: string): void {
+  target.attrs.missingHeaders = observation.missingHeaders;
+  target.attrs.presentHeaders = observation.presentHeaders;
+  if (observation.server) target.attrs.server = observation.server;
+  if (observation.technologies.length) target.attrs.technologies = [...new Set([...strings(target.attrs.technologies), ...observation.technologies])];
+  if (observation.cloudProvider) target.attrs.cloudProvider = observation.cloudProvider;
+  if (observation.cdn) target.attrs.cdn = observation.cdn;
+  if (observation.providerEvidence.length) target.attrs.providerEvidence = [...new Set([...strings(target.attrs.providerEvidence), ...observation.providerEvidence])];
+  if (observation.status) target.attrs.status = String(observation.status);
+  target.attrs.https = observation.httpsVerified ? "observed" : "unverified";
+  target.attrs.tlsValidation = observation.httpsVerified ? "valid" : "unverified";
+  target.attrs.securityTxt = observation.securityTxt;
+  if (observation.redirectLocation) target.attrs.redirectLocation = observation.redirectLocation;
+  if (!target.discoveredVia.includes("http_observation")) target.discoveredVia.push("http_observation");
+  if (observation.cert?.issuer) target.attrs.certIssuer = observation.cert.issuer;
+  if (observation.cert?.validTo) target.attrs.certNotAfter = observation.cert.validTo;
+  if (typeof observation.cert?.daysToExpiry === "number") target.attrs.certDaysToExpiry = observation.cert.daysToExpiry;
+  if (observation.cert?.fingerprint) target.attrs.certFingerprint = observation.cert.fingerprint;
+  target.evidence.push(ev(
+    "http_observation",
+    "Verified HTTPS observation",
+    `${target.label} ${observation.httpsVerified ? "responded with a valid HTTPS connection" : "presented public TLS evidence without a verified HTTP response"}${observation.status ? ` (${observation.status})` : ""}.`,
+    `${observation.httpsVerified ? `${observation.missingHeaders.length} baseline security header(s) absent` : "HTTP security headers were not evaluated because no validated response was observed"}${typeof observation.cert?.daysToExpiry === "number" ? `; certificate valid for ${observation.cert.daysToExpiry} more day(s)` : ""}.`,
+    observedAt,
+  ));
+  if (observation.technologies.length || observation.providerEvidence.length) target.evidence.push(ev(
+    "technology_fingerprint",
+    "Verified HTTPS headers",
+    `Observed ${observation.technologies.length} bounded response-header technology signal(s) for ${target.label}.`,
+    [...observation.technologies.map((technology) => `technology: ${technology}`), ...observation.providerEvidence].join("; "),
+    observedAt,
+  ));
+}
+
 /** Passive scan against a real domain using public CT + DNS. */
 export async function runPassiveScan(
   domain: string,
@@ -236,6 +284,7 @@ export async function runPassiveScan(
       if (!resolves) continue; // only surface hostnames that resolve publicly
       if (host === domain) {
         root.attrs.addresses = [...rec.a, ...rec.aaaa];
+        applyDnsInfrastructure(root, rec, now);
         root.evidence.push(ev("dns", "DoH", `Root domain resolves publicly (${[...rec.a, ...rec.aaaa].slice(0, 2).join(", ")}).`, undefined, now));
         continue;
       }
@@ -252,6 +301,7 @@ export async function runPassiveScan(
         firstObservedAt: firstSeen,
         attrs: { protocols: ["HTTPS"], addresses: [...(rec?.a ?? []), ...(rec?.aaaa ?? [])] },
       });
+      applyDnsInfrastructure(a, rec, now);
       assets.push(a);
       const e = edge(root, a, "subdomain_of", 1, [ev("dns", "DoH", "Shares the registrable domain.", undefined, now)]);
       edges.push(e);
@@ -298,54 +348,45 @@ export async function runPassiveScan(
     }
   });
 
-  // HTTP + TLS observation of the primary web surface (headers + certificate).
+  // Verified targets receive a small, bounded set of SSRF-safe HTTPS/TLS
+  // observations. Anonymous passive scans never contact target services.
   await stage(emit, "http", async () => {
     if (!options.activeObservation) {
       providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: "skipped", startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [] });
       await emit({ type: "log", level: "info", message: "Active HTTPS observation skipped until ownership is verified" });
       return;
     }
-    const primary = assets.find((a) => a.canonical === `www.${reg}`) ?? assets.find((a) => a.kind === "web_service") ?? root;
     const started = new Date();
-    try {
-      const obs = await observeHttp(primary.canonical, signal);
-      providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: obs ? "ok" : "partial", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: obs ? 1 : 0, errors: [] });
-      if (obs) {
-        primary.attrs.missingHeaders = obs.missingHeaders;
-        primary.attrs.presentHeaders = obs.presentHeaders;
-        if (obs.server) primary.attrs.server = obs.server;
-        if (obs.status) primary.attrs.status = String(obs.status);
-        primary.attrs.https = obs.httpsVerified ? "observed" : "unverified";
-        primary.attrs.tlsValidation = obs.httpsVerified ? "valid" : "unverified";
-        primary.attrs.securityTxt = obs.securityTxt;
-        if (obs.redirectLocation) primary.attrs.redirectLocation = obs.redirectLocation;
-        if (!primary.discoveredVia.includes("http_observation")) primary.discoveredVia.push("http_observation");
-        if (obs.cert?.issuer) primary.attrs.certIssuer = obs.cert.issuer;
-        if (obs.cert?.validTo) primary.attrs.certNotAfter = obs.cert.validTo;
-        if (typeof obs.cert?.daysToExpiry === "number") primary.attrs.certDaysToExpiry = obs.cert.daysToExpiry;
-        if (obs.cert?.fingerprint) primary.attrs.certFingerprint = obs.cert.fingerprint;
-        primary.evidence.push(
-          ev(
-            "http_observation",
-            "HttpObservation",
-            `${primary.label} responded${obs.status ? ` (${obs.status})` : ""} with ${obs.missingHeaders.length} baseline security header(s) absent${
-              typeof obs.cert?.daysToExpiry === "number" ? `; certificate valid for ${obs.cert.daysToExpiry} more day(s)` : ""
-            }.`,
-            obs.server ? `server: ${obs.server}` : undefined,
-            now,
-          ),
-        );
+    const maxHosts = Math.max(1, Math.min(12, Number(process.env.OUTSIDE_MAX_ACTIVE_HOSTS ?? 6) || 6));
+    const rank = (item: Asset) => item.kind === "root_domain" ? 0 : item.kind === "auth_surface" || item.kind === "api_surface" ? 1 : environmentSignal(item.canonical) ? 2 : item.canonical === `www.${reg}` ? 3 : 4;
+    const selected = [...assets].sort((a, b) => rank(a) - rank(b) || a.canonical.localeCompare(b.canonical)).slice(0, maxHosts);
+    const observations = await mapPool(selected, 3, (item) => observeHttp(item.canonical, signal), signal);
+    const errors: string[] = [];
+    let observed = 0;
+    for (const observation of observations) {
+      const primary = observation.item;
+      if (observation.error) {
+        errors.push((observation.error as Error).message);
+        continue;
+      }
+      try {
+        const obs = observation.value;
+        if (!obs) continue;
+        observed += 1;
+        applyHttpObservation(primary, obs, now);
         await emit({
           type: "log",
           level: obs.missingHeaders.length >= 2 ? "signal" : "info",
           message: `${primary.label} observed — ${obs.missingHeaders.length} security header(s) missing`,
         });
+      } catch (e) {
+        if (signal?.aborted) throw e;
+        errors.push((e as Error).message);
+        await emit({ type: "log", level: "warn", message: `HTTP observation skipped for ${primary.label}` });
       }
-    } catch (e) {
-      if (signal?.aborted) throw e;
-      providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(e as Error).message] });
-      await emit({ type: "log", level: "warn", message: `HTTP observation skipped: ${(e as Error).message}` });
     }
+    providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: errors.length ? "partial" : observed ? "ok" : "partial", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: observed, errors: errors.slice(0, 20) });
+    await emit({ type: "log", level: observed ? "info" : "warn", message: `Verified HTTPS observation completed for ${observed}/${selected.length} selected public host(s)` });
   });
 
   const result = finalize(domain, "passive", assets, edges, timeline, linkedFromPrimary, scanId, startedAt, providerRuns);

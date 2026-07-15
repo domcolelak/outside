@@ -23,11 +23,11 @@ Discovery -> deterministic analysis -> tenant persistence
 
 Anonymous users may request a bounded passive snapshot. Anonymous results are ephemeral. Authenticated functionality resolves organization access from the signed user session and database memberships. A client-supplied organization identifier is always checked against that context.
 
-Domain verification is scoped to an organization. Active HTTPS/TLS observation is allowed only after verification. DNS and file challenges bind the token, organization, target, expiry, and verification method. The HTTPS connector validates all resolved addresses and connects to a pinned public address while preserving SNI and certificate hostname checks.
+Domain verification is scoped to an organization. Active HTTPS/TLS observation is allowed only after verification and is limited to a small configurable host set with bounded concurrency. DNS and file challenges bind the token, organization, target, expiry, and verification method. The HTTPS connector validates all resolved addresses and connects to a pinned public address while preserving SNI and certificate hostname checks.
 
 ## Discovery and analysis
 
-`lib/discovery/engine.ts` orchestrates a typed stage sequence shared by server and client. CT and DNS providers use bounded responses, deadlines, structured `ProviderRun` telemetry, and partial-success semantics. The maintained Public Suffix List supplies registrable-domain boundaries.
+`lib/discovery/engine.ts` orchestrates a typed stage sequence shared by server and client. CT and DNS providers use bounded responses, deadlines, structured `ProviderRun` telemetry, and partial-success semantics. Public CNAME suffixes provide explicit cloud/CDN signals; verified HTTPS responses add bounded literal Server/X-Powered-By technologies and recognized provider-header evidence. These remain observable signals rather than ownership claims. The maintained Public Suffix List supplies registrable-domain boundaries.
 
 Observations become canonical `Asset` and `Edge` objects. Analysis remains deterministic:
 
