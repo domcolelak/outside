@@ -10,7 +10,7 @@ export type AgencyPortalMode = "disabled" | "readonly" | "collaborative";
 
 const PERMISSIONS: Record<AgencyRole, readonly AgencyPermission[]> = {
   owner: ["agency:read", "agency:manage", "clients:read", "clients:manage", "findings:share", "notes:write", "operations:run", "reports:generate", "billing:manage", "seats:manage", "api:manage"],
-  admin: ["agency:read", "agency:manage", "clients:read", "clients:manage", "findings:share", "notes:write", "operations:run", "reports:generate", "seats:manage", "api:manage"],
+  admin: ["agency:read", "agency:manage", "clients:read", "clients:manage", "findings:share", "notes:write", "operations:run", "reports:generate", "billing:manage", "seats:manage", "api:manage"],
   manager: ["agency:read", "clients:read", "clients:manage", "findings:share", "notes:write", "operations:run", "reports:generate"],
   analyst: ["agency:read", "clients:read", "findings:share", "notes:write", "operations:run", "reports:generate"],
   billing: ["agency:read", "clients:read", "billing:manage"],
@@ -52,6 +52,8 @@ export interface AgencyActivity { id: string; agencyId: string; clientOrgId: str
 export interface AgencyApiKey { id: string; agencyId: string; name: string; prefix: string; scopes: string[]; createdBy: string; createdAt: string; lastUsedAt: string | null; expiresAt: string | null; revokedAt: string | null; }
 export interface AgencyInvite { id: string; agencyId: string; email: string; role: AgencyRole; kind: "seat" | "client_portal"; clientId: string | null; createdBy: string; createdAt: string; expiresAt: string; acceptedAt: string | null; acceptedBy: string | null; revokedAt: string | null; }
 export interface AgencyReport { id: string; agencyId: string; clientOrgId: string | null; periodStart: string; periodEnd: string; kind: "client" | "portfolio" | "executive"; status: string; title: string; content: Record<string, unknown>; branding: AgencyBranding; createdBy: string; createdAt: string; }
+export interface AgencySlaEvent { id: string; clientId: string; findingId: string; priority: "critical" | "high" | "medium" | "low" | "info"; openedAt: string; dueAt: string; resolvedAt: string | null; breached: boolean; status: "open" | "acknowledged" | "resolved"; acknowledgedAt: string | null; acknowledgedBy: string | null; lastObservedAt: string; escalatedAt: string | null; }
+export interface AgencyNotificationRouting { emails: string[]; channelIds: string[]; severities: Array<"critical" | "high" | "medium" | "low" | "info">; }
 
 export interface PortfolioClientHealth {
   client: AgencyClient; exposureScore: number | null; health: "healthy" | "watch" | "at_risk" | "unknown";

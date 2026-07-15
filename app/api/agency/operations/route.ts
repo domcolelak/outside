@@ -27,11 +27,11 @@ export async function POST(req: NextRequest) {
   const orgIds = [...new Set(requested)].filter((orgId) => clients.some((client) => client.orgId === orgId)).slice(0, 100);
   if (!orgIds.length) return NextResponse.json({ error: "Select at least one portfolio client" }, { status: 422 });
   const key = cleanText(req.headers.get("idempotency-key"), 200) || createHash("sha256").update(`${access.workspace.id}:${access.actorId}:${type}:${orgIds.sort().join(",")}:${new Date().toISOString().slice(0, 16)}`).digest("hex");
-  const job = await store.createJob({ agencyId: access.workspace.id, type, idempotencyKey: key, clientOrgIds: orgIds, payload: { requestedAt: new Date().toISOString() }, createdBy: access.actorId });
+  const scheduledText = cleanText(body.scheduledFor, 40); const scheduledFor = type === "scan" && scheduledText && !Number.isNaN(Date.parse(scheduledText)) ? new Date(scheduledText) : new Date(); if (scheduledFor.getTime() < Date.now() - 60_000 || scheduledFor.getTime() > Date.now() + 30 * 86_400_000) return NextResponse.json({ error: "Scan schedule must be within the next 30 days" }, { status: 422 }); const job = await store.createJob({ agencyId: access.workspace.id, type, idempotencyKey: key, clientOrgIds: orgIds, payload: { requestedAt: new Date().toISOString(), scheduledFor: scheduledFor.toISOString() }, createdBy: access.actorId });
   if (job.status === "completed" || job.status === "partially_failed") return NextResponse.json({ job, result: job.result, idempotentReplay: true });
 
   let result: unknown; let status: "completed" | "partially_failed" | "failed" = "completed";
-  if (type === "scan") result = { scheduledMonitors: await (await getMonitorStore()).scheduleNow(orgIds), clientCount: orgIds.length };
+  if (type === "scan") result = { scheduledMonitors: await (await getMonitorStore()).scheduleNow(orgIds, scheduledFor), scheduledFor: scheduledFor.toISOString(), clientCount: orgIds.length };
   else {
     const guardian = await getGuardianStore(); const periodEnd = new Date(); const periodStart = new Date(periodEnd.getTime() - (type === "digest" ? 7 : 30) * 86_400_000);
     const generated = await Promise.allSettled(orgIds.map(async (orgId) => {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AgencyStore } from "./store-model";
-import type { AgencyActivity, AgencyApiKey, AgencyBulkJob, AgencyClient, AgencyFindingShare, AgencyGroup, AgencyInvite, AgencyMembership, AgencyNote, AgencyReport, AgencyWorkspace } from "./types";
+import type { AgencyActivity, AgencyApiKey, AgencyBulkJob, AgencyClient, AgencyFindingShare, AgencyGroup, AgencyInvite, AgencyMembership, AgencyNote, AgencyReport, AgencySlaEvent, AgencyWorkspace } from "./types";
 
 const id = (prefix: string) => `${prefix}_${randomUUID()}`;
 const now = () => new Date().toISOString();
@@ -18,14 +18,19 @@ export class InMemoryAgencyStore implements AgencyStore {
   private keyRows: Array<AgencyApiKey & { secretHash: string }> = [];
   private inviteRows: Array<AgencyInvite & { tokenHash: string }> = [];
   private reportRows: AgencyReport[] = [];
+  private reportShares: Array<{ agencyId: string; reportId: string; email: string; tokenHash: string; expiresAt: string }> = [];
+  private slaRows: AgencySlaEvent[] = [];
 
   async workspaceForUser(userId: string) {
     const membership = this.members.find((item) => item.userId === userId && item.active);
     const workspace = membership && this.workspaces.find((item) => item.id === membership.agencyId);
     return membership && workspace ? { workspace, membership } : null;
   }
+  async workspacesForUser(userId: string) { return this.members.filter((item) => item.userId === userId && item.active).flatMap((membership) => { const workspace = this.workspaces.find((item) => item.id === membership.agencyId); return workspace ? [{ workspace, membership }] : []; }); }
+  async workspaceByCustomDomain(domain: string) { const normalized = domain.trim().toLowerCase().replace(/:\d+$/, ""); return this.workspaces.find((item) => item.branding.customDomain?.toLowerCase() === normalized) ?? null; }
   async membershipForUser(agencyId: string, userId: string) { return this.members.find((item) => item.agencyId === agencyId && item.userId === userId && item.active) ?? null; }
   async workspace(idValue: string) { return this.workspaces.find((item) => item.id === idValue) ?? null; }
+  async allWorkspaces() { return [...this.workspaces]; }
   async createWorkspace(input: { ownerOrgId: string; ownerUserId: string; name: string; slug: string }) {
     if (this.workspaces.some((item) => item.ownerOrgId === input.ownerOrgId || item.slug === input.slug)) throw new Error("Agency workspace already exists");
     const timestamp = now();
@@ -104,4 +109,11 @@ export class InMemoryAgencyStore implements AgencyStore {
   async hasPortalInvite(agencyId: string, clientId: string, userId: string) { return this.inviteRows.some((item) => item.agencyId === agencyId && item.clientId === clientId && item.kind === "client_portal" && item.acceptedBy === userId && !!item.acceptedAt && !item.revokedAt); }
   async createReport(input: { agencyId: string; clientOrgId?: string | null; periodStart: string; periodEnd: string; kind: AgencyReport["kind"]; title: string; content: Record<string, unknown>; branding: AgencyWorkspace["branding"]; createdBy: string }) { const row: AgencyReport = { id: id("report"), ...input, clientOrgId: input.clientOrgId ?? null, status: "ready", createdAt: now() }; this.reportRows.push(row); return row; }
   async reports(agencyId: string, limit = 100) { return this.reportRows.filter((item) => item.agencyId === agencyId).sort((a,b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit); }
+  async report(agencyId: string, reportId: string) { return this.reportRows.find((item) => item.agencyId === agencyId && item.id === reportId) ?? null; }
+  async createReportShare(input: { agencyId: string; reportId: string; email: string; tokenHash: string; expiresAt: string }) { if (!this.reportRows.some((item) => item.id === input.reportId && item.agencyId === input.agencyId)) throw new Error("Report not found"); this.reportShares.push(input); }
+  async authorizeReportShare(agencyId: string, reportId: string, tokenHash: string, at: Date) { return this.reportShares.some((item) => item.agencyId === agencyId && item.reportId === reportId && item.tokenHash === tokenHash && new Date(item.expiresAt) > at); }
+  async purgeExpiredReportShares(at: Date) { const before = this.reportShares.length; this.reportShares = this.reportShares.filter((item) => new Date(item.expiresAt) > at); return before - this.reportShares.length; }
+  async slaEvents(agencyId: string, clientId?: string) { const ids = new Set(this.clientRows.filter((item) => item.agencyId === agencyId && (!clientId || item.id === clientId)).map((item) => item.id)); return this.slaRows.filter((item) => ids.has(item.clientId)).sort((a,b) => a.dueAt.localeCompare(b.dueAt)); }
+  async upsertSlaEvent(input: { agencyId: string; clientId: string; findingId: string; priority: AgencySlaEvent["priority"]; openedAt: string; dueAt: string; lastObservedAt: string; resolved: boolean }) { let row = this.slaRows.find((item) => item.clientId === input.clientId && item.findingId === input.findingId); if (!row) { row = { id: id("sla"), clientId: input.clientId, findingId: input.findingId, priority: input.priority, openedAt: input.openedAt, dueAt: input.dueAt, resolvedAt: null, breached: false, status: "open", acknowledgedAt: null, acknowledgedBy: null, lastObservedAt: input.lastObservedAt, escalatedAt: null }; this.slaRows.push(row); } row.priority = input.priority; row.lastObservedAt = input.lastObservedAt; row.breached = row.status !== "resolved" && !input.resolved && new Date(input.dueAt) < new Date(input.lastObservedAt); if (input.resolved) { row.status = "resolved"; row.resolvedAt ??= input.lastObservedAt; } return row; }
+  async updateSlaEvent(agencyId: string, eventId: string, patch: { acknowledgeBy?: string; resolve?: boolean; escalated?: boolean }) { const allowed = new Set(this.clientRows.filter((item) => item.agencyId === agencyId).map((item) => item.id)); const row = this.slaRows.find((item) => item.id === eventId && allowed.has(item.clientId)); if (!row) return null; const timestamp = now(); if (patch.acknowledgeBy) { row.status = "acknowledged"; row.acknowledgedAt = timestamp; row.acknowledgedBy = patch.acknowledgeBy; } if (patch.resolve) { row.status = "resolved"; row.resolvedAt = timestamp; } if (patch.escalated) row.escalatedAt = timestamp; return row; }
 }
