@@ -217,6 +217,13 @@ export interface GuardianDelivery {
   deliveredAt: string | null;
 }
 
+export interface GuardianQueueMetrics {
+  pending: number;
+  retry: number;
+  sending: number;
+  oldestReadyAgeSeconds: number;
+}
+
 export interface GuardianActivity {
   id: string;
   orgId: string;

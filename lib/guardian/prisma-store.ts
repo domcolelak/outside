@@ -33,6 +33,7 @@ interface ChannelRow { id: string; orgId: string; type: string; name: string; en
 interface DeliveryRow { id: string; idempotencyKey: string; orgId: string; channelId: string | null; channelType: string; target: string; kind: string; status: string; itemCount: number; payload: unknown; attempts: number; leaseId: string | null; lastError: string | null; createdAt: Date; deliveredAt: Date | null }
 interface ActivityRow { id: string; orgId: string; target: string; type: string; message: string; createdAt: Date }
 interface DigestRow { content: unknown }
+interface QueueMetricRow { status: string; count: bigint; oldest: Date | null }
 
 function json(value: unknown): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
@@ -86,9 +87,9 @@ export class PrismaGuardianStore implements GuardianStore {
     await prisma.$transaction(async (transaction) => {
       const db = transaction as unknown as GuardianDb;
       const current = analysis.snapshot;
-      await db.guardianSnapshot.upsert({
-        where: { scanId: current.scanId }, update: {},
-        create: { id: guardianId("guardian-snapshot", current.orgId, current.scanId), orgId: current.orgId, scanId: current.scanId, target: current.target, observedAt: new Date(current.observedAt), exposureScore: current.exposureScore, metrics: json(current.metrics), inventory: json(current.inventory), checklist: json(current.checklist) },
+      await db.guardianSnapshot.createMany({
+        data: [{ id: guardianId("guardian-snapshot", current.orgId, current.scanId), orgId: current.orgId, scanId: current.scanId, target: current.target, observedAt: new Date(current.observedAt), exposureScore: current.exposureScore, metrics: json(current.metrics), inventory: json(current.inventory), checklist: json(current.checklist) }],
+        skipDuplicates: true,
       });
       if (analysis.events.length) await db.guardianEvent.createMany({ data: analysis.events.map((row) => ({ ...row, observedAt: new Date(row.observedAt), evidence: json(row.evidence) })), skipDuplicates: true });
       for (const row of analysis.recommendations) {
@@ -160,6 +161,22 @@ export class PrismaGuardianStore implements GuardianStore {
     const now = new Date();
     await this.db.guardianActivity.create({ data: { id: guardianId("guardian-activity", input.orgId, input.target, input.kind, input.channelType, now.toISOString()), orgId: input.orgId, target: input.target, type: "notification_queued", message: `Queued ${input.kind.replace("_", " ")} for ${input.channelType}.`, createdAt: now } });
     return delivery(row);
+  }
+
+  async queueMetrics(now: Date) {
+    const rows = await prisma.$queryRaw<QueueMetricRow[]>`
+      SELECT "status", COUNT(*)::bigint AS count, MIN("createdAt") AS oldest
+      FROM "guardian_deliveries"
+      WHERE "status" IN ('pending', 'retry', 'sending')
+      GROUP BY "status"
+    `;
+    const count = (status: string) => Number(rows.find((row) => row.status === status)?.count ?? 0n);
+    const readyOldest = await prisma.$queryRaw<Array<{ oldest: Date | null }>>`
+      SELECT MIN("createdAt") AS oldest FROM "guardian_deliveries"
+      WHERE "status" IN ('pending', 'retry') AND "nextAttemptAt" <= ${now}
+    `;
+    const oldest = readyOldest[0]?.oldest;
+    return { pending: count("pending"), retry: count("retry"), sending: count("sending"), oldestReadyAgeSeconds: oldest ? Math.max(0, now.getTime() - oldest.getTime()) / 1_000 : 0 };
   }
 
   async claimDeliveries(now: Date, limit: number, leaseMs: number) {

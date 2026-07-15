@@ -168,6 +168,7 @@ model Organization {
   guardianDeliveries      GuardianDelivery[]
   guardianDigests         GuardianDigest[]
   guardianActivities      GuardianActivity[]
+  guardianRetention       GuardianRetentionPolicy?
 
   @@map("organizations")
 }
@@ -239,28 +240,28 @@ model Target {
 }
 
 model Scan {
-  id               String            @id
-  orgId            String
-  target           Target            @relation(fields: [targetId], references: [id], onDelete: Cascade)
-  targetId         String
-  finishedAt       DateTime
-  mode             ScanMode
-  scoreValue       Int
-  assetCount       Int
-  snapshots        AssetSnapshot[]
-  guardianSnapshot GuardianSnapshot?
-  guardianEvents   GuardianEvent[]
+  id                String             @id
+  orgId             String
+  target            Target             @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  targetId          String
+  finishedAt        DateTime
+  mode              ScanMode
+  scoreValue        Int
+  assetCount        Int
+  snapshots         AssetSnapshot[]
+  guardianSnapshots GuardianSnapshot[]
+  guardianEvents    GuardianEvent[]
 
   @@index([targetId, finishedAt])
   @@map("scans")
 }
 
 model GuardianSnapshot {
-  id            String       @id @default(cuid())
+  id            String       @default(cuid())
   org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId         String
   scan          Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  scanId        String       @unique
+  scanId        String
   target        String
   observedAt    DateTime
   exposureScore Int
@@ -268,12 +269,14 @@ model GuardianSnapshot {
   inventory     Json
   checklist     Json
 
+  @@id([id, observedAt])
+  @@unique([scanId, observedAt])
   @@index([orgId, target, observedAt])
   @@map("guardian_snapshots")
 }
 
 model GuardianEvent {
-  id             String       @id
+  id             String
   org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId          String
   scan           Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
@@ -291,7 +294,8 @@ model GuardianEvent {
   groupKey       String
   observedAt     DateTime
 
-  @@unique([orgId, scanId, groupKey])
+  @@id([id, observedAt])
+  @@unique([orgId, scanId, groupKey, observedAt])
   @@index([orgId, target, observedAt])
   @@index([orgId, severity, observedAt])
   @@map("guardian_events")
@@ -380,7 +384,7 @@ model GuardianDigest {
 }
 
 model GuardianActivity {
-  id        String       @id
+  id        String
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId     String
   target    String
@@ -388,8 +392,23 @@ model GuardianActivity {
   message   String
   createdAt DateTime
 
+  @@id([id, createdAt])
   @@index([orgId, createdAt])
   @@map("guardian_activity")
+}
+
+model GuardianRetentionPolicy {
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String       @id
+  scanDays     Int          @default(730)
+  snapshotDays Int          @default(365)
+  eventDays    Int          @default(365)
+  deliveryDays Int          @default(90)
+  activityDays Int          @default(180)
+  digestDays   Int          @default(730)
+  updatedAt    DateTime     @updatedAt
+
+  @@map("guardian_retention_policies")
 }
 
 model AssetIdentity {

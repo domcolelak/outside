@@ -1,4 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getMonitorStore, type Monitor } from "@/lib/monitoring";
 import { runPassiveScan } from "@/lib/discovery/engine";
@@ -9,6 +8,7 @@ import { deliverOutboxBatch } from "@/lib/email/outbox";
 import { processGuardianScan } from "@/lib/guardian/process";
 import { deliverGuardianBatch } from "@/lib/guardian/notifications";
 import { getGuardianStore } from "@/lib/guardian/store";
+import { authorizeCronHeader } from "@/lib/security/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,18 +17,9 @@ const MAX_PER_RUN = 10;
 const WORKERS = 2;
 const LEASE_MS = 3 * 60_000;
 
-function secretMatches(expected: string, provided: string): boolean {
-  const a = Buffer.from(expected), b = Buffer.from(provided);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET?.trim() ?? "";
-  const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  if (!secret || (process.env.NODE_ENV === "production" && Buffer.byteLength(secret) < 32)) {
-    return NextResponse.json({ error: "A strong CRON_SECRET is not configured" }, { status: 503 });
-  }
-  if (!secretMatches(secret, provided)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authorization = authorizeCronHeader(req.headers.get("authorization"));
+  if (!authorization.ok) return NextResponse.json({ error: authorization.error }, { status: authorization.status });
 
   const monitorStore = await getMonitorStore();
   const scanStore = await getStore();

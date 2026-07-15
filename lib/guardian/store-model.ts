@@ -1,4 +1,4 @@
-import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianChannelType, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianOverview, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot } from "./types";
+import type { GuardianActivity, GuardianAnalysis, GuardianChannel, GuardianChannelType, GuardianDelivery, GuardianDigest, GuardianEvent, GuardianOverview, GuardianQueueMetrics, GuardianRecommendation, GuardianRecommendationStatus, GuardianSnapshot } from "./types";
 
 export interface GuardianChannelRecord extends GuardianChannel {
   encryptedConfig: string;
@@ -42,6 +42,7 @@ export interface GuardianStore {
   setChannelEnabled(orgId: string, id: string, enabled: boolean): Promise<boolean>;
   deleteChannel(orgId: string, id: string): Promise<boolean>;
   queueDelivery(input: QueueDeliveryInput): Promise<GuardianDelivery>;
+  queueMetrics(now: Date): Promise<GuardianQueueMetrics>;
   claimDeliveries(now: Date, limit: number, leaseMs: number): Promise<GuardianDeliveryJob[]>;
   completeDelivery(id: string, leaseId: string, at: Date): Promise<boolean>;
   failDelivery(id: string, leaseId: string, error: string, retryAt: Date): Promise<boolean>;

@@ -107,6 +107,12 @@ export class InMemoryGuardianStore implements GuardianStore {
     return this.publicDelivery(row);
   }
 
+  async queueMetrics(now: Date) {
+    const ready = this.deliveryRows.filter((row) => ["pending", "retry"].includes(row.status) && Date.parse(row.nextAttemptAt) <= now.getTime());
+    const oldest = ready.reduce((value, row) => Math.min(value, Date.parse(row.createdAt)), now.getTime());
+    return { pending: this.deliveryRows.filter((row) => row.status === "pending").length, retry: this.deliveryRows.filter((row) => row.status === "retry").length, sending: this.deliveryRows.filter((row) => row.status === "sending").length, oldestReadyAgeSeconds: ready.length ? Math.max(0, now.getTime() - oldest) / 1_000 : 0 };
+  }
+
   async claimDeliveries(now: Date, limit: number, leaseMs: number) {
     const jobs: GuardianDeliveryJob[] = [];
     for (const row of this.deliveryRows) {

@@ -26,6 +26,7 @@ import { certificateTransparency, domainRegistration, resolveHost, resolveMailAn
 import type { CtHostname } from "./providers";
 import { observeHttp } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
+import { recordProviderMetrics } from "@/lib/observability/metrics";
 
 export type Emit = (event: ScanEvent) => void | Promise<void>;
 
@@ -75,6 +76,8 @@ function finalize(
     highPriorityFindings: findings.filter((f) => f.priority === "high" || f.priority === "critical").length,
     nonProdSignals: assets.filter((a) => a.signals.some((s) => s.code === "env.nonprod")).length,
   };
+
+  recordProviderMetrics(providerRuns);
 
   return {
     scanId,

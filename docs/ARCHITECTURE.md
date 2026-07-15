@@ -53,6 +53,8 @@ Exposure Drift compares the latest observation with a factual monthly baseline a
 
 Guardian notification records form a durable outbox with atomic `SKIP LOCKED` claims, leases, bounded exponential retries, delivery history, and five-attempt terminal failure. High-severity events notify immediately; medium events require a related group of at least three. Channel credentials are encrypted with AES-256-GCM under an independent key. Slack, Teams, Discord, generic webhooks, Jira, GitHub Issues, and Linear requests resolve destinations immediately before each request, reject any special-use address, and pin HTTPS to the validated IP to prevent DNS rebinding. Weekly digests are unique by organization, target, and ISO week.
 
+Large-fleet history is split into native monthly range partitions for Guardian snapshots, correlated events, and activity. A default partition preserves writes during scheduler outages, while an advisory-locked maintenance function creates future partitions idempotently. Per-organization, plan-aware retention cutoffs are applied by fleet-wide set-based deletes with global `SKIP LOCKED` batch limits, so work remains bounded independently of tenant count. Base scans are retained independently and never for less time than their Guardian snapshots.
+
 ## Background and external work
 
 The cron route uses database claims with leases and `SKIP LOCKED`, bounded worker concurrency, deterministic run identifiers, and retry backoff. A crashed worker's lease can be reclaimed. Monitor creation serializes quota enforcement and duplicate checks.
@@ -73,6 +75,6 @@ The client consumes typed SSE events. A shared stage catalog prevents server/cli
 
 ## Operations
 
-Run schema migrations before application startup. CI executes tests, lint, strict type checking, production build, and a production dependency audit. Query logging is opt-in. Provider-run and scan IDs support correlation; production should export logs and metrics to the operator's monitoring platform.
+Run schema migrations before application startup. CI executes unit tests, lint, strict type checking, production build, a production dependency audit, and PostgreSQL 16 workflow tests against the deployed migration chain. Query logging is opt-in. Provider-run and scan IDs support correlation. Optional OTLP/HTTP export reports provider latency/observations, Guardian queue depth/oldest-ready age, delivery outcomes, and retention throughput using bounded low-cardinality attributes; tenant identifiers and domains are deliberately excluded.
 
 The connector registry is descriptive. It maps credentials and recommendation categories but does not implement provider mutations. Remediation proposals remain preview-only until a separately reviewed execution adapter exists.
