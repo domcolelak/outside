@@ -64,13 +64,15 @@ describe("Guardian deterministic analysis", () => {
   it("detects DNS, mail, redirect, provider, and threshold changes from exact values", () => {
     const first = analyzeGuardianScan("org-1", scan("s1", 1, baselineAssets()));
     const changed = baselineAssets();
-    changed[0]!.attrs = { ...changed[0]!.attrs, addresses: ["203.0.113.99"], redirectLocation: "https://new.acme.com/", dnsProvider: "Amazon Route 53", certDaysToExpiry: 30, certNotAfter: "2026-07-01T00:00:00.000Z" };
+    changed[0]!.attrs = { ...changed[0]!.attrs, addresses: ["203.0.113.99"], cnames: ["app.elasticbeanstalk.com"], redirectLocation: "https://new.acme.com/", dnsProvider: "Amazon Route 53", cloudProvider: "Amazon Web Services", providerEvidence: ["Public DNS CNAME points to app.elasticbeanstalk.com."], certDaysToExpiry: 30, certNotAfter: "2026-07-01T00:00:00.000Z" };
     changed[1]!.attrs = { ...changed[1]!.attrs, dmarc: "monitoring" };
     const result = analyzeGuardianScan("org-1", scan("s2", 2, changed), [first.snapshot]);
     expect(new Set(result.events.map((event) => event.type))).toEqual(expect.objectContaining(new Set(["dns_changed", "mail_security_changed", "redirect_changed", "infrastructure_changed", "certificate_expiring", "checklist_changed"])));
     const dns = result.events.find((event) => event.type === "dns_changed")!;
     expect(dns.evidence.map((entry) => entry.observation).join(" ")).toContain("203.0.113.99");
+    expect(dns.evidence.map((entry) => entry.observation).join(" ")).toContain("app.elasticbeanstalk.com");
     expect(dns.confidence).toBe(1);
+    expect(result.events.find((event) => event.type === "infrastructure_changed")?.evidence.map((entry) => entry.observation).join(" ")).toContain("app.elasticbeanstalk.com");
   });
 
   it("raises expiry milestones on the first factual baseline", () => {
@@ -78,6 +80,19 @@ describe("Guardian deterministic analysis", () => {
     const result = analyzeGuardianScan("org-1", scan("s1", 1, [root]));
     expect(result.events.some((event) => event.type === "certificate_expiring" && event.severity === "critical")).toBe(true);
     expect(result.events.some((event) => event.type === "domain_expiring" && event.severity === "critical")).toBe(true);
+  });
+
+  it("uses verified HTTPS evidence and keeps transport failures unknown", () => {
+    const root = asset("acme.com", "root_domain", { https: "unverified", presentHeaders: [], certDaysToExpiry: 40, tlsValidation: "unverified" });
+    const www = asset("www.acme.com", "web_service", { https: "observed", presentHeaders: ["Strict-Transport-Security (HSTS)"], certDaysToExpiry: 90, tlsValidation: "valid", securityTxt: "present" });
+    www.discoveredVia.push("http_observation");
+    const verified = analyzeGuardianScan("org-1", scan("s1", 1, [root, www]));
+    expect(verified.snapshot.checklist.find((item) => item.code === "https")?.state).toBe("pass");
+    expect(verified.snapshot.checklist.find((item) => item.code === "hsts")?.evidence[0]?.asset).toBe("www.acme.com");
+
+    const unknown = analyzeGuardianScan("org-1", scan("s2", 2, [root]));
+    expect(unknown.snapshot.checklist.find((item) => item.code === "https")?.state).toBe("unknown");
+    expect(unknown.snapshot.checklist.find((item) => item.code === "hsts")?.state).toBe("unknown");
   });
 
   it("calculates exposure drift and a factual weekly digest", () => {
@@ -95,17 +110,18 @@ describe("Guardian deterministic analysis", () => {
 
   it("preserves recommendation state and idempotency in the store", async () => {
     const store = new InMemoryGuardianStore();
-    const analysis = analyzeGuardianScan("org-1", scan("s1", 1, [asset("acme.com", "root_domain", { protocols: ["HTTPS"] })]));
+    const observedRoot = () => asset("acme.com", "root_domain", { protocols: ["HTTPS"], https: "observed", presentHeaders: [], tlsValidation: "valid", certDaysToExpiry: 90 });
+    const analysis = analyzeGuardianScan("org-1", scan("s1", 1, [observedRoot()]));
     await store.saveAnalysis(analysis);
     await store.saveAnalysis(analysis);
     const open = (await store.recommendations("org-1"))[0]!;
     expect(await store.updateRecommendation("org-1", open.id, "acknowledged", "Owner")).toBe(true);
-    const later = analyzeGuardianScan("org-1", scan("s2", 2, [asset("acme.com", "root_domain", { protocols: ["HTTPS"] })]), [analysis.snapshot], await store.recommendations("org-1"));
+    const later = analyzeGuardianScan("org-1", scan("s2", 2, [observedRoot()]), [analysis.snapshot], await store.recommendations("org-1"));
     await store.saveAnalysis(later);
     expect((await store.history("org-1", "acme.com"))).toHaveLength(2);
     expect((await store.recommendations("org-1")).find((row) => row.id === open.id)?.status).toBe("acknowledged");
     await store.updateRecommendation("org-1", open.id, "resolved", "Owner");
-    const third = analyzeGuardianScan("org-1", scan("s3", 3, [asset("acme.com", "root_domain", { protocols: ["HTTPS"] })]), [analysis.snapshot, later.snapshot], await store.recommendations("org-1"));
+    const third = analyzeGuardianScan("org-1", scan("s3", 3, [observedRoot()]), [analysis.snapshot, later.snapshot], await store.recommendations("org-1"));
     await store.saveAnalysis(third);
     expect((await store.recommendations("org-1")).find((row) => row.id === open.id)?.status).toBe("open");
   });

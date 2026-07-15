@@ -158,8 +158,10 @@ export class PrismaGuardianStore implements GuardianStore {
 
   async queueDelivery(input: QueueDeliveryInput) {
     const row = await this.db.guardianDelivery.upsert({ where: { idempotencyKey: input.idempotencyKey }, update: {}, create: { ...input, payload: json(input.payload) } }) as DeliveryRow;
-    const now = new Date();
-    await this.db.guardianActivity.create({ data: { id: guardianId("guardian-activity", input.orgId, input.target, input.kind, input.channelType, now.toISOString()), orgId: input.orgId, target: input.target, type: "notification_queued", message: `Queued ${input.kind.replace("_", " ")} for ${input.channelType}.`, createdAt: now } });
+    await this.db.guardianActivity.createMany({
+      data: [{ id: guardianId("guardian-activity", input.orgId, input.idempotencyKey), orgId: input.orgId, target: input.target, type: "notification_queued", message: `Queued ${input.kind.replace("_", " ")} for ${input.channelType}.`, createdAt: row.createdAt }],
+      skipDuplicates: true,
+    });
     return delivery(row);
   }
 

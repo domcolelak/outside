@@ -56,7 +56,7 @@ request -> authorization/rate limits -> discovery providers -> normalization
 Key areas:
 
 - `app/api`: authenticated API boundaries, SSE scans, cron, billing, and webhooks.
-- `lib/discovery`: bounded CT, DNS, and verified-target HTTPS/TLS observation.
+- `lib/discovery`: bounded CT, DNS/CNAME infrastructure signals, and verified-target HTTPS/TLS/header observation.
 - `lib/security`: target validation, IP pinning, request limits, and distributed rate controls.
 - `lib/analysis`: deterministic classification, finding generation, and scoring.
 - `lib/persistence`: tenant-scoped temporal identity, snapshots, diffs, and history.

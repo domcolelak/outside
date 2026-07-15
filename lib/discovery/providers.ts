@@ -71,17 +71,61 @@ async function dohQuery(name: string, type: string, signal?: AbortSignal): Promi
 export interface DnsRecord {
   a: string[];
   aaaa: string[];
+  cname: string[];
 }
 
 export async function resolveHost(host: string, signal?: AbortSignal): Promise<DnsRecord> {
-  const [a, aaaa] = await Promise.all([
+  const [a, aaaa, cname] = await Promise.all([
     dohQuery(host, "A", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
     dohQuery(host, "AAAA", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
+    dohQuery(host, "CNAME", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
   ]);
+  const aliases = [...a, ...aaaa, ...cname]
+    .filter((record) => record.type === 5)
+    .map((record) => record.data.toLowerCase().replace(/\.$/, ""))
+    .filter((value) => value.length <= 253 && /^[a-z0-9.-]+$/.test(value));
   return {
     a: a.filter((r) => r.type === 1).map((r) => r.data),
     aaaa: aaaa.filter((r) => r.type === 28).map((r) => r.data),
+    cname: [...new Set(aliases)],
   };
+}
+
+export interface InfrastructureSignal {
+  cloudProvider?: string;
+  cdn?: string;
+  providerEvidence: string[];
+}
+
+function hostnameMatches(hostname: string, suffix: string): boolean {
+  return hostname === suffix || hostname.endsWith(`.${suffix}`);
+}
+
+/** Infer hosting only from an explicitly observed public CNAME suffix. */
+export function identifyInfrastructureProvider(cnames: string[]): InfrastructureSignal {
+  const mappings: Array<{ suffixes: string[]; cloudProvider?: string; cdn?: string }> = [
+    { suffixes: ["cloudfront.net"], cloudProvider: "Amazon Web Services", cdn: "Amazon CloudFront" },
+    { suffixes: ["amazonaws.com", "elasticbeanstalk.com", "execute-api.amazonaws.com"], cloudProvider: "Amazon Web Services" },
+    { suffixes: ["azurefd.net"], cloudProvider: "Microsoft Azure", cdn: "Azure Front Door" },
+    { suffixes: ["azurewebsites.net", "trafficmanager.net", "blob.core.windows.net"], cloudProvider: "Microsoft Azure" },
+    { suffixes: ["run.app", "appspot.com", "googlehosted.com"], cloudProvider: "Google Cloud" },
+    { suffixes: ["vercel-dns.com", "vercel.app"], cloudProvider: "Vercel", cdn: "Vercel Edge Network" },
+    { suffixes: ["netlify.app", "netlify.global"], cloudProvider: "Netlify", cdn: "Netlify Edge" },
+    { suffixes: ["fastly.net"], cdn: "Fastly" },
+    { suffixes: ["akamaiedge.net", "edgekey.net", "edgesuite.net", "akamai.net"], cdn: "Akamai" },
+    { suffixes: ["cdn.cloudflare.net"], cdn: "Cloudflare" },
+    { suffixes: ["github.io"], cloudProvider: "GitHub Pages" },
+  ];
+  const normalized = [...new Set(cnames.map((value) => value.toLowerCase().replace(/\.$/, "")))];
+  const result: InfrastructureSignal = { providerEvidence: [] };
+  for (const cname of normalized) {
+    const mapping = mappings.find((candidate) => candidate.suffixes.some((suffix) => hostnameMatches(cname, suffix)));
+    if (!mapping) continue;
+    result.cloudProvider ??= mapping.cloudProvider;
+    result.cdn ??= mapping.cdn;
+    result.providerEvidence.push(`Public DNS CNAME points to ${cname}.`);
+  }
+  return result;
 }
 
 /** Raw TXT records for a name (used by domain-ownership verification). */

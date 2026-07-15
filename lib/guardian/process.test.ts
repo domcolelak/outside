@@ -25,4 +25,22 @@ describe("Guardian paid processing", () => {
     expect((await processGuardianScan(created.org.id, result("s1")))?.analysis.snapshot.scanId).toBe("s1");
     expect(await guardian.history(created.org.id, "acme.com")).toHaveLength(1);
   });
+
+  it("creates and queues only one weekly digest across recovery attempts", async () => {
+    const auth = new InMemoryAuthStore();
+    const created = await auth.createUserWithOrg({ email: "owner@example.com", name: "Owner", passwordHash: "hash", orgName: "Acme", emailVerified: true });
+    await auth.setPlan(created.org.id, "professional");
+    const guardian = new InMemoryGuardianStore();
+    __resetAuthStore(auth); __resetGuardianStore(guardian);
+
+    const first = await processGuardianScan(created.org.id, result("weekly-1"), { notify: true, weeklyDigest: true });
+    const recovery = await processGuardianScan(created.org.id, result("weekly-1"), { notify: true, weeklyDigest: true });
+    const overview = await guardian.overview(created.org.id);
+
+    expect(first?.digestCreated).toBe(true);
+    expect(recovery?.digestCreated).toBe(false);
+    expect(await guardian.digests(created.org.id)).toHaveLength(1);
+    expect(overview.deliveries).toHaveLength(1);
+    expect(overview.activity.filter((item) => item.type === "notification_queued")).toHaveLength(1);
+  });
 });

@@ -38,6 +38,7 @@ export interface GuardianInventoryItem {
   kind: string;
   priority: Priority;
   addresses: string[];
+  cnames?: string[];
   technologies: string[];
   status?: string;
   certKey?: string;
@@ -55,6 +56,7 @@ export interface GuardianInventoryItem {
   dnsProvider?: string;
   cloudProvider?: string;
   cdn?: string;
+  providerEvidence?: string[];
   domainExpiresAt?: string;
   domainDaysToExpiry?: number;
   isShadow: boolean;

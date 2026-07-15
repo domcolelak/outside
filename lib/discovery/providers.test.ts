@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyDmarc, filterCtHosts, identifyDnsProvider, identifyMailProvider } from "./providers";
+import { classifyDmarc, filterCtHosts, identifyDnsProvider, identifyInfrastructureProvider, identifyMailProvider } from "./providers";
 
 describe("filterCtHosts — CT entity resolution", () => {
   const rows = [
@@ -51,5 +51,16 @@ describe("Guardian DNS control classification", () => {
     expect(identifyMailProvider(["aspmx.l.google.com"])).toBe("Google Workspace");
     expect(identifyMailProvider(["acme-com.mail.protection.outlook.com"])).toBe("Microsoft 365");
     expect(identifyMailProvider(["mail.acme.com"])).toBeUndefined();
+  });
+
+  it("identifies cloud and CDN providers only from explicit CNAME suffixes", () => {
+    expect(identifyInfrastructureProvider(["d111.cloudfront.net"])).toEqual({
+      cloudProvider: "Amazon Web Services",
+      cdn: "Amazon CloudFront",
+      providerEvidence: ["Public DNS CNAME points to d111.cloudfront.net."],
+    });
+    expect(identifyInfrastructureProvider(["acme.azurewebsites.net"]).cloudProvider).toBe("Microsoft Azure");
+    expect(identifyInfrastructureProvider(["cloudfront.net.attacker.example"])).toEqual({ providerEvidence: [] });
+    expect(identifyInfrastructureProvider(["custom.example"])).toEqual({ providerEvidence: [] });
   });
 });
