@@ -55,6 +55,22 @@ Guardian notification records form a durable outbox with atomic `SKIP LOCKED` cl
 
 Large-fleet history is split into native monthly range partitions for Guardian snapshots, correlated events, and activity. A default partition preserves writes during scheduler outages, while an advisory-locked maintenance function creates future partitions idempotently. Per-organization, plan-aware retention cutoffs are applied by fleet-wide set-based deletes with global `SKIP LOCKED` batch limits, so work remains bounded independently of tenant count. Base scans are retained independently and never for less time than their Guardian snapshots.
 
+## Agency Suite control plane
+
+Agency Suite is additive to the organization boundary:
+
+1. `Organization` remains the owner of targets, verifications, scans, Guardian evidence, channels, and billing subscription.
+2. `AgencyWorkspace` owns portfolio configuration, branding, seats, reseller hierarchy, and API keys.
+3. `AgencyClient` is an owner-approved relationship to an organization. Cross-customer reads first resolve this relationship and then query the existing organization-keyed Guardian store.
+4. `AgencyMembership` provides independent agency RBAC. It never creates an organization membership implicitly.
+5. Client portal grants are email-bound, hashed, expiring invitations. Portal responses include only shared recommendations, shared notes, posture summaries, and deterministic changes.
+
+Portfolio health derives from current exposure scores, unresolved recommendation priorities, observation freshness, and configured SLA windows. No AI-generated value participates in authorization, evidence, scoring, or SLA status.
+
+Bulk scan requests are idempotent and only reschedule existing verified monitors. Bulk executive reports are job results built from current Guardian observations. The agency API accepts session authorization or hashed bearer keys with explicit scopes; secret material is shown only at key creation.
+
+White-label custom domains reuse the existing domain-verification record. Reseller parents require an owner session with administrative access to both workspaces and direct cycle checks. Database constraints enforce unique workspace owners, client relationships, API secrets, finding shares, and job idempotency keys.
+
 ## Background and external work
 
 The cron route uses database claims with leases and `SKIP LOCKED`, bounded worker concurrency, deterministic run identifiers, and retry backoff. A crashed worker's lease can be reclaimed. Monitor creation serializes quota enforcement and duplicate checks.

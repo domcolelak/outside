@@ -31,6 +31,37 @@ enum Plan {
   agency
 }
 
+enum AgencyRole {
+  owner
+  admin
+  manager
+  analyst
+  billing
+  viewer
+}
+
+enum AgencyClientStatus {
+  onboarding
+  active
+  paused
+  offboarded
+}
+
+enum AgencyPortalMode {
+  disabled
+  readonly
+  collaborative
+}
+
+enum AgencyJobStatus {
+  queued
+  running
+  completed
+  partially_failed
+  failed
+  cancelled
+}
+
 enum MonitorFrequency {
   daily
   weekly
@@ -133,16 +164,17 @@ model EmailOutbox {
 }
 
 model User {
-  id              String       @id @default(cuid())
-  email           String       @unique
-  name            String
-  passwordHash    String
+  id                String             @id @default(cuid())
+  email             String             @unique
+  name              String
+  passwordHash      String
   // Default verifies legacy rows during additive migration; all new password
   // signups explicitly write null until the signed verification link is used.
-  emailVerifiedAt DateTime?    @default(now())
-  sessionVersion  Int          @default(0)
-  createdAt       DateTime     @default(now())
-  memberships     Membership[]
+  emailVerifiedAt   DateTime?          @default(now())
+  sessionVersion    Int                @default(0)
+  createdAt         DateTime           @default(now())
+  memberships       Membership[]
+  agencyMemberships AgencyMembership[]
 
   @@map("users")
 }
@@ -169,8 +201,245 @@ model Organization {
   guardianDigests         GuardianDigest[]
   guardianActivities      GuardianActivity[]
   guardianRetention       GuardianRetentionPolicy?
+  ownedAgency             AgencyWorkspace?         @relation("AgencyOwnerOrganization")
+  agencyClients           AgencyClient[]           @relation("AgencyClientOrganization")
 
   @@map("organizations")
+}
+
+model AgencyWorkspace {
+  id               String               @id @default(cuid())
+  ownerOrg         Organization         @relation("AgencyOwnerOrganization", fields: [ownerOrgId], references: [id], onDelete: Cascade)
+  ownerOrgId       String               @unique
+  name             String
+  slug             String               @unique
+  whiteLabel       Boolean              @default(false)
+  consultantMode   Boolean              @default(true)
+  logoUrl          String?
+  primaryColor     String               @default("#38e1c3")
+  accentColor      String               @default("#5b8cff")
+  supportEmail     String?
+  customDomain     String?              @unique
+  emailFromName    String?
+  emailFooter      String?
+  resellerParentId String?
+  resellerParent   AgencyWorkspace?     @relation("AgencyResellerHierarchy", fields: [resellerParentId], references: [id], onDelete: SetNull)
+  resellerChildren AgencyWorkspace[]    @relation("AgencyResellerHierarchy")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  memberships      AgencyMembership[]
+  clients          AgencyClient[]
+  groups           AgencyGroup[]
+  invites          AgencyInvite[]
+  notes            AgencyNote[]
+  findingShares    AgencyFindingShare[]
+  jobs             AgencyBulkJob[]
+  reports          AgencyReport[]
+  apiKeys          AgencyApiKey[]
+  activities       AgencyActivity[]
+
+  @@index([resellerParentId])
+  @@map("agency_workspaces")
+}
+
+model AgencyMembership {
+  agency    AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId  String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  role      AgencyRole      @default(viewer)
+  seatLabel String?
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+
+  @@id([agencyId, userId])
+  @@index([userId, active])
+  @@map("agency_memberships")
+}
+
+model AgencyGroup {
+  id          String          @id @default(cuid())
+  agency      AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId    String
+  name        String
+  color       String          @default("#5b8cff")
+  description String?
+  clients     AgencyClient[]
+  createdAt   DateTime        @default(now())
+
+  @@unique([agencyId, name])
+  @@map("agency_groups")
+}
+
+model AgencyClient {
+  id                  String               @id @default(cuid())
+  agency              AgencyWorkspace      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId            String
+  organization        Organization         @relation("AgencyClientOrganization", fields: [orgId], references: [id], onDelete: Cascade)
+  orgId               String
+  group               AgencyGroup?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groupId             String?
+  status              AgencyClientStatus   @default(onboarding)
+  portalMode          AgencyPortalMode     @default(readonly)
+  externalRef         String?
+  serviceTier         String               @default("standard")
+  slaResponseMinutes  Int                  @default(480)
+  notificationRouting Json                 @default("{}")
+  billingMode         String               @default("agency")
+  monthlyPriceCents   Int?
+  currency            String               @default("EUR")
+  addedAt             DateTime             @default(now())
+  offboardedAt        DateTime?
+  notes               AgencyNote[]
+  findingShares       AgencyFindingShare[]
+  slaEvents           AgencySlaEvent[]
+  invites             AgencyInvite[]
+
+  @@unique([agencyId, orgId])
+  @@index([agencyId, status, groupId])
+  @@map("agency_clients")
+}
+
+model AgencyInvite {
+  id         String          @id @default(cuid())
+  agency     AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  email      String
+  role       AgencyRole
+  kind       String          @default("seat")
+  client     AgencyClient?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String?
+  tokenHash  String          @unique
+  createdBy  String
+  createdAt  DateTime        @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  acceptedBy String?
+  revokedAt  DateTime?
+
+  @@index([agencyId, email, acceptedAt, expiresAt])
+  @@map("agency_invites")
+}
+
+model AgencyNote {
+  id         String          @id @default(cuid())
+  agency     AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  client     AgencyClient    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String
+  authorId   String
+  body       String
+  visibility String          @default("internal")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([agencyId, clientId, createdAt])
+  @@map("agency_notes")
+}
+
+model AgencyFindingShare {
+  id               String          @id @default(cuid())
+  agency           AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId         String
+  client           AgencyClient    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId         String
+  recommendationId String
+  sharedBy         String
+  clientMessage    String?
+  status           String          @default("shared")
+  sharedAt         DateTime        @default(now())
+
+  @@unique([agencyId, clientId, recommendationId])
+  @@index([clientId, sharedAt])
+  @@map("agency_finding_shares")
+}
+
+model AgencyBulkJob {
+  id             String          @id @default(cuid())
+  agency         AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId       String
+  type           String
+  status         AgencyJobStatus @default(queued)
+  idempotencyKey String          @unique
+  clientOrgIds   String[]
+  payload        Json            @default("{}")
+  result         Json?
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  @@index([agencyId, status, createdAt])
+  @@map("agency_bulk_jobs")
+}
+
+model AgencyReport {
+  id          String          @id @default(cuid())
+  agency      AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId    String
+  clientOrgId String?
+  periodStart DateTime
+  periodEnd   DateTime
+  kind        String
+  status      String          @default("ready")
+  title       String
+  content     Json
+  branding    Json
+  createdBy   String
+  createdAt   DateTime        @default(now())
+
+  @@index([agencyId, clientOrgId, createdAt])
+  @@map("agency_reports")
+}
+
+model AgencyApiKey {
+  id         String          @id @default(cuid())
+  agency     AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  name       String
+  prefix     String
+  secretHash String          @unique
+  scopes     String[]
+  createdBy  String
+  createdAt  DateTime        @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  @@index([agencyId, revokedAt])
+  @@map("agency_api_keys")
+}
+
+model AgencySlaEvent {
+  id         String       @id @default(cuid())
+  client     AgencyClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String
+  findingId  String
+  priority   Priority
+  openedAt   DateTime
+  dueAt      DateTime
+  resolvedAt DateTime?
+  breached   Boolean      @default(false)
+
+  @@unique([clientId, findingId])
+  @@index([clientId, breached, dueAt])
+  @@map("agency_sla_events")
+}
+
+model AgencyActivity {
+  id          String          @id @default(cuid())
+  agency      AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId    String
+  clientOrgId String?
+  actorId     String
+  type        String
+  message     String
+  detail      Json            @default("{}")
+  createdAt   DateTime        @default(now())
+
+  @@index([agencyId, createdAt])
+  @@index([agencyId, clientOrgId, createdAt])
+  @@map("agency_activity")
 }
 
 model Membership {
