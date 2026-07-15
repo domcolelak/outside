@@ -5,6 +5,7 @@ import { decryptGuardianConfig } from "./crypto";
 import { safeGuardianPost, type GuardianHttpRequest } from "./transport";
 import type { GuardianStore } from "./store-model";
 import type { GuardianAnalysis, GuardianChannelType, GuardianDigest, GuardianEvent } from "./types";
+import { recordGuardianDelivery, recordGuardianQueueMetrics } from "@/lib/observability/metrics";
 
 type Config = Record<string, string>;
 interface EventPayload { kind: "event_group"; target: string; scanId: string; observedAt: string; events: GuardianEvent[] }
@@ -103,10 +104,13 @@ function requestFor(type: GuardianChannelType, config: Config, payload: EventPay
 }
 
 export async function deliverGuardianBatch(store: GuardianStore, limit = 20): Promise<{ sent: number; failed: number }> {
-  const jobs = await store.claimDeliveries(new Date(), limit, 60_000);
+  const now = new Date();
+  recordGuardianQueueMetrics(await store.queueMetrics(now));
+  const jobs = await store.claimDeliveries(now, limit, 60_000);
   let sent = 0;
   let failed = 0;
   for (const job of jobs) {
+    const started = Date.now();
     try {
       if (job.channelType === "email") await getEmailProvider().send(job.payload as EmailPayload);
       else {
@@ -115,10 +119,12 @@ export async function deliverGuardianBatch(store: GuardianStore, limit = 20): Pr
         await safeGuardianPost(requestFor(job.channelType, config, job.payload as EventPayload | DigestPayload), AbortSignal.timeout(12_000));
       }
       await store.completeDelivery(job.id, job.leaseId, new Date());
+      recordGuardianDelivery(job, "sent", Date.now() - started);
       sent += 1;
     } catch (error) {
       const retryMinutes = Math.min(360, 2 ** Math.min(job.attempts, 8));
       await store.failDelivery(job.id, job.leaseId, (error as Error).message, new Date(Date.now() + retryMinutes * 60_000));
+      recordGuardianDelivery(job, "failed", Date.now() - started);
       failed += 1;
     }
   }

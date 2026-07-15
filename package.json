@@ -7,9 +7,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint app components lib --ext .ts,.tsx --max-warnings 0",
+    "lint": "eslint app components lib e2e instrumentation.ts vitest.config.ts vitest.e2e.config.ts --ext .ts,.tsx --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -17,6 +18,10 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.220.0",
+    "@opentelemetry/resources": "^2.9.0",
+    "@opentelemetry/sdk-metrics": "^2.9.0",
     "@prisma/client": "^5.22.0",
     "@react-pdf/renderer": "4.5.1",
     "next": "15.5.20",

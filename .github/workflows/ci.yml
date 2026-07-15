@@ -30,3 +30,34 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
+
+  postgres-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: outside
+          POSTGRES_PASSWORD: outside
+          POSTGRES_DB: outside_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U outside -d outside_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://outside:outside@127.0.0.1:5432/outside_e2e
+      OUTSIDE_STORAGE_MODE: database
+      GUARDIAN_ENCRYPTION_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20.20.0
+          cache: npm
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run test:e2e

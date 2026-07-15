@@ -30,6 +30,7 @@ For a local PostgreSQL database:
 ```bash
 npm run db:generate
 npm run db:migrate
+npm run test:e2e
 ```
 
 ## Validation
@@ -41,7 +42,7 @@ npm run typecheck
 npm run build
 ```
 
-CI runs the same gates. Dependency update pull requests are configured through Dependabot.
+CI runs the same gates and a separate PostgreSQL 16 integration job. Dependency update pull requests are configured through Dependabot.
 
 ## Architecture
 
@@ -61,7 +62,8 @@ Key areas:
 - `lib/persistence`: tenant-scoped temporal identity, snapshots, diffs, and history.
 - `lib/monitoring`: atomic monitor claims, retry/backoff, and scheduled scans.
 - `lib/aegis`: recommendations, proposal validation, status, and audit trail.
-- `lib/guardian`: continuous snapshots, event correlation, Exposure Drift, checklist controls, recommendation/remediation generation, encrypted integrations, retryable delivery, and executive digests.
+- `lib/guardian`: continuous snapshots, event correlation, Exposure Drift, checklist controls, recommendation/remediation generation, encrypted integrations, retryable delivery, executive digests, and tenant retention.
+- `lib/observability`: low-cardinality OpenTelemetry metrics for discovery providers, Guardian queue age/depth, delivery outcomes, and retention.
 - `lib/auth`: signed sessions, RBAC, invites, OAuth, and email verification.
 - `lib/email`: durable outbox, templates, provider deadlines, and alerts.
 - `components/graph`: canvas graph with Barnes-Hut scaling, reconciliation, culling, and idle suspension.
@@ -92,9 +94,11 @@ npm run build
 npm run start
 ```
 
-Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
+Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan` and `/api/cron/retention`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
 
 Paid deployments that enable Guardian workflow integrations must configure an independent 32-byte `GUARDIAN_ENCRYPTION_KEY`. Integration destinations are validated as HTTPS, resolved immediately before delivery, required to resolve exclusively to public IP addresses, and contacted through an IP-pinned connection with hostname verification.
+
+Guardian history, events, and activity use native monthly PostgreSQL range partitions. Paid organizations receive plan-aware retention defaults; organization administrators can manage bounded policy values through `/api/guardian/retention`. Set an OTLP/HTTP metrics endpoint to export `outside.provider.duration`, `outside.guardian.queue.oldest_age`, queue depth, delivery outcomes, and retention throughput without tenant or domain labels.
 
 ## License
 
