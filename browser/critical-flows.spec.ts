@@ -48,7 +48,7 @@ test.describe("production critical journeys", () => {
     // so its __Host cookie is Secure and cannot persist over Playwright's local
     // HTTP transport. Verify the cookie contract, then present that exact
     // signed session to the protected server-rendered workspace.
-    const setCookie = signupResponse.headers()["set-cookie"] ?? "";
+    const setCookie = (await signupResponse.allHeaders())["set-cookie"] ?? "";
     expect(setCookie).toContain("__Host-outside_session=");
     expect(setCookie).toContain("Path=/");
     expect(setCookie).toContain("HttpOnly");
