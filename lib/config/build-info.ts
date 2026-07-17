@@ -1,6 +1,8 @@
 import packageMetadata from "@/package.json";
 
-type ReleaseEnvironment = Partial<Record<"OUTSIDE_APP_VERSION" | "OUTSIDE_GIT_SHA" | "OUTSIDE_BUILD_TIME", string>>;
+interface ReleaseEnvironment {
+  readonly [name: string]: string | undefined;
+}
 
 function value(input: string | undefined, fallback: string): string {
   const normalized = input?.trim();
