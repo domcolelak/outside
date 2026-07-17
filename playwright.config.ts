@@ -26,6 +26,10 @@ export default defineConfig({
   webServer: {
     command: "npm run start:standalone",
     url: `${baseURL}/api/livez`,
+    // Keep NextRequest.url aligned with the browser Origin. The standalone
+    // server otherwise advertises its 0.0.0.0 bind address and correctly
+    // triggers the application's same-origin mutation guard.
+    env: { OUTSIDE_BIND_HOST: "localhost" },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
