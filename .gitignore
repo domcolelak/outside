@@ -27,6 +27,11 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+
+# Terraform provider development artifacts and state
+terraform-provider-outside/terraform-provider-outside*
+terraform-provider-outside/.terraform/
+terraform-provider-outside/*.tfstate*
 .env.production
 
 # typescript

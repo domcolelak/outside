@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from "next/server";
+import { APP_URL } from "@/lib/config/runtime";
+import { decryptEnterpriseSecret } from "@/lib/enterprise/crypto";
+import { getEnterpriseStore } from "@/lib/enterprise/store";
+import { ENTERPRISE_SSO_COOKIE, makeSsoState, oidcAuthorizationUrl, type OidcConfig } from "@/lib/enterprise/sso";
+import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
+export const runtime = "nodejs"; export const dynamic = "force-dynamic";
+export async function GET(req: NextRequest) { if (!(await requireBudgets([{ key: `enterprise:sso:${clientIdentity(req)}`, limit: 30, windowMs: 60_000 }])).ok) return NextResponse.redirect(new URL("/login?error=rate_limited", APP_URL)); const url = new URL(req.url), email = (url.searchParams.get("email") ?? "").trim().toLowerCase(), domain = email.split("@")[1]; if (!domain) return NextResponse.redirect(new URL("/login?error=sso_unavailable", APP_URL)); const provider = await (await getEnterpriseStore()).identityProviderByDomain(domain); if (!provider?.enabled) return NextResponse.redirect(new URL("/login?error=sso_unavailable", APP_URL)); try { const state = makeSsoState(provider.id, url.searchParams.get("returnTo") ?? "/enterprise"), config = decryptEnterpriseSecret<OidcConfig>(provider.configEncrypted), response = NextResponse.redirect(oidcAuthorizationUrl(config, state)), secure = process.env.NODE_ENV === "production" ? " Secure;" : ""; response.headers.append("Set-Cookie", `${ENTERPRISE_SSO_COOKIE}=${state}; Path=/; HttpOnly; SameSite=Lax;${secure} Max-Age=600`); return response; } catch { return NextResponse.redirect(new URL("/login?error=sso_unavailable", APP_URL)); } }

@@ -7,7 +7,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { authSecret, authVerificationSecrets } from "@/lib/config/secrets";
 
-export const SESSION_COOKIE = "outside_session";
+export const LEGACY_SESSION_COOKIE = "outside_session";
+export const SESSION_COOKIE = process.env.NODE_ENV === "production" ? "__Host-outside_session" : LEGACY_SESSION_COOKIE;
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 function b64url(input: string): string {
@@ -55,4 +56,12 @@ export function sessionCookie(token: string): string {
 export function clearedSessionCookie(): string {
   const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax;${secure} Max-Age=0`;
+}
+
+/** Clear both the hardened cookie and its pre-hardening migration alias. */
+export function clearedSessionCookies(): string[] {
+  const secure = process.env.NODE_ENV === "production" ? " Secure;" : "";
+  const current = clearedSessionCookie();
+  if (SESSION_COOKIE === LEGACY_SESSION_COOKIE) return [current];
+  return [current, `${LEGACY_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax;${secure} Max-Age=0`];
 }

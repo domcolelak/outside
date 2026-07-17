@@ -9,6 +9,7 @@ import { processGuardianScan } from "@/lib/guardian/process";
 import { deliverGuardianBatch } from "@/lib/guardian/notifications";
 import { getGuardianStore } from "@/lib/guardian/store";
 import { authorizeCronHeader } from "@/lib/security/cron-auth";
+import { operationalLog } from "@/lib/observability/log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       const retryMinutes = Math.min(60, 5 * 2 ** Math.min(3, Math.max(0, monitor.attempts - 1)));
       await monitorStore.fail(monitor.id, leaseId, message, new Date(Date.now() + retryMinutes * 60_000));
       failed.push({ domain: monitor.domain, error: message });
-      console.error(`[cron] monitor ${monitor.id} (${monitor.domain}) failed:`, message);
+      operationalLog("error", "monitor.scan_failed", { monitorId: monitor.id, attempt: monitor.attempts }, error);
     }
   };
 
@@ -59,8 +60,25 @@ export async function GET(req: NextRequest) {
       await processMonitor(monitor);
     }
   }));
-  const email = await deliverOutboxBatch(20).catch(() => ({ sent: 0, failed: 0 }));
-  const guardianDelivery = await deliverGuardianBatch(await getGuardianStore(), 20).catch(() => ({ sent: 0, failed: 0 }));
+  const deliveryErrors: string[] = [];
+  let email = { sent: 0, failed: 0 };
+  let guardianDelivery = { sent: 0, failed: 0 };
+  try {
+    email = await deliverOutboxBatch(20);
+  } catch (error) {
+    deliveryErrors.push("email delivery batch failed");
+    operationalLog("error", "email.delivery_batch_failed", {}, error);
+  }
+  try {
+    guardianDelivery = await deliverGuardianBatch(await getGuardianStore(), 20);
+  } catch (error) {
+    deliveryErrors.push("Guardian delivery batch failed");
+    operationalLog("error", "guardian.delivery_batch_failed", {}, error);
+  }
 
-  return NextResponse.json({ ranAt: new Date().toISOString(), claimed: claimed.length, processed: ran.length, failed: failed.length, email, guardianDelivery, results: ran, errors: failed });
+  const degraded = failed.length > 0 || deliveryErrors.length > 0;
+  return NextResponse.json(
+    { ranAt: new Date().toISOString(), claimed: claimed.length, processed: ran.length, failed: failed.length, email, guardianDelivery, results: ran, errors: failed, deliveryErrors },
+    { status: degraded ? 503 : 200 },
+  );
 }

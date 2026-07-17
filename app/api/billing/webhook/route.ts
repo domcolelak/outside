@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { getAuthStore } from "@/lib/auth";
 import { getStripe, isBillingEnabled } from "@/lib/billing/stripe";
 import { planForPriceId } from "@/lib/billing/plans";
 import { processWebhookOnce } from "@/lib/billing/idempotency";
+import { operationalLog } from "@/lib/observability/log";
+import { billingEventRank } from "@/lib/billing/order";
+import { recordBillingWebhook } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,26 +19,28 @@ async function orgIdFor(tx: Prisma.TransactionClient, metadataId: string | undef
 }
 
 async function processDurable(tx: Prisma.TransactionClient, event: Stripe.Event): Promise<void> {
+  const rank = billingEventRank(event.type);
+  const eligible = Prisma.sql`("stripeEventCreated" IS NULL OR "stripeEventCreated" < ${event.created} OR ("stripeEventCreated" = ${event.created} AND "stripeEventRank" < ${rank}))`;
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const orgId = await orgIdFor(tx, session.metadata?.orgId, session.customer as string | undefined);
     const plan = session.metadata?.plan;
-    if (orgId && (plan === "professional" || plan === "agency")) await tx.organization.update({ where: { id: orgId }, data: { plan, stripeCustomerId: session.customer as string, stripeSubscriptionId: session.subscription as string, subscriptionStatus: "active" } });
+    if (orgId && (plan === "professional" || plan === "agency")) await tx.$executeRaw`UPDATE organizations SET plan=CAST(${plan} AS "Plan"),"stripeCustomerId"=${session.customer as string},"stripeSubscriptionId"=${session.subscription as string},"subscriptionStatus"='active',"stripeEventCreated"=${event.created},"stripeEventRank"=${rank},"stripeEventId"=${event.id} WHERE id=${orgId} AND ${eligible}`;
   } else if (event.type === "customer.subscription.updated") {
     const subscription = event.data.object as Stripe.Subscription;
     const orgId = await orgIdFor(tx, subscription.metadata?.orgId, subscription.customer as string);
     const plan = planForPriceId(subscription.items.data[0]?.price.id) ?? "professional";
     const active = subscription.status === "active" || subscription.status === "trialing";
-    if (orgId) await tx.organization.update({ where: { id: orgId }, data: { plan: active ? plan : "free", stripeSubscriptionId: subscription.id, subscriptionStatus: subscription.status } });
+    if (orgId) await tx.$executeRaw`UPDATE organizations SET plan=CAST(${active ? plan : "free"} AS "Plan"),"stripeSubscriptionId"=${subscription.id},"subscriptionStatus"=${subscription.status},"stripeEventCreated"=${event.created},"stripeEventRank"=${rank},"stripeEventId"=${event.id} WHERE id=${orgId} AND ${eligible}`;
   } else if (event.type === "customer.subscription.deleted") {
     const subscription = event.data.object as Stripe.Subscription;
     const orgId = await orgIdFor(tx, subscription.metadata?.orgId, subscription.customer as string);
-    if (orgId) await tx.organization.update({ where: { id: orgId }, data: { plan: "free", stripeSubscriptionId: null, subscriptionStatus: "canceled" } });
+    if (orgId) await tx.$executeRaw`UPDATE organizations SET plan=CAST(${"free"} AS "Plan"),"stripeSubscriptionId"=NULL,"subscriptionStatus"='canceled',"stripeEventCreated"=${event.created},"stripeEventRank"=${rank},"stripeEventId"=${event.id} WHERE id=${orgId} AND ${eligible}`;
   } else if (event.type === "invoice.payment_failed") {
     const invoice = event.data.object as Stripe.Invoice;
     const customerId = invoice.customer as string;
     const orgId = await orgIdFor(tx, undefined, customerId);
-    if (orgId) await tx.organization.update({ where: { id: orgId }, data: { subscriptionStatus: "past_due" } });
+    if (orgId) await tx.$executeRaw`UPDATE organizations SET "subscriptionStatus"='past_due',"stripeEventCreated"=${event.created},"stripeEventRank"=${rank},"stripeEventId"=${event.id} WHERE id=${orgId} AND ${eligible}`;
   }
 }
 
@@ -75,9 +80,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const outcome = await processWebhookOnce(event.id, (tx) => tx ? processDurable(tx, event) : processMemory(event));
+    recordBillingWebhook(event.type, outcome);
     return NextResponse.json({ received: true, duplicate: outcome === "duplicate" });
   } catch (error) {
-    console.error(`[stripe] handler error for ${event.type}`, error);
+    recordBillingWebhook(event.type, "failed");
+    operationalLog("error", "billing.webhook_failed", { eventType: event.type }, error);
     return NextResponse.json({ error: "Handler error" }, { status: 500 });
   }
 }

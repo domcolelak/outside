@@ -30,6 +30,7 @@ const KIND_RADIUS: Partial<Record<AssetKind, number>> = {
   cdn: 9,
   third_party: 9,
 };
+const HIT_GRID_SIZE = 64;
 
 function nodeColor(a: Asset): string {
   if (a.kind === "root_domain") return "#e8edf6";
@@ -71,6 +72,7 @@ export function AssetGraph({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<Map<string, Node>>(new Map());
+  const spatialRef = useRef<Map<string, Node[]>>(new Map());
   const viewRef = useRef({ x: 0, y: 0, k: 1 });
   // Auto-fit keeps the whole graph framed until the user pans/zooms manually.
   const autoFitRef = useRef(true);
@@ -90,6 +92,7 @@ export function AssetGraph({
   focusPulseIdRef.current = focusPulseId;
   const [, force] = useState(0);
   const hoveredIdRef = useRef<string | null>(null);
+  const reducedMotionRef = useRef(false);
   const [hoverInfo, setHoverInfo] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const edgeList = useMemo(() => edges, [edges]);
@@ -132,7 +135,7 @@ export function AssetGraph({
     let settledFrames = 0;
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = nodesRef.current.size > 500 ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       const rect = canvas.getBoundingClientRect();
       width = rect.width;
       height = rect.height;
@@ -144,6 +147,7 @@ export function AssetGraph({
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
+    reducedMotionRef.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const step = () => {
       running = false;
@@ -268,6 +272,13 @@ export function AssetGraph({
       const top = (-height / 2 - view.y) / view.k - 80;
       const bottom = (height / 2 - view.y) / view.k + 80;
       const visible = (node: Node) => node.x >= left && node.x <= right && node.y >= top && node.y <= bottom;
+      const spatial = new Map<string, Node[]>();
+      for (const node of nodes) {
+        const key = `${Math.floor(node.x / HIT_GRID_SIZE)}:${Math.floor(node.y / HIT_GRID_SIZE)}`;
+        const cell = spatial.get(key);
+        if (cell) cell.push(node); else spatial.set(key, [node]);
+      }
+      spatialRef.current = spatial;
       // Edges.
       for (const e of edgeList) {
         const a = byId.get(e.from);
@@ -289,7 +300,7 @@ export function AssetGraph({
       for (const n of nodes) {
         if (!visible(n)) continue;
         const color = nodeColor(n.asset);
-        const grow = Math.min(1, (now - n.born) / 420);
+        const grow = reducedMotionRef.current ? 1 : Math.min(1, (now - n.born) / 420);
         const r = n.r * (0.4 + 0.6 * grow);
         const isSel = n.id === selectedIdRef.current;
         const isPulse = n.id === focusPulseIdRef.current;
@@ -297,7 +308,7 @@ export function AssetGraph({
         const dim = filter && !filter.has(n.id);
 
         if ((isPulse || isSel || isHover) && !dim) {
-          const ring = (Math.sin(now / 260) + 1) / 2;
+          const ring = reducedMotionRef.current ? 0 : (Math.sin(now / 260) + 1) / 2;
           ctx.beginPath();
           ctx.arc(n.x, n.y, r + 6 + ring * 5, 0, Math.PI * 2);
           ctx.strokeStyle = isPulse ? "rgba(56,225,195,0.5)" : isHover ? "rgba(91,140,255,.55)" : "rgba(255,255,255,0.35)";
@@ -308,7 +319,7 @@ export function AssetGraph({
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.shadowColor = color;
-        ctx.shadowBlur = dim ? 0 : isSel ? 22 : 12;
+        ctx.shadowBlur = dim || nodes.length > 350 ? 0 : isSel ? 22 : 12;
         ctx.fillStyle = color;
         ctx.globalAlpha = dim ? 0.12 : 0.25 + 0.75 * grow;
         ctx.fill();
@@ -327,7 +338,7 @@ export function AssetGraph({
         ctx.globalAlpha = 1;
 
         // Label for larger / selected / matched nodes.
-        if (withLabels && !dim && (n.r >= 10 || isSel || isHover || !!filter || view.k > 1.15)) {
+        if (withLabels && !dim && (isSel || isHover || !!filter || (nodes.length <= 400 && (n.r >= 10 || view.k > 1.15)))) {
           ctx.font = "11px ui-monospace, monospace";
           ctx.fillStyle = isSel ? "#e8edf6" : "rgba(170,182,204,0.8)";
           ctx.textAlign = "center";
@@ -339,7 +350,7 @@ export function AssetGraph({
         const change = changedIdsRef.current?.get(n.id);
         if (change && !dim) {
           const c = change === "new" ? "#38e1c3" : "#f5c451";
-          const pulse = (Math.sin(now / 320) + 1) / 2;
+          const pulse = reducedMotionRef.current ? 0 : (Math.sin(now / 320) + 1) / 2;
           ctx.setLineDash([3, 3]);
           ctx.beginPath();
           ctx.arc(n.x, n.y, r + 7 + pulse * 3, 0, Math.PI * 2);
@@ -381,6 +392,20 @@ export function AssetGraph({
     return { x, y };
   };
 
+  const hitNode = (x: number, y: number, radius = 18): string | null => {
+    const cellX = Math.floor(x / HIT_GRID_SIZE);
+    const cellY = Math.floor(y / HIT_GRID_SIZE);
+    let hit: string | null = null;
+    let best = radius * radius;
+    for (let dx = -1; dx <= 1; dx += 1) for (let dy = -1; dy <= 1; dy += 1) {
+      for (const node of spatialRef.current.get(`${cellX + dx}:${cellY + dy}`) ?? []) {
+        const distance = (node.x - x) ** 2 + (node.y - y) ** 2;
+        if (distance < best) { best = distance; hit = node.id; }
+      }
+    }
+    return hit;
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     dragRef.current = { panning: true, lastX: e.clientX, lastY: e.clientY };
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -388,8 +413,7 @@ export function AssetGraph({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current.panning) {
       const { x, y } = toWorld(e.clientX, e.clientY);
-      let hovered: string | null = null;
-      for (const node of nodesRef.current.values()) if ((node.x - x) ** 2 + (node.y - y) ** 2 <= (node.r + 8) ** 2) { hovered = node.id; break; }
+      const hovered = hitNode(x, y, 24);
       if (hovered !== hoveredIdRef.current) {
         hoveredIdRef.current = hovered;
         setHoverInfo(hovered ? { id: hovered, x: e.clientX, y: e.clientY } : null);
@@ -413,15 +437,7 @@ export function AssetGraph({
     dragRef.current.panning = false;
     // Treat as click: hit test nearest node.
     const { x, y } = toWorld(e.clientX, e.clientY);
-    let hit: string | null = null;
-    let best = 18 * 18;
-    for (const n of nodesRef.current.values()) {
-      const d2 = (n.x - x) ** 2 + (n.y - y) ** 2;
-      if (d2 < best) {
-        best = d2;
-        hit = n.id;
-      }
-    }
+    const hit = hitNode(x, y);
     onSelect(hit);
     wakeRef.current();
     force((v) => v + 1);

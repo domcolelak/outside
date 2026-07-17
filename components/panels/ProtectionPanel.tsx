@@ -22,6 +22,7 @@ const OPEN: RecommendationStatus[] = ["open", "acknowledged", "in_progress"];
 export function ProtectionPanel({ result, onSelectAsset }: { result: ScanResult; onSelectAsset: (id: string) => void }) {
   const posture0 = result.posture;
   const [recs, setRecs] = useState<Recommendation[]>(posture0?.recommendations ?? []);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const current = posture0?.currentScore ?? 0;
   const potential = useMemo(() => {
     const openReduction = recs.filter((r) => OPEN.includes(r.status)).reduce((s, r) => s + r.estimatedReduction, 0);
@@ -35,6 +36,7 @@ export function ProtectionPanel({ result, onSelectAsset }: { result: ScanResult;
 
   const setStatus = async (rec: Recommendation, status: RecommendationStatus) => {
     const previous = rec.status;
+    setUpdateError(null);
     setRecs((list) => list.map((r) => (r.id === rec.id ? { ...r, status } : r)));
     if (result.isDemo) return;
     try {
@@ -46,15 +48,18 @@ export function ProtectionPanel({ result, onSelectAsset }: { result: ScanResult;
       if (!response.ok) throw new Error(`Recommendation update failed (${response.status})`);
     } catch {
       setRecs((list) => list.map((r) => (r.id === rec.id ? { ...r, status: previous } : r)));
+      setUpdateError("The workflow update could not be saved. The previous status was restored.");
     }
   };
 
   return (
     <div>
       <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
-        <span className="text-signal">Aegis · protection</span>
+        <span className="text-signal">Aegis · remediation planning</span>
         <span>{openCount} open</span>
       </div>
+
+      {updateError && <p role="alert" className="mono mb-3 rounded-lg border border-risk-high/30 bg-risk-high/5 px-3 py-2 text-[10px] text-risk-high">{updateError}</p>}
 
       {/* Posture: current -> potential score */}
       <div className="panel mb-3 p-4">

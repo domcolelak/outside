@@ -7,6 +7,7 @@ import { cleanText, optionalHttpsUrl, validColor, validSlug } from "@/lib/agency
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { getStore } from "@/lib/persistence";
+import { recordFunnelEvent } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "cache-control": "no-store" } });
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!membership || !hasOrgRole(ctx, ownerOrgId, "owner") || membership.org.plan !== "agency") return json({ error: "An Agency-plan organization owner is required" }, 403);
   if (!(await requireBudgets([{ key: `agency:create:${ctx.user.id}`, limit: 3, windowMs: 86_400_000 }, { key: `agency:create:${clientIdentity(req)}`, limit: 10, windowMs: 86_400_000 }])).ok) return json({ error: "Workspace creation limit exceeded" }, 429);
   const name = cleanText(body.name, 100); const slug = validSlug(body.slug || name); if (name.length < 2 || slug.length < 2) return json({ error: "Valid agency name and slug are required" }, 422);
-  try { const workspace = await (await getAgencyStore()).createWorkspace({ ownerOrgId, ownerUserId: ctx.user.id, name, slug }); return json({ workspace }, 201); } catch { return json({ error: "Agency workspace or slug already exists" }, 409); }
+  try { const workspace = await (await getAgencyStore()).createWorkspace({ ownerOrgId, ownerUserId: ctx.user.id, name, slug }); recordFunnelEvent("agency_created", "product"); return json({ workspace }, 201); } catch { return json({ error: "Agency workspace or slug already exists" }, 409); }
 }
 
 export async function PATCH(req: NextRequest) {

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { trackFunnel } from "@/lib/analytics/client";
 
 export function HeroInput() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export function HeroInput() {
       setError("Enter a domain to map its external surface.");
       return;
     }
+    trackFunnel(demo ? "demo_started" : "scan_started", demo ? "demo" : "real");
     router.push(`/scan?target=${encodeURIComponent(t)}${demo ? "&mode=demo" : ""}`);
   };
 
@@ -25,10 +27,13 @@ export function HeroInput() {
           go(value);
         }}
         className="panel flex flex-col items-stretch gap-2 p-2 sm:flex-row sm:items-center"
+        aria-describedby="external-scan-help external-scan-error"
       >
         <div className="flex min-w-0 flex-1 items-center">
           <span className="mono pl-3 text-ink-faint">https://</span>
+          <label htmlFor="external-domain" className="sr-only">Company domain</label>
           <input
+            id="external-domain"
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
@@ -47,7 +52,7 @@ export function HeroInput() {
           See my external surface
         </button>
       </form>
-      {error && <p className="mono mt-2 text-xs text-risk-high">{error}</p>}
+      {error && <p id="external-scan-error" role="alert" className="mono mt-2 text-xs text-risk-high">{error}</p>}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
         <span className="text-ink-faint">Or watch a demo:</span>
         {[
@@ -64,7 +69,7 @@ export function HeroInput() {
           </button>
         ))}
       </div>
-      <p className="mono mt-3 max-w-full text-[11px] leading-5 text-ink-faint">
+      <p id="external-scan-help" className="mono mt-3 max-w-full text-[11px] leading-5 text-ink-faint">
         Passive, public sources only · No login required for an external snapshot
       </p>
     </div>

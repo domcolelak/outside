@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import type { AuthStore, Role, SessionContext } from "./model";
 import { InMemoryAuthStore } from "./memory-store";
-import { SESSION_COOKIE, verifySession } from "./session";
+import { LEGACY_SESSION_COOKIE, SESSION_COOKIE, verifySession } from "./session";
 import { roleAtLeast } from "./model";
 import { storageMode } from "@/lib/config/storage";
 
@@ -26,7 +26,8 @@ export function __resetAuthStore(store?: AuthStore) {
 
 /** Resolve the current session from the request cookie, or null. */
 export async function getSessionContext(): Promise<SessionContext | null> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value ?? jar.get(LEGACY_SESSION_COOKIE)?.value;
   const session = verifySession(token);
   if (!session) return null;
   const store = await getAuthStore();

@@ -28,8 +28,20 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run db:validate
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
+      - run: npm run audit:licenses
+      - run: npm run audit:secrets
       - run: npm run build
-      - run: npm audit --omit=dev --audit-level=high
+        env:
+          OUTSIDE_STORAGE_MODE: database
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
+          APP_URL: https://outside-ci.example
+          CRON_SECRET: ci-only-cron-secret-at-least-thirty-two-bytes
+          RESEND_API_KEY: ci-only-resend-key-at-least-sixteen-bytes
+          EMAIL_FROM: OUTSIDE CI <ci@outside.example>
+      - run: npm audit --audit-level=high
 
   postgres-e2e:
     runs-on: ubuntu-latest
@@ -61,3 +73,18 @@ jobs:
       - run: npm ci
       - run: npm run db:migrate
       - run: npm run test:e2e
+
+  terraform-provider:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: terraform-provider-outside
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.22.x"
+          cache: false
+      - run: go mod download
+      - run: go test ./...

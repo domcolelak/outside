@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { getGuardianStore } from "@/lib/guardian/store";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   const auth = await authorize(req);
   if (auth instanceof NextResponse) return auth;
   let body: { enabled?: unknown };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
+  try { body = await readLimitedJson(req, 8_000) as typeof body; } catch (error) { return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request" }, { status: error instanceof RequestBodyError ? error.status : 400 }); }
   if (typeof body.enabled !== "boolean") return NextResponse.json({ error: "enabled must be boolean" }, { status: 422 });
   const updated = await (await getGuardianStore()).setChannelEnabled(auth.orgId, (await context.params).id, body.enabled);
   return updated ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Channel not found" }, { status: 404 });

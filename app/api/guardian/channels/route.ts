@@ -5,6 +5,7 @@ import { encryptGuardianConfig } from "@/lib/guardian/crypto";
 import { getGuardianStore } from "@/lib/guardian/store";
 import type { GuardianChannelType } from "@/lib/guardian/types";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   const ctx = await getSessionContext();
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   let body: { orgId?: unknown; type?: unknown; name?: unknown; config?: unknown };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid request" }, { status: 400 }); }
+  try { body = await readLimitedJson(req, 32_000) as typeof body; } catch (error) { return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request" }, { status: error instanceof RequestBodyError ? error.status : 400 }); }
   const orgId = typeof body.orgId === "string" ? body.orgId : "";
   const type = body.type as GuardianChannelType;
   const membership = ctx.memberships.find((item) => item.org.id === orgId);

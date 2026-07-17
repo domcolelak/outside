@@ -5,6 +5,7 @@ import { Wordmark } from "@/components/Wordmark";
 import { LogoutButton } from "@/components/account/AccountControls";
 import { MonitorsPanel } from "@/components/account/MonitorsPanel";
 import { TeamPanel } from "@/components/account/TeamPanel";
+import { getEnterpriseStore } from "@/lib/enterprise/store";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function AccountPage() {
   if (!ctx) redirect("/login");
 
   const primary = ctx.memberships[0];
+  const enterpriseOrganizations = (await Promise.all(ctx.memberships.map(async (membership) => ({ membership, workspace: await (await getEnterpriseStore()).workspaceByOrg(membership.org.id) })))).filter((item) => item.workspace);
 
   return (
     <div className="min-h-screen">
@@ -23,6 +25,7 @@ export default async function AccountPage() {
           <Link href="/"><Wordmark className="h-6" /></Link>
           <div className="flex items-center gap-3">
             {ctx.memberships.some((m) => m.org.plan === "agency") && <Link href="/agency" className="mono text-xs text-signal hover:text-signal-bright">Agency Suite</Link>}
+            {enterpriseOrganizations.length > 0 && <Link href={`/enterprise?orgId=${enterpriseOrganizations[0]!.membership.org.id}`} className="mono text-xs text-signal hover:text-signal-bright">Enterprise</Link>}
             <Link href="/guardian" className="mono text-xs text-signal hover:text-signal-bright">Guardian</Link>
             <Link href="/integrations" className="mono text-xs text-ink-soft hover:text-ink">Integrations</Link>
             <Link href="/scan?target=northstar&mode=demo" className="mono text-xs text-ink-soft hover:text-ink">Run a scan</Link>

@@ -71,6 +71,8 @@ Key areas:
 
 The complete design and operational trade-offs are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Current limitations and future work are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
+Production operators should also read the [current readiness evidence](docs/PRODUCTION_READINESS.md), [deployment guide](docs/DEPLOYMENT.md), [release checklist](docs/RELEASE_CHECKLIST.md), [runbooks](docs/RUNBOOKS.md), [incident response plan](docs/INCIDENT_RESPONSE.md), [disaster recovery guide](docs/DISASTER_RECOVERY.md), [privacy and data handling guide](docs/PRIVACY_DATA.md), [billing runbook](docs/BILLING.md), [capacity guide](docs/PERFORMANCE.md), and [handover guide](docs/HANDOVER.md). The factual acquisition assessment and remaining material risks are in [technical due diligence](docs/DUE_DILIGENCE.md); durable product advantages are separated from speculative work in [the moat brief](docs/MOAT.md).
+
 ## Security model
 
 - Organization IDs are derived from authenticated memberships, not trusted from the client.
@@ -96,6 +98,20 @@ Agency Suite is the Agency-plan control plane for MSPs, MSSPs, consultants, and 
 
 Set `OUTSIDE_AGENCY_SEAT_LIMIT` to the licensed active-seat plus pending-invite ceiling (default `100`). Apply migrations before enabling Agency Suite in database mode.
 
+## Enterprise control plane
+
+OUTSIDE Enterprise is an isolated control plane layered on an organization. SMB and Professional organizations retain the existing product experience until a licensed `EnterpriseWorkspace` is provisioned.
+
+- `/enterprise` contains SAML-brokered and native OIDC federation, SCIM 2.0 lifecycle provisioning, group-aware scoped RBAC, organization/department hierarchy, asset and risk ownership, policy/scoring rules, independent approvals, and time-bound risk exceptions.
+- Enterprise API tokens are SHA-256 hashed, shown once, permission-limited, optionally resource-scoped, expiring and revocable. REST is versioned under `/api/enterprise/v1`; `/api/enterprise/graphql` accepts documented persisted operations to keep cost and authorization deterministic.
+- Audit events are database append-only and form a canonical SHA-256 chain over sequence, timestamp, actor, action, resource, request metadata and detail. JSON, CSV and NDJSON exports verify the complete chain before returning data.
+- Splunk, Microsoft Sentinel, Elastic, QRadar, Chronicle, Cortex XSOAR, ServiceNow, Freshservice, Jira Service Management, PagerDuty, Opsgenie and signed custom webhooks use encrypted credentials, SSRF-safe IP-pinned HTTPS, idempotent leased delivery, exponential retry and provider-specific payloads. Ticket callbacks require a timestamped HMAC signature.
+- Executive and compliance evidence reports are available as JSON, CSV and PDF. Control mappings are evidence summaries, never claims of certification. Scheduled reports use idempotent delivery jobs.
+- `OUTSIDE_DATA_REGION` pins a deployment to one data region. Cross-region metadata relabeling is rejected; movement requires an explicit export/import migration. Operational retention is bounded and set-based; immutable audit history is deliberately not silently deleted.
+- `terraform-provider-outside` manages enterprise workspace licensing and versioned policy documents. Destroying a workspace resource suspends its license instead of deleting customer evidence.
+
+Enterprise secret material requires an independent `ENTERPRISE_ENCRYPTION_KEY`. Platform automation uses `ENTERPRISE_PROVISIONING_TOKEN`; do not reuse an end-user API token. SAML is accepted only through an audited SAML-to-OIDC broker boundary—OUTSIDE does not implement an unsafe bespoke XML signature parser. See [`docs/ENTERPRISE.md`](docs/ENTERPRISE.md).
+
 ## Deployment
 
 Deploy to a Node.js host with PostgreSQL. Run migrations before starting the application:
@@ -107,7 +123,7 @@ npm run build
 npm run start
 ```
 
-Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`, `/api/cron/agency`, and `/api/cron/retention`. Run the Agency job after monitoring to synchronize SLA state and enqueue deduplicated client-specific notifications. For portfolios over its bounded batch size, continue with the returned `nextCursor` as the `after` query parameter until it is `null`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
+Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`, `/api/cron/agency`, `/api/cron/enterprise`, and `/api/cron/retention`. Run the Agency job after monitoring to synchronize SLA state and enqueue deduplicated client-specific notifications. The Enterprise job claims integration deliveries, schedules exports, and applies operational retention. For portfolios over its bounded batch size, continue with the returned `nextCursor` as the `after` query parameter until it is `null`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
 
 Paid deployments that enable Guardian workflow integrations must configure an independent 32-byte `GUARDIAN_ENCRYPTION_KEY`. Integration destinations are validated as HTTPS, resolved immediately before delivery, required to resolve exclusively to public IP addresses, and contacted through an IP-pinned connection with hostname verification.
 

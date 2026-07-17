@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { GuardianChecklistItem, GuardianEvent, GuardianOverview, GuardianRecommendation, GuardianRecommendationStatus, GuardianTargetView } from "@/lib/guardian/types";
 import { GuardianIntegrations } from "./GuardianIntegrations";
 import { EvidenceIntelligencePanel } from "./EvidenceIntelligence";
+import { trackFunnel } from "@/lib/analytics/client";
 
 const riskColor = { critical: "text-risk-critical border-risk-critical/25 bg-risk-critical/5", high: "text-risk-high border-risk-high/25 bg-risk-high/5", medium: "text-risk-medium border-risk-medium/25 bg-risk-medium/5", low: "text-signal border-signal/20 bg-signal/5", info: "text-accent border-accent/20 bg-accent/5" };
 const stateColor = { pass: "text-signal bg-signal/10 border-signal/20", warning: "text-risk-medium bg-risk-medium/10 border-risk-medium/20", fail: "text-risk-high bg-risk-high/10 border-risk-high/20", unknown: "text-ink-faint bg-base-700/40 border-line" };
@@ -53,6 +54,7 @@ function RecommendationCard({ recommendation, orgId, onUpdate }: { recommendatio
 export function GuardianDashboard({ initial, orgId, canAdmin }: { initial: GuardianOverview; orgId: string; canAdmin: boolean }) {
   const [overview, setOverview] = useState(initial);
   const [selectedTarget, setSelectedTarget] = useState(initial.targets[0]?.target ?? "");
+  useEffect(() => { trackFunnel("guardian_viewed"); }, []);
   useEffect(() => {
     let active = true;
     const refresh = async () => {

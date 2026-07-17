@@ -1,0 +1,2 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+export function platformProvisioningAuthorized(authorization: string | null): boolean { const expected = process.env.ENTERPRISE_PROVISIONING_TOKEN?.trim(); if (!expected || (process.env.NODE_ENV === "production" && Buffer.byteLength(expected) < 32)) return false; const supplied = authorization?.replace(/^Bearer\s+/i, "") ?? "", a = createHash("sha256").update(expected).digest(), b = createHash("sha256").update(supplied).digest(); return timingSafeEqual(a, b); }

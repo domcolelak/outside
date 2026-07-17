@@ -56,4 +56,19 @@ describe("Barnes–Hut repulsion", () => {
     expect(two[0]!.vx).toBeLessThan(0); // left body pushed left
     expect(two[1]!.vx).toBeGreaterThan(0); // right body pushed right
   });
+
+  it("keeps a 1,000-node simulation step within an interactive CPU budget", () => {
+    const bodies: Body[] = Array.from({ length: 1000 }, (_, index) => ({
+      x: (index % 40) * 17 + (index % 7),
+      y: Math.floor(index / 40) * 19 + (index % 11),
+      vx: 0,
+      vy: 0,
+    }));
+    const started = performance.now();
+    applyRepulsion(bodies, { theta: 0.85 });
+    // Deliberately generous for shared CI runners. This catches accidental
+    // O(n^2) regressions without treating a microbenchmark as a product SLA.
+    expect(performance.now() - started).toBeLessThan(750);
+    expect(bodies.some((body) => body.vx !== 0 || body.vy !== 0)).toBe(true);
+  });
 });

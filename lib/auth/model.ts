@@ -42,6 +42,8 @@ export interface Membership {
   orgId: string;
   role: Role;
   notifyChanges: boolean;
+  active: boolean;
+  provisionedBy: string | null;
 }
 
 export interface Invite {
@@ -71,12 +73,17 @@ export interface AuthStore {
   markEmailVerified(userId: string, email: string): Promise<boolean>;
   /** Invalidates every previously issued session for the user. */
   revokeSessions(userId: string): Promise<number>;
+  createPasswordReset(userId: string, tokenHash: string, expiresAt: Date): Promise<void>;
+  /** Atomically consumes a reset token, updates the password, and revokes sessions. */
+  consumePasswordReset(tokenHash: string, passwordHash: string, now: Date): Promise<boolean>;
   membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>>;
   getMembership(userId: string, orgId: string): Promise<Membership | null>;
   getOrganization(orgId: string): Promise<Organization | null>;
   /** Members of an organization (for notifications). */
   orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>>;
   setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void>;
+  provisionMembership(input: { email: string; name: string; passwordHash: string; orgId: string; role: Role; provisionedBy: string; active: boolean }): Promise<{ user: User; membership: Membership }>;
+  setProvisionedMembershipActive(userId: string, orgId: string, provisionedBy: string, active: boolean): Promise<boolean>;
   setPlan(orgId: string, plan: Organization["plan"]): Promise<void>;
   // Team invites.
   createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite>;

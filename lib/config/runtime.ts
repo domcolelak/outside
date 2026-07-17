@@ -4,7 +4,10 @@ const DEFAULT_APP_URL = "http://localhost:3000";
 
 export function appUrl(): string {
   const configured = process.env.APP_URL?.trim();
-  if (!configured) return DEFAULT_APP_URL;
+  if (!configured) {
+    if (process.env.NODE_ENV === "production") throw new Error("APP_URL is required in production.");
+    return DEFAULT_APP_URL;
+  }
   try {
     const url = new URL(configured);
     if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("unsupported protocol");

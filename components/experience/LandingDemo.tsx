@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const scenes = [
-  { label: "Seed", time: "00:00", title: "One domain enters the lens", detail: "northstarlabs.io becomes the deterministic root entity.", metric: "1 asset", evidence: "Scan target · observed" },
+  { label: "Seed", time: "00:00", title: "One domain enters the lens", detail: "northstarlabs.example becomes the deterministic root entity.", metric: "1 asset", evidence: "Scan target · observed" },
   { label: "Discover", time: "00:04", title: "Public infrastructure resolves", detail: "Certificate transparency and DNS agree on six public hostnames.", metric: "7 assets", evidence: "crt.sh + Cloudflare DoH · correlated" },
-  { label: "Classify", time: "00:08", title: "An authentication surface emerges", detail: "A public hostname and verified HTTPS response expose a login boundary.", metric: "91% confidence", evidence: "DNS + HTTPS · 2 independent paths" },
+  { label: "Classify", time: "00:08", title: "An authentication surface emerges", detail: "A public hostname and verified HTTPS response support a login-surface classification.", metric: "2 sources", evidence: "DNS + HTTPS · independent observations" },
   { label: "Change", time: "00:12", title: "A staging asset has returned", detail: "Historical identity links the hostname to an asset absent from the last scan.", metric: "+1 returned", evidence: "Immutable snapshots · exact comparison" },
-  { label: "Explain", time: "00:16", title: "Guardian turns evidence into action", detail: "The finding is prioritized with provenance, impact and a review—not a fabricated vulnerability.", metric: "3 review items", evidence: "Deterministic evidence · fully traceable" },
+  { label: "Explain", time: "00:16", title: "Guardian turns evidence into action", detail: "The finding is prioritized with provenance, impact and a review—not a fabricated vulnerability.", metric: "3 review items", evidence: "Synthetic demo · deterministic rules" },
 ];
 
 const nodes = [

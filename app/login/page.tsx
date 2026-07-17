@@ -82,8 +82,9 @@ function AuthForm() {
           )}
           <Input label="Email" value={email} onChange={setEmail} placeholder="you@company.com" type="email" autoComplete="email" />
           <Input label="Password" value={password} onChange={setPassword} placeholder={mode === "signup" ? "At least 10 characters" : "••••••••"} type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} />
+          {mode === "login" && <div className="text-right"><Link href="/reset-password" className="text-xs text-ink-faint hover:text-signal">Forgot password?</Link></div>}
 
-          {error && <p className="mono text-xs text-risk-high">{error}</p>}
+          {error && <p role="alert" className="mono text-xs text-risk-high">{error}</p>}
 
           <button type="submit" disabled={busy} className="w-full rounded-lg bg-signal py-2.5 text-sm font-semibold text-base-950 transition hover:bg-signal-bright disabled:opacity-60">
             {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}

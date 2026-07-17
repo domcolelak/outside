@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Asset, Edge, ScanEvent, ScanResult, ScanStage } from "@/lib/types";
 import { SCAN_STAGES } from "@/lib/discovery/stages";
+import { trackFunnel } from "@/lib/analytics/client";
 
 export interface LogLine {
   level: "info" | "add" | "signal" | "warn";
@@ -39,10 +40,14 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
     latestAssetId: null,
   });
   const esRef = useRef<EventSource | null>(null);
+  const assetIdsRef = useRef(new Set<string>());
+  const edgeIdsRef = useRef(new Set<string>());
 
   const start = useCallback(() => {
     if (!target) return;
     esRef.current?.close();
+    assetIdsRef.current.clear();
+    edgeIdsRef.current.clear();
     setState({
       status: "scanning",
       assets: [],
@@ -62,13 +67,15 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
       setState((prev) => {
         switch (event.type) {
           case "asset":
-            if (prev.assets.some((a) => a.id === event.asset.id)) return prev;
+            if (assetIdsRef.current.has(event.asset.id)) return prev;
+            assetIdsRef.current.add(event.asset.id);
             return { ...prev, assets: [...prev.assets, event.asset], latestAssetId: event.asset.id };
           case "edge":
-            if (prev.edges.some((x) => x.id === event.edge.id)) return prev;
+            if (edgeIdsRef.current.has(event.edge.id)) return prev;
+            edgeIdsRef.current.add(event.edge.id);
             return { ...prev, edges: [...prev.edges, event.edge] };
           case "log":
-            return { ...prev, logs: [...prev.logs, { ...event, ts: Date.now() }] };
+            return { ...prev, logs: [...prev.logs.slice(-499), { ...event, ts: Date.now() }] };
           case "stage": {
             const stages = prev.stages.map((s) =>
               s.stage === event.stage
@@ -78,6 +85,8 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
             return { ...prev, stages };
           }
           case "result":
+            assetIdsRef.current = new Set(event.result.graph.assets.map((asset) => asset.id));
+            edgeIdsRef.current = new Set(event.result.graph.edges.map((edge) => edge.id));
             return {
               ...prev,
               result: event.result,
@@ -93,6 +102,7 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
         }
       });
       if (event.type === "result" || event.type === "error") {
+        trackFunnel(event.type === "result" ? (event.result.isDemo ? "demo_completed" : "scan_completed") : "scan_failed", mode === "demo" ? "demo" : "real");
         es.close();
       }
     };
