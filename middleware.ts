@@ -18,6 +18,9 @@ export function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("x-request-id", requestId);
+  // The renderer reads the request CSP to attach this nonce to framework and
+  // application scripts. A response-only policy blocks production hydration.
+  requestHeaders.set("content-security-policy", csp);
   const host = (request.headers.get("host") ?? "").toLowerCase().replace(/:\d+$/, "");
   let primaryHost = "";
   try { primaryHost = new URL(process.env.APP_URL ?? "http://localhost:3000").hostname.toLowerCase(); } catch { primaryHost = ""; }
