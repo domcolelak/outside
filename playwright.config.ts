@@ -20,11 +20,11 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
-    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "desktop-chromium", testIgnore: /responsive\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     { name: "mobile-chromium", use: { ...devices["Pixel 7"] }, testMatch: /responsive\.spec\.ts/ },
   ],
   webServer: {
-    command: "npm run start -- --hostname 0.0.0.0 --port 3000",
+    command: "npm run start:standalone",
     url: `${baseURL}/api/livez`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
