@@ -1,6 +1,6 @@
 module github.com/domcolelak/terraform-provider-outside
 
-go 1.22
+go 1.23.0
 
 require (
   github.com/hashicorp/terraform-plugin-framework v1.15.0
