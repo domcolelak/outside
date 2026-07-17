@@ -22,7 +22,8 @@ describe("Guardian integrations", () => {
     expect(decryptGuardianConfig<{ token: string }>(encrypted)).toEqual({ token: "sensitive" });
     const parts = encrypted.split(".");
     const ciphertext = Buffer.from(parts[3]!, "base64url");
-    ciphertext[0] ^= 1;
+    expect(ciphertext.length).toBeGreaterThan(0);
+    ciphertext[0] = ciphertext[0]! ^ 1;
     parts[3] = ciphertext.toString("base64url");
     expect(() => decryptGuardianConfig(parts.join("."))).toThrow();
   });

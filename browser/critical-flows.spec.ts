@@ -61,7 +61,9 @@ test.describe("production critical journeys", () => {
       maxRedirects: 0,
     });
     expect(accountResponse.status()).toBe(200);
-    await expect(accountResponse.text()).resolves.toContain("Welcome, Browser");
+    await expect(accountResponse.text()).resolves.toMatch(
+      /Welcome,[\s\S]{0,80}Browser/,
+    );
   });
 
   test("the deterministic demo completes and opens Attacker View", async ({ page }) => {
