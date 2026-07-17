@@ -28,7 +28,7 @@ ENV NODE_ENV=production
 ENTRYPOINT ["./node_modules/.bin/prisma"]
 CMD ["migrate", "deploy"]
 
-FROM node:20.20.0-alpine AS runner
+FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
