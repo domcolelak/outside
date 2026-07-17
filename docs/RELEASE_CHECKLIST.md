@@ -14,6 +14,7 @@ Run from a clean checkout with the pinned npm version and production-like config
 ```bash
 npm ci
 npm test
+npm run test:browser
 npm run lint
 npm run typecheck
 npm run db:validate
@@ -23,7 +24,7 @@ npm audit --omit=dev --audit-level=high
 npm run build
 ```
 
-In CI, require the PostgreSQL migration/E2E job and Terraform provider job. Confirm a clean database reaches the expected migration head. For a release that changes existing data, also restore a representative pre-release backup into staging and apply the migrations there.
+In CI, require the PostgreSQL clean/upgrade migration and integration job, dump/restore drill, browser/accessibility job, production-container smoke job, and Terraform provider job. The automated upgrade test starts at the documented historical checkpoint and reaches the current migration head. For a release that changes existing data, also restore a representative production backup into isolated staging and apply the migrations there.
 
 ## Deployment
 
@@ -33,6 +34,7 @@ In CI, require the PostgreSQL migration/E2E job and Terraform provider job. Conf
 - [ ] Confirm cron authentication and one non-persisted demo scan.
 - [ ] Gradually enable traffic while watching readiness, error rate, DB pool/locks, provider latency, queue age, delivery outcomes, and billing webhooks.
 - [ ] Confirm synthetic demo mode remains isolated from customer scans.
+- [ ] Review browser HTML/JUnit evidence and confirm the release health p95 gate remained below 500 ms on the CI runner.
 
 ## Rollback decision
 
@@ -41,4 +43,3 @@ Roll back application traffic when error/SLO thresholds or a security boundary f
 ## Release evidence
 
 Attach CI URLs, exact commit/image digest, migration head, validation output, dependency audit, approver, deployment timestamps, smoke-test results, and any accepted non-blocking risk to the release record.
-

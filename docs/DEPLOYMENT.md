@@ -10,6 +10,19 @@
 
 Production refuses memory persistence without an escape hatch.
 
+## Immutable container deployment
+
+`Dockerfile` has two explicit release targets. The default `runner` is a minimal non-root Next.js standalone image. `migrator` contains the pinned Prisma CLI and migrations for a one-shot release task. Build once, record the image digest, inject secrets only at runtime, and run:
+
+```bash
+docker build --target migrator -t outside-migrator .
+docker run --rm --env DATABASE_URL outside-migrator migrate deploy
+docker build -t outside .
+docker run --read-only --tmpfs /tmp --env-file .env.production -p 3000:3000 outside
+```
+
+Do not put production secrets in build arguments or image layers. The runner uses an unprivileged UID, exposes only port 3000, and has a liveness healthcheck. The CI container gate runs migrations, checks readiness, and completes a deterministic demo scan against PostgreSQL.
+
 ## Release procedure
 
 1. Back up the database and record the deployed commit and migration name.
@@ -19,7 +32,7 @@ Production refuses memory persistence without an escape hatch.
 5. Start the new version, verify `/api/livez`, then `/api/readyz`, then a non-persisted demo scan.
 6. Enable traffic gradually and watch error rate, provider latency, connection use, queue age, and cron outcomes.
 
-Migrations containing `CREATE INDEX CONCURRENTLY` must not be wrapped in an external transaction. If a migration fails, stop the rollout and use `prisma migrate resolve` only after an operator has confirmed the database state.
+Release migrations are transaction-safe and idempotent where PostgreSQL permits it. Large production indexes must be created in a separately reviewed online-maintenance change; Prisma migration files must not contain `CREATE INDEX CONCURRENTLY` because Prisma executes them transactionally. If a migration fails, stop the rollout and use `prisma migrate resolve` only after an operator has confirmed the exact database state.
 
 ## Scheduled work
 
@@ -31,6 +44,8 @@ Call authenticated cron routes with `Authorization: Bearer <CRON_SECRET>`:
 - `/api/cron/retention` daily.
 
 Cron work is leased and idempotent, but the scheduler must alert on missed invocations and non-2xx responses. Horizontal application scaling does not replace the scheduler.
+
+Set `OUTSIDE_EMAIL_IMMEDIATE_DELIVERY=false` only when the scheduled outbox worker is the exclusive delivery owner. API requests still enqueue transactionally; this mode removes external email-provider latency from request paths and requires strict alerting on outbox age and failed deliveries.
 
 ## Observability and data
 

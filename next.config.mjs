@@ -4,6 +4,9 @@ import { createSecurityHeaders } from "./lib/security/headers.mjs";
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Produce a minimal, trace-complete server image. The same artifact is used
+  // by the container smoke gate and production deployments.
+  output: "standalone",
   async headers() {
     return [
       {

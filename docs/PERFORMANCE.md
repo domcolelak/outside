@@ -14,9 +14,9 @@ OUTSIDE uses bounded work rather than claiming an unmeasured fleet limit. Capaci
 
 ## Regression budget
 
-The deterministic 1,000-node Barnes-Hut unit benchmark must complete a simulation step in less than 750 ms on a shared CI runner. This generous ceiling catches accidental quadratic regressions; it is not a browser frame-time or customer-facing SLA. Correctness tests compare approximation direction with direct all-pairs force.
+The deterministic 1,000-node Barnes-Hut unit benchmark must complete a simulation step in less than 750 ms on a shared CI runner. The production browser gate also issues 120 liveness requests at concurrency 12 and requires local-runner p95 below 500 ms. These generous release ceilings catch accidental regressions; neither is a customer-facing SLA. Correctness tests compare approximation direction with direct all-pairs force.
 
-No repository-only test proves end-to-end latency under real DNS, CT, PostgreSQL, egress, or browser conditions. Before broad launch, run the following production-like tests and retain raw results:
+Browser journeys now cover desktop/mobile layout, a deterministic scan, Attacker View, account creation, WCAG A/AA automated checks and release HTTP latency in the production build. No repository-only test proves latency under real DNS, CT, customer PostgreSQL, public egress or fleet traffic. Before broad fleet commitments, run the following production-like tests and retain raw results:
 
 | Workload | Required observation |
 | --- | --- |
@@ -39,4 +39,3 @@ Treat these as alerting targets to validate, not achieved measurements:
 - readiness failure or missed cron invocation pages the operator.
 
 Revise budgets only from captured production or staging evidence. A single tenant must not receive higher concurrency until shared-resource saturation and denial-of-wallet impact are understood.
-
