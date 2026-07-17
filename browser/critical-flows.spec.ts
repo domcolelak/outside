@@ -22,19 +22,46 @@ test.describe("production critical journeys", () => {
     expect(auth.violations, JSON.stringify(auth.violations, null, 2)).toEqual([]);
   });
 
-  test("a customer can create an account and reach the authenticated workspace", async ({ page }) => {
+  test("account creation establishes a hardened session and authenticated workspace", async ({ page }) => {
     const email = `browser-${Date.now()}@outside.example`;
     await page.goto("/login?mode=signup");
     await page.getByLabel("Name").fill("Browser Release");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill("Release-gate-password-2026!");
+    const signupResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/auth/signup",
+    );
     await page
       .locator("form")
       .getByRole("button", { name: "Create account", exact: true })
       .click();
 
-    await expect(page).toHaveURL(/\/account(?:\?|$)/);
-    await expect(page.getByRole("heading", { level: 1, name: /Welcome, Browser/ })).toBeVisible();
+    const signupResponse = await signupResponsePromise;
+    expect(
+      signupResponse.status(),
+      await signupResponse.text(),
+    ).toBe(200);
+
+    // The release server is intentionally exercised through production mode,
+    // so its __Host cookie is Secure and cannot persist over Playwright's local
+    // HTTP transport. Verify the cookie contract, then present that exact
+    // signed session to the protected server-rendered workspace.
+    const setCookie = signupResponse.headers()["set-cookie"] ?? "";
+    expect(setCookie).toContain("__Host-outside_session=");
+    expect(setCookie).toContain("Path=/");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
+    expect(setCookie).toContain("Secure");
+
+    const sessionCookie = setCookie.split(";", 1)[0] ?? "";
+    const accountResponse = await page.request.get("/account", {
+      headers: { cookie: sessionCookie },
+      maxRedirects: 0,
+    });
+    expect(accountResponse.status()).toBe(200);
+    await expect(accountResponse.text()).resolves.toContain("Welcome, Browser");
   });
 
   test("the deterministic demo completes and opens Attacker View", async ({ page }) => {
