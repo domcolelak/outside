@@ -8,6 +8,17 @@ export class RequestBodyError extends Error {
 
 /** Rejects declared oversize bodies before reading, then enforces the limit while streaming. */
 export async function readLimitedJson(req: NextRequest, maxBytes: number): Promise<unknown> {
+  const mediaType = (req.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
+  if (mediaType !== "application/json" && !/^application\/[a-z0-9!#$&^_.+-]+\+json$/.test(mediaType)) throw new RequestBodyError("Content-Type must be application/json", 415);
+  const text = await readLimitedText(req, maxBytes);
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new RequestBodyError("Invalid JSON", 400);
+  }
+}
+
+export async function readLimitedText(req: NextRequest, maxBytes: number): Promise<string> {
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (Number.isFinite(declared) && declared > maxBytes) throw new RequestBodyError("Payload too large", 413);
   if (!req.body) throw new RequestBodyError("Missing request body", 400);
@@ -31,9 +42,6 @@ export async function readLimitedJson(req: NextRequest, maxBytes: number): Promi
   const merged = new Uint8Array(bytes);
   let offset = 0;
   for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.byteLength; }
-  try {
-    return JSON.parse(new TextDecoder().decode(merged)) as unknown;
-  } catch {
-    throw new RequestBodyError("Invalid JSON", 400);
-  }
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(merged); }
+  catch { throw new RequestBodyError("Request body must be valid UTF-8", 400); }
 }

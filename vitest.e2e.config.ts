@@ -7,7 +7,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    pool: "forks",
+    pool: "threads",
     maxWorkers: 1,
     include: ["e2e/**/*.e2e.test.ts"],
     testTimeout: 30_000,

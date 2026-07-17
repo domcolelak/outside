@@ -10,9 +10,13 @@
 
 import { registrableDomain } from "@/lib/security/target";
 import { fetchJson } from "./net";
+import { BoundedTtlCache } from "./cache";
+import { recordProviderCache } from "@/lib/observability/metrics";
 
 const DOH = process.env.OUTSIDE_DOH_ENDPOINT ?? "https://cloudflare-dns.com/dns-query";
 const CT = process.env.OUTSIDE_CT_ENDPOINT ?? "https://crt.sh";
+const DNS_CACHE_TTL_MS = Math.max(0, Math.min(300_000, Number(process.env.OUTSIDE_DNS_CACHE_TTL_MS ?? 30_000) || 0));
+const DNS_CACHE_ENTRIES = Math.max(0, Math.min(10_000, Number(process.env.OUTSIDE_DNS_CACHE_ENTRIES ?? 2_000) || 0));
 
 interface DohAnswer {
   name: string;
@@ -74,7 +78,17 @@ export interface DnsRecord {
   cname: string[];
 }
 
+const hostCache = new BoundedTtlCache<DnsRecord>(DNS_CACHE_ENTRIES, DNS_CACHE_TTL_MS);
+
 export async function resolveHost(host: string, signal?: AbortSignal): Promise<DnsRecord> {
+  signal?.throwIfAborted();
+  const cacheKey = host.toLowerCase();
+  const cached = hostCache.get(cacheKey);
+  if (cached) {
+    recordProviderCache("dns", "hit");
+    return cached;
+  }
+  recordProviderCache("dns", "miss");
   const [a, aaaa, cname] = await Promise.all([
     dohQuery(host, "A", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
     dohQuery(host, "AAAA", signal).catch((error) => { if (signal?.aborted) throw error; return []; }),
@@ -84,11 +98,13 @@ export async function resolveHost(host: string, signal?: AbortSignal): Promise<D
     .filter((record) => record.type === 5)
     .map((record) => record.data.toLowerCase().replace(/\.$/, ""))
     .filter((value) => value.length <= 253 && /^[a-z0-9.-]+$/.test(value));
-  return {
+  const result = {
     a: a.filter((r) => r.type === 1).map((r) => r.data),
     aaaa: aaaa.filter((r) => r.type === 28).map((r) => r.data),
     cname: [...new Set(aliases)],
   };
+  hostCache.set(cacheKey, result);
+  return result;
 }
 
 export interface InfrastructureSignal {

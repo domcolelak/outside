@@ -97,3 +97,12 @@ export function verifyEmail(to: string, verificationUrl: string): EmailMessage {
   );
   return { to, subject: "Verify your OUTSIDE email", html, text: `Verify your email address: ${verificationUrl}` };
 }
+
+export function passwordResetEmail(to: string, resetUrl: string): EmailMessage {
+  const html = shell(
+    "Reset your OUTSIDE password",
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">A password reset was requested for this account. This single-use link expires in 30 minutes. If you did not request it, no action is required.</p>
+     <a href="${escapeHtml(resetUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Reset password</a>`,
+  );
+  return { to, subject: "Reset your OUTSIDE password", html, text: `Reset your OUTSIDE password within 30 minutes: ${resetUrl}\n\nIf you did not request this, no action is required.` };
+}

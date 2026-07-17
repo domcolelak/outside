@@ -37,9 +37,10 @@ export function AssuranceTag({ assurance }: { assurance: Assurance }) {
 }
 
 export function Confidence({ value }: { value: number }) {
-  const pct = Math.round(value * 100);
+  const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
+  const explanation = `${pct}% deterministic confidence. This expresses evidence strength, not exploitability or proof of compromise.`;
   return (
-    <span className="mono inline-flex items-center gap-1.5 text-[11px] text-ink-soft">
+    <span className="mono inline-flex items-center gap-1.5 text-[11px] text-ink-soft" title={explanation} aria-label={explanation}>
       <span className="relative inline-block h-1.5 w-12 overflow-hidden rounded-full bg-base-700">
         <span className="absolute inset-y-0 left-0 rounded-full bg-signal" style={{ width: `${pct}%` }} />
       </span>

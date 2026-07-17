@@ -2,6 +2,7 @@ import type { AuthStore, Invite, Membership, Organization, Role, User } from "./
 import { hashInviteToken, inviteExpiresAt } from "./invites";
 import { prisma } from "@/lib/db/prisma";
 import { slugifyOrganization } from "./validation";
+import { randomUUID } from "node:crypto";
 
 export class PrismaAuthStore implements AuthStore {
   readonly durable = true;
@@ -36,14 +37,37 @@ export class PrismaAuthStore implements AuthStore {
     return user.sessionVersion;
   }
 
+  async createPasswordReset(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`UPDATE password_reset_tokens SET "usedAt"=NOW() WHERE "userId"=${userId} AND "usedAt" IS NULL`;
+      await tx.$executeRaw`INSERT INTO password_reset_tokens (id,"userId","tokenHash","expiresAt","createdAt") VALUES (${randomUUID()},${userId},${tokenHash},${expiresAt},NOW())`;
+    });
+  }
+
+  async consumePasswordReset(tokenHash: string, passwordHash: string, now: Date): Promise<boolean> {
+    return prisma.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ userId: string }>>`
+        UPDATE password_reset_tokens SET "usedAt"=${now}
+        WHERE id=(SELECT id FROM password_reset_tokens WHERE "tokenHash"=${tokenHash} AND "usedAt" IS NULL AND "expiresAt">${now} FOR UPDATE)
+        RETURNING "userId"
+      `;
+      const userId = rows[0]?.userId;
+      if (!userId) return false;
+      const changed = await tx.user.updateMany({ where: { id: userId }, data: { passwordHash, sessionVersion: { increment: 1 } } });
+      if (changed.count !== 1) throw new Error("Password reset user is missing.");
+      await tx.$executeRaw`UPDATE password_reset_tokens SET "usedAt"=${now} WHERE "userId"=${userId} AND "usedAt" IS NULL`;
+      return true;
+    });
+  }
+
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
-    const rows = await prisma.membership.findMany({ where: { userId }, include: { org: true } });
-    return rows.map((r) => ({ org: this.mapOrg(r.org), role: r.role as Role, notifyChanges: r.notifyChanges }));
+    const rows = await prisma.$queryRaw<Array<{ role: string; notifyChanges: boolean; id: string; name: string; slug: string; plan: string; stripeCustomerId: string | null; stripeSubscriptionId: string | null; subscriptionStatus: string | null; createdAt: Date }>>`SELECT m.role,m."notifyChanges",o.* FROM memberships m JOIN organizations o ON o.id=m."orgId" WHERE m."userId"=${userId} AND m.active=true`;
+    return rows.map((r) => ({ org: this.mapOrg(r), role: r.role as Role, notifyChanges: r.notifyChanges }));
   }
 
   async getMembership(userId: string, orgId: string): Promise<Membership | null> {
-    const m = await prisma.membership.findUnique({ where: { userId_orgId: { userId, orgId } } });
-    return m ? { userId: m.userId, orgId: m.orgId, role: m.role as Role, notifyChanges: m.notifyChanges } : null;
+    const rows = await prisma.$queryRaw<Array<{ userId: string; orgId: string; role: string; notifyChanges: boolean; active: boolean; provisionedBy: string | null }>>`SELECT * FROM memberships WHERE "userId"=${userId} AND "orgId"=${orgId} AND active=true LIMIT 1`; const m = rows[0];
+    return m ? { userId: m.userId, orgId: m.orgId, role: m.role as Role, notifyChanges: m.notifyChanges, active: m.active, provisionedBy: m.provisionedBy } : null;
   }
 
   async getOrganization(orgId: string): Promise<Organization | null> {
@@ -52,13 +76,24 @@ export class PrismaAuthStore implements AuthStore {
   }
 
   async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>> {
-    const rows = await prisma.membership.findMany({ where: { orgId }, include: { user: true } });
-    return rows.map((r) => ({ email: r.user.email, name: r.user.name, role: r.role as Role, notifyChanges: r.notifyChanges }));
+    const rows = await prisma.$queryRaw<Array<{ email: string; name: string; role: string; notifyChanges: boolean }>>`SELECT u.email,u.name,m.role,m."notifyChanges" FROM memberships m JOIN users u ON u.id=m."userId" WHERE m."orgId"=${orgId} AND m.active=true`;
+    return rows.map((r) => ({ email: r.email, name: r.name, role: r.role as Role, notifyChanges: r.notifyChanges }));
   }
 
   async setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void> {
     await prisma.membership.update({ where: { userId_orgId: { userId, orgId } }, data: { notifyChanges: enabled } });
   }
+
+  async provisionMembership(input: { email: string; name: string; passwordHash: string; orgId: string; role: Role; provisionedBy: string; active: boolean }) {
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.upsert({ where: { email: input.email.toLowerCase() }, create: { email: input.email.toLowerCase(), name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: new Date() }, update: { name: input.name } });
+      await tx.$executeRaw`INSERT INTO memberships ("userId","orgId",role,"notifyChanges",active,"provisionedBy") VALUES (${user.id},${input.orgId},CAST(${input.role} AS "Role"),true,${input.active},${input.provisionedBy}) ON CONFLICT ("userId","orgId") DO UPDATE SET active=EXCLUDED.active,"provisionedBy"=EXCLUDED."provisionedBy"`;
+      const membership = (await tx.$queryRaw<Array<{ userId: string; orgId: string; role: string; notifyChanges: boolean; active: boolean; provisionedBy: string | null }>>`SELECT * FROM memberships WHERE "userId"=${user.id} AND "orgId"=${input.orgId} LIMIT 1`)[0]!; return { user, membership };
+    });
+    return { user: this.mapUser(result.user), membership: { userId: result.membership.userId, orgId: result.membership.orgId, role: result.membership.role as Role, notifyChanges: result.membership.notifyChanges, active: result.membership.active, provisionedBy: result.membership.provisionedBy } };
+  }
+
+  async setProvisionedMembershipActive(userId: string, orgId: string, provisionedBy: string, active: boolean) { const count = await prisma.$executeRaw`UPDATE memberships SET active=${active} WHERE "userId"=${userId} AND "orgId"=${orgId} AND "provisionedBy"=${provisionedBy}`; if (count && !active) await prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }); return count === 1; }
 
   async createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite> {
     const row = await prisma.invite.create({

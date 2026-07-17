@@ -77,6 +77,16 @@ White-label custom domains reuse the existing domain-verification record. Resell
 
 The cron route uses database claims with leases and `SKIP LOCKED`, bounded worker concurrency, deterministic run identifiers, and retry backoff. A crashed worker's lease can be reclaimed. Monitor creation serializes quota enforcement and duplicate checks.
 
+## Enterprise isolation
+
+`EnterpriseWorkspace` is a one-to-one licensed control plane beside—not inside—the SMB plan model. Every enterprise row carries `workspaceId`; access first resolves a normal organization membership or a hashed enterprise token, then evaluates the enterprise license, regional deployment, feature entitlement, permission binding and optional resource scope. Organization owners bootstrap the control plane, while all delegated access flows through versioned roles and user/group/service bindings.
+
+Enterprise identity configuration and integration credentials use a separate AES-256-GCM key. Native OIDC validates state, nonce, issuer, audience, lifetime, algorithm and JWKS signature. SAML terminates at an audited SAML-to-OIDC broker boundary; the application never parses arbitrary XML signatures. SCIM tokens are provider-scoped hashes. Deprovisioning disables the organization membership and increments the user session version.
+
+The enterprise audit stream is serialized with a per-workspace PostgreSQL advisory transaction lock. Each append hashes the previous hash, sequence, timestamp, actor, action, resource, request metadata and canonical detail. A database trigger rejects updates and deletes. Complete exports re-verify the chain and fail closed if the bounded export would be incomplete.
+
+SIEM, SOAR, ticket and webhook events use a durable idempotent outbox with `SKIP LOCKED` claims, leases, eight bounded retries and dead-letter state. Every destination is resolved immediately before delivery, must resolve only to public addresses, and is contacted through an IP-pinned TLS connection preserving hostname validation. OpenTelemetry reports queue age and provider latency without tenant identifiers. Regional deployments set `OUTSIDE_DATA_REGION`; authorization refuses workspaces assigned elsewhere.
+
 Stripe webhooks verify signatures and commit event idempotency plus subscription state in one transaction. The email outbox stores idempotency keys, atomically claims work, applies provider timeouts, and retries with bounded exponential backoff. Rate limits and expensive-operation concurrency leases are also database-backed in durable mode.
 
 ## UI and graph

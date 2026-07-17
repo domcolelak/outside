@@ -10,7 +10,10 @@ export function storageMode(): StorageMode {
     throw new Error("DATABASE_URL is required when OUTSIDE_STORAGE_MODE=database.");
   }
   if (process.env.DATABASE_URL && requested !== "memory") return "database";
-  if (requested === "memory") return "memory";
+  if (requested === "memory") {
+    if (process.env.NODE_ENV === "production") throw new Error("Production must not use in-memory storage.");
+    return "memory";
+  }
   if (process.env.NODE_ENV !== "production") return "memory";
   throw new Error("Production requires DATABASE_URL. Set OUTSIDE_STORAGE_MODE=memory only for an intentional ephemeral demo.");
 }

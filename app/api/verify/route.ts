@@ -8,6 +8,7 @@ import { isSafePublicIp } from "@/lib/security/target";
 import { expectedTxtValue, isTokenInFile, isTokenPresent, issueToken, txtRecordName, WELL_KNOWN_PATH, wellKnownUrl } from "@/lib/verify/challenge";
 import { verificationSecret } from "@/lib/config/secrets";
 import { pinnedHttpsGet } from "@/lib/security/pinned-https";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,9 +71,9 @@ export async function POST(req: NextRequest) {
 
   let payload: { domain?: string; action?: string; orgId?: string };
   try {
-    payload = await req.json();
-  } catch {
-    return json({ error: "Invalid JSON" }, 400);
+    payload = await readLimitedJson(req, 12_000) as typeof payload;
+  } catch (error) {
+    return json({ error: error instanceof RequestBodyError ? error.message : "Invalid JSON" }, error instanceof RequestBodyError ? error.status : 400);
   }
 
   let domain: string;

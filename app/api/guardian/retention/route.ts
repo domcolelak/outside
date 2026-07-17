@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { getRetentionPolicy, setRetentionPolicy, validateRetentionValues } from "@/lib/guardian/retention";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,9 +28,9 @@ export async function PATCH(req: NextRequest) {
   if (auth.response) return auth.response;
   let values;
   try {
-    values = validateRetentionValues(await req.json());
+    values = validateRetentionValues(await readLimitedJson(req, 8_000));
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 422 });
+    return NextResponse.json({ error: (error as Error).message }, { status: error instanceof RequestBodyError ? error.status : 422 });
   }
   try {
     return NextResponse.json({ policy: await setRetentionPolicy(auth.orgId!, values) });

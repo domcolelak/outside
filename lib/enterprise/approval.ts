@@ -1,0 +1,3 @@
+import type { EnterpriseApproval, EnterprisePolicy } from "./types";
+export function approvalRequired(policies: EnterprisePolicy[], action: string): boolean { return policies.some((policy) => policy.enabled && policy.kind === "approval" && Array.isArray(policy.document.actions) && policy.document.actions.includes(action)); }
+export function validApproval(approvals: EnterpriseApproval[], approvalId: string | null, action: string, resourceId: string): boolean { if (!approvalId) return false; return approvals.some((approval) => approval.id === approvalId && approval.status === "approved" && approval.workflow === action && approval.subjectId === resourceId && (!approval.expiresAt || new Date(approval.expiresAt) > new Date())); }

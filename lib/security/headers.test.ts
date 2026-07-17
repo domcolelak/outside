@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 // The runtime module is plain ESM so next.config.mjs can load it directly.
 // @ts-expect-error JavaScript config helper intentionally has no generated declarations.
-import { createSecurityHeaders } from "./headers.mjs";
+import { contentSecurityPolicy, createSecurityHeaders } from "./headers.mjs";
 
 describe("security headers", () => {
   it("sets a restrictive baseline CSP", () => {
@@ -18,5 +18,12 @@ describe("security headers", () => {
     expect(headers.get("Strict-Transport-Security")).toContain("max-age=63072000");
     expect(headers.get("Strict-Transport-Security")).toContain("includeSubDomains");
     expect(headers.get("Content-Security-Policy")).not.toContain("'unsafe-eval'");
+  });
+
+  it("supports per-request nonces without unsafe-inline scripts", () => {
+    const policy = contentSecurityPolicy(true, "nonce123");
+    expect(policy).toContain("'nonce-nonce123'");
+    expect(policy).toContain("'strict-dynamic'");
+    expect(policy).not.toContain("script-src 'self' 'unsafe-inline'");
   });
 });
