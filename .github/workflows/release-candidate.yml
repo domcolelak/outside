@@ -1,0 +1,133 @@
+name: Release candidate artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      verified_ci_run_url:
+        description: Green CI run URL for this exact commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-release-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20.20.0
+          cache: npm
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.23.x"
+          cache: false
+
+      - name: Resolve immutable release identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_CI_RUN_URL: ${{ inputs.verified_ci_run_url }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          commit="$(git rev-parse HEAD)"
+          build_time="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          schema_version="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)"
+          test -n "${schema_version}"
+          case "${VERIFIED_CI_RUN_URL}" in
+            "https://github.com/${GITHUB_REPOSITORY}/actions/runs/"*) ;;
+            *) echo "verified_ci_run_url must reference this repository" >&2; exit 1 ;;
+          esac
+          run_id="${VERIFIED_CI_RUN_URL##*/}"
+          [[ "${run_id}" =~ ^[0-9]+$ ]]
+          run_json="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+          test "$(jq -r '.name' <<< "${run_json}")" = "CI"
+          test "$(jq -r '.status' <<< "${run_json}")" = "completed"
+          test "$(jq -r '.conclusion' <<< "${run_json}")" = "success"
+          test "$(jq -r '.head_sha' <<< "${run_json}")" = "${commit}"
+          {
+            echo "RELEASE_VERSION=${version}"
+            echo "RELEASE_COMMIT=${commit}"
+            echo "RELEASE_BUILD_TIME=${build_time}"
+            echo "RELEASE_CI_URL=${VERIFIED_CI_RUN_URL}"
+            echo "RELEASE_SCHEMA_VERSION=${schema_version}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Install and verify source
+        env:
+          DATABASE_URL: postgresql://release:release@127.0.0.1:5432/release
+        run: |
+          npm ci
+          npm run db:validate
+          git diff --exit-code
+
+      - name: Build immutable application and migration images
+        shell: bash
+        run: |
+          set -euo pipefail
+          common_args=(
+            --build-arg "APP_VERSION=${RELEASE_VERSION}"
+            --build-arg "GIT_SHA=${RELEASE_COMMIT}"
+            --build-arg "BUILD_TIME=${RELEASE_BUILD_TIME}"
+          )
+          docker build "${common_args[@]}" --target runner --tag "outside:${RELEASE_VERSION}" .
+          docker build "${common_args[@]}" --target migrator --tag "outside-migrator:${RELEASE_VERSION}" .
+          mkdir -p release-artifacts
+          docker save "outside:${RELEASE_VERSION}" | gzip -9 > "release-artifacts/outside-${RELEASE_VERSION}.docker.tar.gz"
+          docker save "outside-migrator:${RELEASE_VERSION}" | gzip -9 > "release-artifacts/outside-migrator-${RELEASE_VERSION}.docker.tar.gz"
+          echo "RELEASE_APP_IMAGE_ID=$(docker image inspect "outside:${RELEASE_VERSION}" --format '{{.Id}}')" >> "${GITHUB_ENV}"
+          echo "RELEASE_MIGRATOR_IMAGE_ID=$(docker image inspect "outside-migrator:${RELEASE_VERSION}" --format '{{.Id}}')" >> "${GITHUB_ENV}"
+          echo "RELEASE_APP_ARCHIVE_SHA256=$(sha256sum "release-artifacts/outside-${RELEASE_VERSION}.docker.tar.gz" | cut -d' ' -f1)" >> "${GITHUB_ENV}"
+          echo "RELEASE_MIGRATOR_ARCHIVE_SHA256=$(sha256sum "release-artifacts/outside-migrator-${RELEASE_VERSION}.docker.tar.gz" | cut -d' ' -f1)" >> "${GITHUB_ENV}"
+
+      - name: Build versioned Terraform provider
+        shell: bash
+        working-directory: terraform-provider-outside
+        run: |
+          set -euo pipefail
+          go mod verify
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -trimpath -ldflags="-s -w -X main.version=${RELEASE_VERSION}" \
+            -o "terraform-provider-outside_v${RELEASE_VERSION}"
+          zip -9 "../release-artifacts/terraform-provider-outside_${RELEASE_VERSION}_linux_amd64.zip" \
+            "terraform-provider-outside_v${RELEASE_VERSION}"
+          echo "RELEASE_TERRAFORM_SHA256=$(sha256sum "../release-artifacts/terraform-provider-outside_${RELEASE_VERSION}_linux_amd64.zip" | cut -d' ' -f1)" >> "${GITHUB_ENV}"
+
+      - name: Create signed-input release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/release-manifest.mjs > release-artifacts/release-manifest.json
+          (cd release-artifacts && sha256sum *.gz *.zip release-manifest.json > SHA256SUMS)
+          cat release-artifacts/release-manifest.json
+          cat release-artifacts/SHA256SUMS
+
+      - name: Upload exact deployable artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: outside-release-candidate-${{ github.sha }}
+          path: release-artifacts
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish release evidence summary
+        shell: bash
+        run: |
+          {
+            echo "## OUTSIDE ${RELEASE_VERSION}"
+            echo
+            echo "- Commit: \`${RELEASE_COMMIT}\`"
+            echo "- Built: \`${RELEASE_BUILD_TIME}\`"
+            echo "- Schema: \`${RELEASE_SCHEMA_VERSION}\`"
+            echo "- Application image: \`${RELEASE_APP_IMAGE_ID}\`"
+            echo "- Migrator image: \`${RELEASE_MIGRATOR_IMAGE_ID}\`"
+            echo "- Verified CI: ${RELEASE_CI_URL}"
+          } >> "${GITHUB_STEP_SUMMARY}"

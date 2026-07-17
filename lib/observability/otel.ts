@@ -2,6 +2,7 @@ import { metrics } from "@opentelemetry/api";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { releaseInfo } from "@/lib/config/build-info";
 
 const globalTelemetry = globalThis as unknown as { __outsideMeterProvider?: MeterProvider };
 
@@ -23,7 +24,7 @@ export function registerOpenTelemetryMetrics(): void {
   const provider = new MeterProvider({
     resource: resourceFromAttributes({
       "service.name": process.env.OTEL_SERVICE_NAME?.trim() || "outside",
-      "service.version": process.env.npm_package_version || "0.1.0",
+      "service.version": releaseInfo().version,
       "deployment.environment.name": process.env.NODE_ENV || "development",
     }),
     readers: [reader],

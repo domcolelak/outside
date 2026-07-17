@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStore } from "@/lib/persistence";
 import { databaseReady } from "@/lib/db/prisma";
 import { operationalLog } from "@/lib/observability/log";
+import { releaseInfo } from "@/lib/config/build-info";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function GET() {
     return NextResponse.json({
     status: database ? "ok" : "unready",
     time: new Date().toISOString(),
+    release: releaseInfo(),
     persistence: store.durable ? "durable" : "in-memory",
     capabilities: {
       database: { configured: !!process.env.DATABASE_URL, ready: database },

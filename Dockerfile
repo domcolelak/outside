@@ -1,4 +1,8 @@
 # syntax=docker/dockerfile:1.7
+ARG APP_VERSION=0.2.0-rc.1
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+
 FROM node:20.20.0-alpine AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -24,16 +28,35 @@ RUN AUTH_SECRET=build-only-auth-secret-at-least-thirty-two-bytes \
     npm run build
 
 FROM dependencies AS migrator
+ARG APP_VERSION
+ARG GIT_SHA
+ARG BUILD_TIME
 ENV NODE_ENV=production
+LABEL org.opencontainers.image.title="OUTSIDE migrator" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_TIME}" \
+      org.opencontainers.image.source="https://github.com/domcolelak/outside"
 ENTRYPOINT ["./node_modules/.bin/prisma"]
 CMD ["migrate", "deploy"]
 
 FROM base AS runner
+ARG APP_VERSION
+ARG GIT_SHA
+ARG BUILD_TIME
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    OUTSIDE_APP_VERSION=${APP_VERSION} \
+    OUTSIDE_GIT_SHA=${GIT_SHA} \
+    OUTSIDE_BUILD_TIME=${BUILD_TIME} \
     PORT=3000 \
     HOSTNAME=0.0.0.0
+LABEL org.opencontainers.image.title="OUTSIDE" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_TIME}" \
+      org.opencontainers.image.source="https://github.com/domcolelak/outside"
 RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

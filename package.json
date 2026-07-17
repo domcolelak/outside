@@ -1,6 +1,6 @@
 {
   "name": "outside",
-  "version": "0.1.0",
+  "version": "0.2.0-rc.1",
   "packageManager": "npm@10.8.2",
   "private": true,
   "description": "OUTSIDE - External digital exposure visualization platform. See your company from the outside.",
@@ -22,6 +22,7 @@
     "db:validate": "prisma validate",
     "audit:licenses": "node scripts/license-audit.mjs",
     "audit:secrets": "node scripts/secret-scan.mjs",
+    "validate:operations": "node --check scripts/measure-http.mjs && node --check ops/staging/scheduler/scheduler.mjs && node --check ops/staging/scheduler/alert-sink.mjs && node -e \"JSON.parse(require('fs').readFileSync('ops/staging/observability/grafana/dashboards/outside-operations.json','utf8'))\"",
     "postinstall": "prisma generate"
   },
   "dependencies": {

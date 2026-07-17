@@ -1,0 +1,115 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Application ready",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "targets": [{ "expr": "probe_success{job=\"outside-readiness\"}", "legendFormat": "ready" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "NO" }, "1": { "text": "YES" } } }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red" }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "type": "stat",
+      "title": "PostgreSQL up",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "targets": [{ "expr": "up{job=\"outside-postgres\"}", "legendFormat": "database" }],
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "NO" }, "1": { "text": "YES" } } }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red" }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "type": "stat",
+      "title": "Guardian oldest ready",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "targets": [{ "expr": "max(outside_guardian_queue_oldest_age_seconds)", "legendFormat": "seconds" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "color": "orange", "value": 600 }, { "color": "red", "value": 900 }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "type": "stat",
+      "title": "Last encrypted backup",
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "targets": [{ "expr": "time() - outside_backup_last_success_unixtime", "legendFormat": "age" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "color": "orange", "value": 86400 }, { "color": "red", "value": 93600 }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "type": "stat",
+      "title": "Active alerts",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "targets": [{ "expr": "count(ALERTS{alertstate=\"firing\"})", "legendFormat": "firing" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "type": "stat",
+      "title": "Edge p95 latency",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(caddy_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "color": "orange", "value": 0.75 }, { "color": "red", "value": 2 }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "center", "textMode": "value_and_name" }
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP throughput and 5xx",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 5 },
+      "targets": [
+        { "expr": "sum(rate(caddy_http_request_duration_seconds_count[5m]))", "legendFormat": "requests/s" },
+        { "expr": "sum(rate(caddy_http_request_duration_seconds_count{code=~\"5..\"}[5m]))", "legendFormat": "5xx/s" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider p95 latency",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 5 },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, provider_name) (rate(outside_provider_duration_seconds_bucket[15m])))", "legendFormat": "{{provider_name}}" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Guardian delivery queue",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+      "targets": [{ "expr": "outside_guardian_queue_depth", "legendFormat": "{{delivery_status}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Scheduled job results",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 13 },
+      "targets": [{ "expr": "increase(outside_scheduler_runs_total[15m])", "legendFormat": "{{job}} / {{result}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Container memory",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 13 },
+      "targets": [{ "expr": "container_memory_working_set_bytes{name=~\".*outside.*\"}", "legendFormat": "{{name}}" }],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Database connections",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 13 },
+      "targets": [{ "expr": "sum(pg_stat_activity_count) by (state)", "legendFormat": "{{state}}" }],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["outside", "operations", "staging"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "OUTSIDE Operations",
+  "uid": "outside-operations",
+  "version": 1
+}
