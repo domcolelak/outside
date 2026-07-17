@@ -8,10 +8,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint app components lib e2e instrumentation.ts vitest.config.ts vitest.e2e.config.ts --ext .ts,.tsx --max-warnings 0",
+    "lint": "eslint app browser components e2e lib instrumentation.ts playwright.config.ts vitest.config.ts vitest.e2e.config.ts --ext .ts,.tsx --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:browser": "playwright test",
+    "test:migration-upgrade": "node scripts/test-migration-upgrade.mjs",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -35,6 +37,8 @@
     "tldts": "^7.4.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "^20.19.43",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",

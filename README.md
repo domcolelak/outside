@@ -37,12 +37,13 @@ npm run test:e2e
 
 ```bash
 npm test
+npm run test:browser
 npm run lint
 npm run typecheck
 npm run build
 ```
 
-CI runs the same gates and a separate PostgreSQL 16 integration job. Dependency update pull requests are configured through Dependabot.
+CI runs the same gates plus PostgreSQL 16 clean/upgrade migrations, integration workflows, an isolated dump/restore drill, Chromium desktop/mobile journeys with accessibility checks and a production-container smoke test. Dependency update pull requests are configured through Dependabot.
 
 ## Architecture
 
@@ -122,6 +123,17 @@ npm run db:migrate
 npm run build
 npm run start
 ```
+
+The repository also ships separate production application and migration container targets:
+
+```bash
+docker build --target migrator -t outside-migrator .
+docker run --rm --env DATABASE_URL outside-migrator migrate deploy
+docker build -t outside .
+docker run --read-only --tmpfs /tmp --env-file .env.production -p 3000:3000 outside
+```
+
+Supply secrets only at runtime; the build uses non-production sentinel values and does not require production credentials.
 
 Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`, `/api/cron/agency`, `/api/cron/enterprise`, and `/api/cron/retention`. Run the Agency job after monitoring to synchronize SLA state and enqueue deduplicated client-specific notifications. The Enterprise job claims integration deliveries, schedules exports, and applies operational retention. For portfolios over its bounded batch size, continue with the returned `nextCursor` as the `after` query parameter until it is `null`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
 

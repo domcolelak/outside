@@ -73,6 +73,117 @@ jobs:
       - run: npm ci
       - run: npm run db:migrate
       - run: npm run test:e2e
+      - name: Verify upgrade from a historical release checkpoint
+        run: |
+          docker exec "${{ job.services.postgres.id }}" createdb -U outside outside_upgrade
+          npm run test:migration-upgrade
+        env:
+          DATABASE_URL: postgresql://outside:outside@127.0.0.1:5432/outside_upgrade
+      - name: Exercise a PostgreSQL dump and isolated restore
+        run: |
+          docker exec "${{ job.services.postgres.id }}" sh -c 'PGPASSWORD=outside pg_dump -U outside -d outside_e2e --format=custom --file=/tmp/outside.dump'
+          docker exec "${{ job.services.postgres.id }}" createdb -U outside outside_restore
+          docker exec "${{ job.services.postgres.id }}" sh -c 'PGPASSWORD=outside pg_restore -U outside -d outside_restore --no-owner --exit-on-error /tmp/outside.dump'
+          applied="$(docker exec "${{ job.services.postgres.id }}" sh -c "PGPASSWORD=outside psql -U outside -d outside_restore -Atc 'SELECT count(*) FROM \"_prisma_migrations\" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL'")"
+          test "$applied" = "12"
+          docker exec "${{ job.services.postgres.id }}" sh -c "PGPASSWORD=outside psql -U outside -d outside_restore -v ON_ERROR_STOP=1 -Atc 'SELECT count(*) FROM organizations; SELECT count(*) FROM guardian_evidence_snapshots;'"
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: outside
+          POSTGRES_PASSWORD: outside
+          POSTGRES_DB: outside_browser
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U outside -d outside_browser"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://outside:outside@127.0.0.1:5432/outside_browser
+      OUTSIDE_STORAGE_MODE: database
+      APP_URL: https://outside-ci.example
+      AUTH_SECRET: browser-auth-secret-at-least-thirty-two-bytes
+      OUTSIDE_VERIFY_SECRET: browser-verify-secret-at-least-thirty-two
+      CRON_SECRET: browser-cron-secret-at-least-thirty-two-bytes
+      RESEND_API_KEY: browser-resend-key-value
+      EMAIL_FROM: OUTSIDE Browser CI <browser@outside.example>
+      OUTSIDE_EMAIL_IMMEDIATE_DELIVERY: "false"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20.20.0
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run db:migrate
+      - run: npm run build
+      - run: npm run test:browser
+      - name: Upload browser diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-release-evidence
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
+
+  production-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: outside
+          POSTGRES_PASSWORD: outside
+          POSTGRES_DB: outside_container
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U outside -d outside_container"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://outside:outside@127.0.0.1:5432/outside_container
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and run the migration image
+        run: |
+          docker build --target migrator --tag outside-migrator:ci .
+          docker run --rm --network host --env DATABASE_URL outside-migrator:ci migrate deploy
+      - name: Build the production application image
+        run: docker build --tag outside:ci .
+      - name: Boot and smoke-test the production image
+        run: |
+          docker run --detach --name outside-ci --network host \
+            --env DATABASE_URL \
+            --env OUTSIDE_STORAGE_MODE=database \
+            --env APP_URL=https://outside-ci.example \
+            --env AUTH_SECRET=container-auth-secret-at-least-thirty-two-bytes \
+            --env OUTSIDE_VERIFY_SECRET=container-verify-secret-at-least-thirty-two \
+            --env CRON_SECRET=container-cron-secret-at-least-thirty-two-bytes \
+            --env RESEND_API_KEY=container-resend-key-value \
+            --env EMAIL_FROM=container@outside.example \
+            outside:ci
+          trap 'docker logs outside-ci; docker rm --force outside-ci' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/api/readyz > /tmp/ready.json; then break; fi
+            sleep 1
+          done
+          grep -q '"status":"ready"' /tmp/ready.json
+          curl --fail --silent --no-buffer --max-time 20 \
+            'http://127.0.0.1:3000/api/scan?target=northstar&mode=demo' > /tmp/demo.sse
+          grep -q '"type":"result"' /tmp/demo.sse
 
   terraform-provider:
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 # Dependency and licence inventory
 
-The deployable application is pinned by `package-lock.json`; the Terraform provider is pinned by `go.mod` and must add a generated `go.sum` before its first tagged release. CI installs Node dependencies with `npm ci`, rejects high-severity production advisories, and runs the repository licence policy.
+The deployable application is pinned by `package-lock.json`; the Terraform provider is reproducibly pinned by committed `go.mod` and `go.sum`. CI installs Node dependencies with `npm ci`, rejects high-severity advisories, verifies a clean Terraform module graph, and runs the repository licence policy.
 
 `npm run audit:licenses` evaluates every locked Node package. GPL, AGPL, SSPL, and BUSL families are denied by policy. LGPL, MPL, Apache, BSD, ISC, MIT, CC, BlueOak, Python-2.0, and Zlib-family packages require preservation of their notices and any licence-specific obligations in distributed artifacts. `png-js` omits SPDX metadata from its package manifest; its bundled `LICENSE` is MIT and is explicitly documented by the audit override.
 
