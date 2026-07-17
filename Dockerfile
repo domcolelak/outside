@@ -2,6 +2,7 @@
 FROM node:20.20.0-alpine AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN apk add --no-cache openssl
 
 FROM base AS dependencies
 COPY package.json package-lock.json ./
