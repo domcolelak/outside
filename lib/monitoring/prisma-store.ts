@@ -30,7 +30,7 @@ export class PrismaMonitorStore implements MonitorStore {
   async create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }) {
     try {
       return await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`monitor:${input.orgId}`}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`monitor:${input.orgId}`}))`;
         const count = await tx.monitor.count({ where: { orgId: input.orgId } });
         if (count >= (input.limit ?? Number.MAX_SAFE_INTEGER)) return null;
         const row = await tx.monitor.create({ data: { orgId: input.orgId, domain: input.domain.toLowerCase(), frequency: input.frequency, nextRunAt: new Date() } });
