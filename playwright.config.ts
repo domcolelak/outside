@@ -15,6 +15,7 @@ export default defineConfig({
     : "list",
   use: {
     baseURL,
+    ignoreHTTPSErrors: process.env.PLAYWRIGHT_ALLOW_INSECURE_TLS === "true",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -23,7 +24,7 @@ export default defineConfig({
     { name: "desktop-chromium", testIgnore: /responsive\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     { name: "mobile-chromium", use: { ...devices["Pixel 7"] }, testMatch: /responsive\.spec\.ts/ },
   ],
-  webServer: {
+  webServer: process.env.PLAYWRIGHT_EXTERNAL_SERVER === "true" ? undefined : {
     command: "npm run start:standalone",
     url: `${baseURL}/api/livez`,
     // Keep NextRequest.url aligned with the browser Origin. The standalone

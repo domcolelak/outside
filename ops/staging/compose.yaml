@@ -1,0 +1,290 @@
+name: outside-staging
+
+x-app-environment: &app-environment
+  NODE_ENV: production
+  APP_URL: ${APP_URL:?Set APP_URL to the canonical HTTPS staging origin}
+  DATABASE_URL: postgresql://outside:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/outside?schema=public
+  OUTSIDE_STORAGE_MODE: database
+  AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET}
+  OUTSIDE_VERIFY_SECRET: ${OUTSIDE_VERIFY_SECRET:?Set OUTSIDE_VERIFY_SECRET}
+  CRON_SECRET: ${CRON_SECRET:?Set CRON_SECRET}
+  RESEND_API_KEY: ${RESEND_API_KEY:?Set a staging RESEND_API_KEY}
+  EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM}
+  OUTSIDE_EMAIL_IMMEDIATE_DELIVERY: ${OUTSIDE_EMAIL_IMMEDIATE_DELIVERY:-false}
+  OUTSIDE_TRUST_PROXY: ${OUTSIDE_TRUST_PROXY:-true}
+  GUARDIAN_ENCRYPTION_KEY: ${GUARDIAN_ENCRYPTION_KEY:?Set GUARDIAN_ENCRYPTION_KEY}
+  ENTERPRISE_ENCRYPTION_KEY: ${ENTERPRISE_ENCRYPTION_KEY:?Set ENTERPRISE_ENCRYPTION_KEY}
+  ENTERPRISE_PROVISIONING_TOKEN: ${ENTERPRISE_PROVISIONING_TOKEN:?Set ENTERPRISE_PROVISIONING_TOKEN}
+  AUDIT_IP_SALT: ${AUDIT_IP_SALT:?Set AUDIT_IP_SALT}
+  OUTSIDE_DATA_REGION: ${OUTSIDE_DATA_REGION:-eu}
+  OTEL_SERVICE_NAME: outside-staging
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://otel-collector:4318/v1/metrics
+  OTEL_METRIC_EXPORT_INTERVAL_MS: 15000
+
+services:
+  postgres:
+    image: postgres:16.14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: outside
+      POSTGRES_USER: outside
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    command:
+      - postgres
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - log_min_duration_statement=1000
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outside -d outside"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt: [no-new-privileges:true]
+
+  migrate:
+    image: ${OUTSIDE_MIGRATOR_IMAGE:?Set OUTSIDE_MIGRATOR_IMAGE}
+    environment:
+      DATABASE_URL: postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside?schema=public
+    command: ["migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    restart: "no"
+    security_opt: [no-new-privileges:true]
+
+  app:
+    image: ${OUTSIDE_IMAGE:?Set OUTSIDE_IMAGE}
+    restart: unless-stopped
+    environment: *app-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
+    networks: [edge, data, monitoring]
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 2
+
+  scheduler:
+    build: ./scheduler
+    restart: unless-stopped
+    environment:
+      OUTSIDE_INTERNAL_URL: http://app:3000
+      CRON_SECRET: ${CRON_SECRET}
+      SCHEDULER_SCAN_INTERVAL_SECONDS: ${SCHEDULER_SCAN_INTERVAL_SECONDS:-300}
+      SCHEDULER_AGENCY_INTERVAL_SECONDS: ${SCHEDULER_AGENCY_INTERVAL_SECONDS:-600}
+      SCHEDULER_ENTERPRISE_INTERVAL_SECONDS: ${SCHEDULER_ENTERPRISE_INTERVAL_SECONDS:-60}
+      SCHEDULER_RETENTION_INTERVAL_SECONDS: ${SCHEDULER_RETENTION_INTERVAL_SECONDS:-86400}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [edge, monitoring]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.5
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    environment:
+      STAGING_DOMAIN: ${STAGING_DOMAIN:-outside.test}
+    ports:
+      - ${HTTPS_PORT:-8443}:443
+    volumes:
+      - ./proxy/Caddyfile.internal:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [edge, monitoring]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.156.0
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks: [monitoring]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+
+  prometheus:
+    image: prom/prometheus:v3.12.0-distroless
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=14d
+      - --web.enable-lifecycle
+    volumes:
+      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./observability/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+      - prometheus-data:/prometheus
+    depends_on: [otel-collector, blackbox-exporter, postgres-exporter, alertmanager]
+    networks: [monitoring]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+
+  alertmanager:
+    image: prom/alertmanager:v0.32.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yaml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./observability/alertmanager.yaml:/etc/alertmanager/alertmanager.yaml:ro
+      - alertmanager-data:/alertmanager
+    networks: [monitoring]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+
+  alert-sink:
+    build: ./scheduler
+    command: ["node", "alert-sink.mjs"]
+    restart: unless-stopped
+    networks: [monitoring]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:v0.28.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox_exporter/config.yaml"]
+    volumes:
+      - ./observability/blackbox.yaml:/etc/blackbox_exporter/config.yaml:ro
+    networks: [edge, monitoring]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.19.1
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data, monitoring]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?Set BACKUP_ENCRYPTION_KEY}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - backup-data:/backups
+      - node-textfile:/metrics
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [data]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+
+  grafana:
+    image: grafana/grafana:13.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: outside-operator
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - ${GRAFANA_BIND:-127.0.0.1}:${GRAFANA_PORT:-3001}:3000
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on: [prometheus]
+    networks: [monitoring]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.57.0
+    restart: unless-stopped
+    privileged: true
+    command: ["--docker_only=true", "--housekeeping_interval=15s"]
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks: [monitoring]
+    mem_limit: 256m
+
+  node-exporter:
+    image: prom/node-exporter:v1.11.1
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/metrics
+    volumes:
+      - /:/host:ro,rslave
+      - node-textfile:/metrics:ro
+    networks: [monitoring]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+
+networks:
+  edge:
+  data:
+    internal: true
+  monitoring:
+    internal: true
+
+volumes:
+  postgres-data:
+  backup-data:
+  node-textfile:
+  caddy-data:
+  caddy-config:
+  prometheus-data:
+  alertmanager-data:
+  grafana-data:

@@ -6,6 +6,7 @@ import type { FunnelEvent } from "@/lib/analytics/events";
 
 const meter = metrics.getMeter("outside.operations", "1.0.0");
 const providerLatency = meter.createHistogram("outside.provider.duration", { description: "Discovery provider request duration", unit: "s" });
+const providerRuns = meter.createCounter("outside.provider.runs", { description: "Discovery provider run outcomes", unit: "{run}" });
 const providerObservations = meter.createCounter("outside.provider.observations", { description: "Public observations returned by discovery providers", unit: "{observation}" });
 const providerCacheRequests = meter.createCounter("outside.provider.cache.requests", { description: "Short-lived provider cache requests", unit: "{request}" });
 const queueDepth = meter.createGauge("outside.guardian.queue.depth", { description: "Current Guardian delivery queue depth", unit: "{delivery}" });
@@ -27,6 +28,7 @@ export function recordProviderMetrics(runs: ProviderRun[]): void {
   for (const run of runs) {
     const attributes = { "provider.name": run.provider, "discovery.method": run.method, "run.status": run.status };
     const duration = Math.max(0, Date.parse(run.finishedAt) - Date.parse(run.startedAt)) / 1_000;
+    providerRuns.add(1, attributes);
     providerLatency.record(duration, attributes);
     providerObservations.add(run.observations, attributes);
   }
