@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { retryPostgresTransaction } from "@/lib/db/transaction-retry";
 import { auditHash, canonicalAuditDetail } from "./audit";
 import { SYSTEM_ROLES, type EnterpriseApiToken, type EnterpriseAuditEvent, type EnterpriseDelivery, type EnterpriseIdentityProvider, type EnterpriseIntegration, type EnterpriseOverview, type EnterpriseRecord, type EnterpriseResourceKind, type EnterpriseWorkspace } from "./types";
 import type { AppendEnterpriseAuditInput, EnterpriseStore } from "./store-model";
@@ -25,6 +26,18 @@ interface EnterpriseDb {
 }
 
 const db = prisma as unknown as EnterpriseDb;
+const SERIALIZABLE_OPTIONS = {
+  isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+  maxWait: 5_000,
+  timeout: 15_000,
+} as const;
+
+async function serializableTransaction<T>(
+  operation: (transaction: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return retryPostgresTransaction(() => prisma.$transaction(operation, SERIALIZABLE_OPTIONS));
+}
+
 const object = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 function jsonSafe(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
@@ -105,7 +118,7 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
     return this.workspace(id);
   }
   async updateWorkspaceAudited(id: string, patch: Partial<EnterpriseWorkspace>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
-    return prisma.$transaction(async (transaction) => {
+    return serializableTransaction(async (transaction) => {
       const tx = transaction as unknown as EnterpriseDb, data = { ...patch } as Record<string, unknown>;
       for (const key of ["id", "orgId", "createdAt", "updatedAt"]) delete data[key];
       if (typeof data.expiresAt === "string") data.expiresAt = new Date(data.expiresAt);
@@ -114,32 +127,32 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
       if (!row) return null;
       await appendAuditTx(transaction, { ...audit, workspaceId: id, resourceId: id });
       return record<EnterpriseWorkspace>(row);
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
   async list<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, options?: { limit?: number; afterId?: string }): Promise<T[]> { return (await model(db, kind).findMany({ where: { workspaceId, ...(options?.afterId ? { id: { gt: options.afterId } } : {}) }, orderBy: { id: "asc" }, ...(options?.limit ? { take: Math.min(Math.max(options.limit, 1), 1000) } : {}) })).map((item) => record<T>(item)); }
   async resource<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, id: string): Promise<T | null> { const row = await model(db, kind).findUnique({ where: { id } }); return row && object(row).workspaceId === workspaceId ? record<T>(row) : null; }
   async create<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, input: Omit<T, "id" | "workspaceId" | "createdAt" | "updatedAt">): Promise<T> { return record<T>(await model(db, kind).create({ data: { ...dates(kind, object(input)), id: `${kind}_${randomUUID()}`, workspaceId } })); }
-  async createAudited<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, input: Omit<T, "id" | "workspaceId" | "createdAt" | "updatedAt">, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<T> { return prisma.$transaction(async (transaction) => { const item = record<T>(await model(transaction as unknown as EnterpriseDb, kind).create({ data: { ...dates(kind, object(input)), id: `${kind}_${randomUUID()}`, workspaceId } })); await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: item.id }); return item; }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async createAudited<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, input: Omit<T, "id" | "workspaceId" | "createdAt" | "updatedAt">, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<T> { return serializableTransaction(async (transaction) => { const item = record<T>(await model(transaction as unknown as EnterpriseDb, kind).create({ data: { ...dates(kind, object(input)), id: `${kind}_${randomUUID()}`, workspaceId } })); await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: item.id }); return item; }); }
   async update<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, id: string, patch: Partial<T>): Promise<T | null> { const data = dates(kind, object(patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt", "secretHash", "scimTokenHash"]) delete data[key]; if (!(await model(db, kind).updateMany({ where: { id, workspaceId }, data })).count) return null; const row = await model(db, kind).findUnique({ where: { id } }); return row ? record<T>(row) : null; }
-  async updateAudited<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, id: string, patch: Partial<T>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<T | null> { return prisma.$transaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb, data = dates(kind, object(patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt", "secretHash", "scimTokenHash"]) delete data[key]; if (!(await model(tx, kind).updateMany({ where: { id, workspaceId }, data })).count) return null; const row = await model(tx, kind).findUnique({ where: { id } }); if (!row) return null; await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return record<T>(row); }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async updateAudited<T extends EnterpriseRecord>(workspaceId: string, kind: EnterpriseResourceKind, id: string, patch: Partial<T>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<T | null> { return serializableTransaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb, data = dates(kind, object(patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt", "secretHash", "scimTokenHash"]) delete data[key]; if (!(await model(tx, kind).updateMany({ where: { id, workspaceId }, data })).count) return null; const row = await model(tx, kind).findUnique({ where: { id } }); if (!row) return null; await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return record<T>(row); }); }
   async remove(workspaceId: string, kind: EnterpriseResourceKind, id: string) { return (await model(db, kind).deleteMany({ where: { id, workspaceId } })).count === 1; }
-  async removeAudited(workspaceId: string, kind: EnterpriseResourceKind, id: string, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return prisma.$transaction(async (transaction) => { const removed = (await model(transaction as unknown as EnterpriseDb, kind).deleteMany({ where: { id, workspaceId } })).count === 1; if (removed) await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return removed; }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async removeAudited(workspaceId: string, kind: EnterpriseResourceKind, id: string, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return serializableTransaction(async (transaction) => { const removed = (await model(transaction as unknown as EnterpriseDb, kind).deleteMany({ where: { id, workspaceId } })).count === 1; if (removed) await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return removed; }); }
   async authenticateApiToken(hash: string, now: Date) { const rows = await db.enterpriseApiToken.findMany({ where: { secretHash: hash, revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] }, take: 1 }); const row = rows[0]; if (!row) return null; await db.enterpriseApiToken.updateMany({ where: { id: object(row).id }, data: { lastUsedAt: now } }); return record<EnterpriseApiToken>(row); }
   async authenticateScimToken(hash: string) { const rows = await db.enterpriseIdentityProvider.findMany({ where: { scimTokenHash: hash, enabled: true }, take: 1 }); return rows[0] ? record<EnterpriseIdentityProvider>(rows[0]) : null; }
   async rotateScimToken(workspaceId: string, id: string, hash: string, prefix: string) { if (!(await db.enterpriseIdentityProvider.updateMany({ where: { id, workspaceId }, data: { scimTokenHash: hash, scimTokenPrefix: prefix } })).count) return null; return this.identityProvider(id); }
-  async rotateScimTokenAudited(workspaceId: string, id: string, hash: string, prefix: string, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return prisma.$transaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb; if (!(await tx.enterpriseIdentityProvider.updateMany({ where: { id, workspaceId }, data: { scimTokenHash: hash, scimTokenPrefix: prefix } })).count) return null; const row = await tx.enterpriseIdentityProvider.findUnique({ where: { id } }); if (!row) return null; await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return record<EnterpriseIdentityProvider>(row); }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async rotateScimTokenAudited(workspaceId: string, id: string, hash: string, prefix: string, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return serializableTransaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb; if (!(await tx.enterpriseIdentityProvider.updateMany({ where: { id, workspaceId }, data: { scimTokenHash: hash, scimTokenPrefix: prefix } })).count) return null; const row = await tx.enterpriseIdentityProvider.findUnique({ where: { id } }); if (!row) return null; await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return record<EnterpriseIdentityProvider>(row); }); }
   async provisionScimUserAtomic(input: { workspaceId: string; orgId: string; providerId: string; email: string; name: string; passwordHash: string; externalId: string | null; active: boolean }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
-    return prisma.$transaction(async (transaction) => {
+    return serializableTransaction(async (transaction) => {
       const tx = transaction as unknown as EnterpriseDb;
       const user = await transaction.user.upsert({ where: { email: input.email }, create: { email: input.email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: new Date() }, update: { name: input.name } });
       await transaction.$executeRaw`INSERT INTO memberships ("userId","orgId",role,"notifyChanges",active,"provisionedBy") VALUES (${user.id},${input.orgId},CAST(${"viewer"} AS "Role"),true,${input.active},${input.providerId}) ON CONFLICT ("userId","orgId") DO UPDATE SET active=EXCLUDED.active,"provisionedBy"=EXCLUDED."provisionedBy"`;
       const item = record<import("./types").EnterpriseDirectoryUser>(await tx.enterpriseDirectoryUser.create({ data: { id: `directoryUsers_${randomUUID()}`, workspaceId: input.workspaceId, identityProviderId: input.providerId, userId: user.id, externalId: input.externalId, userName: input.email, displayName: input.name, active: input.active, departmentId: null, attributes: {}, lastSyncedAt: new Date() } }));
       await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: item.id });
       return item;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
   async updateScimUserAtomic(input: { workspaceId: string; orgId: string; providerId: string; id: string; patch: Partial<import("./types").EnterpriseDirectoryUser> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
-    return prisma.$transaction(async (transaction) => {
+    return serializableTransaction(async (transaction) => {
       const tx = transaction as unknown as EnterpriseDb;
       const data = dates("directoryUsers", object(input.patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt", "identityProviderId", "userId", "userName"]) delete data[key];
       if (!(await tx.enterpriseDirectoryUser.updateMany({ where: { id: input.id, workspaceId: input.workspaceId, identityProviderId: input.providerId }, data })).count) return null;
@@ -152,10 +165,10 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
       }
       await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: input.id });
       return item;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
   async deleteScimUserAtomic(input: { workspaceId: string; orgId: string; providerId: string; id: string }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
-    return prisma.$transaction(async (transaction) => {
+    return serializableTransaction(async (transaction) => {
       const tx = transaction as unknown as EnterpriseDb;
       const raw = (await tx.enterpriseDirectoryUser.findMany({ where: { id: input.id, workspaceId: input.workspaceId, identityProviderId: input.providerId }, take: 1 }))[0];
       const item = raw ? record<import("./types").EnterpriseDirectoryUser>(raw) : null;
@@ -170,10 +183,10 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
       await tx.enterpriseDirectoryUser.deleteMany({ where: { id: input.id, workspaceId: input.workspaceId } });
       await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: input.id, detail: { ...audit.detail, removedRoleBindings: bindings.count, updatedGroups: groups.length } });
       return { removed: true, groups: groups.length, bindings: bindings.count };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
   async deleteScimGroupAtomic(input: { workspaceId: string; providerId: string; id: string }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
-    return prisma.$transaction(async (transaction) => {
+    return serializableTransaction(async (transaction) => {
       const tx = transaction as unknown as EnterpriseDb;
       const item = (await tx.enterpriseDirectoryGroup.findMany({ where: { id: input.id, workspaceId: input.workspaceId, identityProviderId: input.providerId }, take: 1 }))[0];
       if (!item) return { removed: false, bindings: 0 };
@@ -181,17 +194,17 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
       await tx.enterpriseDirectoryGroup.deleteMany({ where: { id: input.id, workspaceId: input.workspaceId } });
       await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: input.id, detail: { ...audit.detail, removedRoleBindings: bindings.count } });
       return { removed: true, bindings: bindings.count };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
   async enqueueDelivery(input: { workspaceId: string; integrationId: string; idempotencyKey: string; eventId: string; payload: Record<string, unknown> }) { const existing = await db.enterpriseDelivery.findUnique({ where: { idempotencyKey: input.idempotencyKey } }); if (existing) return record<EnterpriseDelivery>(existing); try { return await this.create<EnterpriseDelivery>(input.workspaceId, "deliveries", { integrationId: input.integrationId, idempotencyKey: input.idempotencyKey, eventId: input.eventId, payload: input.payload, status: "pending", attempts: 0, nextAttemptAt: new Date().toISOString(), leaseId: null, leasedUntil: null, lastError: null, deliveredAt: null }); } catch { const row = await db.enterpriseDelivery.findUnique({ where: { idempotencyKey: input.idempotencyKey } }); if (!row) throw new Error("Idempotent enterprise delivery could not be resolved."); return record<EnterpriseDelivery>(row); } }
-  async enqueueEventAudited(input: { workspaceId: string; integrations: Array<{ id: string; idempotencyKey: string }>; eventId: string; payload: Record<string, unknown> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return prisma.$transaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb, now = new Date(); for (const integration of input.integrations) await tx.enterpriseDelivery.upsert({ where: { idempotencyKey: integration.idempotencyKey }, update: {}, create: { id: `deliveries_${randomUUID()}`, workspaceId: input.workspaceId, integrationId: integration.id, idempotencyKey: integration.idempotencyKey, eventId: input.eventId, payload: input.payload as Prisma.InputJsonValue, status: "pending", attempts: 0, nextAttemptAt: now, leaseId: null, leasedUntil: null, lastError: null, deliveredAt: null, createdAt: now, updatedAt: now } }); await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: null, detail: { ...audit.detail, integrations: input.integrations.length } }); return input.integrations.length; }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async enqueueEventAudited(input: { workspaceId: string; integrations: Array<{ id: string; idempotencyKey: string }>; eventId: string; payload: Record<string, unknown> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return serializableTransaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb, now = new Date(); for (const integration of input.integrations) await tx.enterpriseDelivery.upsert({ where: { idempotencyKey: integration.idempotencyKey }, update: {}, create: { id: `deliveries_${randomUUID()}`, workspaceId: input.workspaceId, integrationId: integration.id, idempotencyKey: integration.idempotencyKey, eventId: input.eventId, payload: input.payload as Prisma.InputJsonValue, status: "pending", attempts: 0, nextAttemptAt: now, leaseId: null, leasedUntil: null, lastError: null, deliveredAt: null, createdAt: now, updatedAt: now } }); await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: null, detail: { ...audit.detail, integrations: input.integrations.length } }); return input.integrations.length; }); }
   async claimDeliveries(now: Date, limit: number, leaseMs: number) { const leaseId = randomUUID(), leasedUntil = new Date(now.getTime() + leaseMs); const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`UPDATE enterprise_deliveries SET status='processing', attempts=attempts+1,"leaseId"=${leaseId},"leasedUntil"=${leasedUntil} WHERE id IN (SELECT id FROM enterprise_deliveries WHERE status IN ('pending','processing') AND "nextAttemptAt"<=${now} AND ("leasedUntil" IS NULL OR "leasedUntil"<=${now}) ORDER BY "nextAttemptAt" FOR UPDATE SKIP LOCKED LIMIT ${Math.min(limit, 100)}) RETURNING *`; return rows.map((row) => record<EnterpriseDelivery>(row)); }
   async finishDelivery(workspaceId: string, id: string, leaseId: string, result: { delivered: boolean; error?: string }) { const rows = await db.enterpriseDelivery.findMany({ where: { id, workspaceId, leaseId }, take: 1 }) as Array<Record<string, unknown>>; const attempts = Number(rows[0]?.attempts ?? 0); if (!rows[0]) return false; const delivered = result.delivered, dead = !delivered && attempts >= 8; return (await db.enterpriseDelivery.updateMany({ where: { id, workspaceId, leaseId }, data: { status: delivered ? "delivered" : dead ? "dead_letter" : "pending", deliveredAt: delivered ? new Date() : null, lastError: delivered ? null : (result.error ?? "Delivery failed").slice(0, 1000), nextAttemptAt: delivered || dead ? new Date() : new Date(Date.now() + Math.min(3_600_000, 2 ** attempts * 1000)), leaseId: null, leasedUntil: null } })).count === 1; }
   async updateTicketInbound(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>) { const data = dates("tickets", object(patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt"]) delete data[key]; if (!(await db.enterpriseTicketLink.updateMany({ where: { id, workspaceId, syncVersion: expectedVersion }, data })).count) return null; const row = await db.enterpriseTicketLink.findUnique({ where: { id } }); return row ? record<import("./types").EnterpriseTicketLink>(row) : null; }
-  async updateTicketInboundAudited(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return prisma.$transaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb, data = dates("tickets", object(patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt"]) delete data[key]; if (!(await tx.enterpriseTicketLink.updateMany({ where: { id, workspaceId, syncVersion: expectedVersion }, data })).count) return null; const row = await tx.enterpriseTicketLink.findUnique({ where: { id } }); if (!row) return null; await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return record<import("./types").EnterpriseTicketLink>(row); }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+  async updateTicketInboundAudited(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { return serializableTransaction(async (transaction) => { const tx = transaction as unknown as EnterpriseDb, data = dates("tickets", object(patch)); for (const key of ["id", "workspaceId", "createdAt", "updatedAt"]) delete data[key]; if (!(await tx.enterpriseTicketLink.updateMany({ where: { id, workspaceId, syncVersion: expectedVersion }, data })).count) return null; const row = await tx.enterpriseTicketLink.findUnique({ where: { id } }); if (!row) return null; await appendAuditTx(transaction, { ...audit, workspaceId, resourceId: id }); return record<import("./types").EnterpriseTicketLink>(row); }); }
   async purgeRetention(workspaceId: string, cutoffs: { deliveries: Date; tickets: Date }) { const [deliveries, tickets] = await prisma.$transaction([prisma.$executeRaw`DELETE FROM enterprise_deliveries WHERE "workspaceId"=${workspaceId} AND status IN ('delivered','dead_letter') AND COALESCE("deliveredAt","createdAt")<${cutoffs.deliveries}`, prisma.$executeRaw`DELETE FROM enterprise_ticket_links WHERE "workspaceId"=${workspaceId} AND "lastSyncedAt"<${cutoffs.tickets}`]); return { deliveries, tickets }; }
   async appendAudit(input: AppendEnterpriseAuditInput): Promise<EnterpriseAuditEvent> {
-    return prisma.$transaction((transaction) => appendAuditTx(transaction, input), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return serializableTransaction((transaction) => appendAuditTx(transaction, input));
   }
   async auditEvents(workspaceId: string, limit = 250, afterSequence?: string) { const after = afterSequence && /^\d+$/.test(afterSequence) ? BigInt(afterSequence) : 0n; const rows = await db.enterpriseAuditEvent.findMany({ where: { workspaceId, sequence: { gt: after } }, orderBy: { sequence: "asc" }, take: Math.min(Math.max(limit, 1), 5000) }); return rows.map((row) => record<EnterpriseAuditEvent>(row)); }
   async overview(workspaceId: string): Promise<EnterpriseOverview | null> {
