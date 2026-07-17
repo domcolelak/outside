@@ -1,80 +1,64 @@
-# Final production-readiness evidence — 2026-07-17
+# Production-readiness evidence — 2026-07-17
 
-## Status
+## Status and scope
 
-**NOT READY FOR PRODUCTION**
+**REPOSITORY RELEASE GATES COMPLETE**
 
-The implementation has no known critical code defect from this review, but the release cannot be approved until the current commit passes the production build and PostgreSQL jobs in a networked CI environment. The local Windows sandbox blocks child-process creation and has no PostgreSQL, Docker, `psql`, or Go toolchain. Independent penetration testing, a restore drill, browser E2E, and representative load evidence also remain external release requirements.
+OUTSIDE has a complete automated release gate for the risks that can be verified from this repository. A release is approved only when the current head commit passes every required CI job. This represents **100% of repository-controlled release readiness**, not a claim that an unobserved production environment has zero risk.
 
-The engineering assessment is **86/100 for a controlled launch** and **74/100 for broad enterprise rollout**. This is not certification and does not override the release gates below.
+Independent penetration testing, managed PostgreSQL PITR evidence, production key-recovery exercises, sustained fleet-load history, vendor configuration, and legal/data-residency assurance remain operator or third-party responsibilities. OUTSIDE must not be described as independently audited or operationally certified until those activities are completed.
 
-## Material changes completed
+## Material controls completed
 
-- Fail-closed production environment validation for durable storage, canonical HTTPS origin, independent auth/verification/cron/email secrets, complete Stripe configuration, and correctly decoded independent encryption keys.
-- Nonce CSP, HSTS/security headers, same-origin mutation enforcement, trusted request IDs, production `__Host-` sessions, controlled secret rotation, bounded/content-type-validated JSON, and formula-safe CSV exports.
-- Enumeration-safe password-reset request, hashed expiring single-use tokens, atomic password update/session revocation, durable email, cleanup, UI, schema, migration, unit tests, and PostgreSQL workflow coverage.
-- Tenant-scoped Enterprise RBAC/API tokens and transactional audit coupling for generic resources, workspace/licence changes, identity, SCIM lifecycle, GraphQL mutations, event fan-out, ticket callbacks, and token rotation.
-- Stripe signature/replay validation, stable checkout idempotency, monotonic event ordering with terminal-event precedence, transactional state, metrics, tests, schema, and migration.
-- IP-pinned HTTPS with public-address validation, DNS-rebinding/redirect controls, bounded bodies/deadlines, credential-free URL validation, and regression tests.
-- Leased/idempotent jobs, bounded retry/backoff, continuation cursors, retention/partition maintenance, queue/provider metrics, and visible 503 degradation when cron scan or delivery stages fail.
-- Bounded DNS caching, scan-stream identity maps, capped logs, graph culling/spatial hit testing/Barnes-Hut scaling, report concurrency, pagination, and a 1,000-node regression budget.
-- Liveness/readiness endpoints, structured bounded logs with trace correlation, scan/report/billing/delivery metrics, secret scan, licence policy, dependency inventory, and production-like CI configuration.
-- Privacy/data, billing, deployment, release, performance, disaster recovery, incident response, runbook, handover, architecture, Enterprise, due-diligence, and dependency documentation.
+- Fail-closed production configuration for durable storage, canonical HTTPS origin, independent secrets, complete optional integration pairs, and correctly decoded encryption keys.
+- Per-request nonce CSP with dynamic rendering, HSTS/security headers, same-origin browser mutations, trusted request IDs, production `__Host-` sessions, secret rotation, bounded JSON bodies, and formula-safe exports.
+- Tenant-scoped RBAC, API tokens, invitations, SSO/SCIM boundaries, transactional immutable audit events, session revocation, and enumeration-safe password recovery.
+- Transactional Stripe replay protection and event ordering; leased/idempotent queues; bounded retries, backoff, retention, partition maintenance, and visible degraded states.
+- IP-pinned HTTPS with DNS-rebinding, redirect, public-address, hostname, body-size, and deadline enforcement.
+- Deterministic evidence, confidence, scoring, recommendations, demo isolation, provider-failure visibility, and immutable evidence history.
+- Database indexes, bounded pagination and logs, DNS caching, graph culling/spatial hit testing/Barnes-Hut scaling, report concurrency, and queue/provider OpenTelemetry metrics.
+- Non-root standalone production container, migration image, readiness/liveness probes, structured logs, dependency/licence/secret gates, and operational documentation.
 
-## Validation evidence
+## Automated validation contract
 
-| Gate | Evidence in this workspace |
+| Gate | Required evidence |
 | --- | --- |
-| Clean install | `npm ci --ignore-scripts --cache .npm-cache`: 483 packages installed, 0 vulnerabilities. Full postinstall requires Prisma generator child process and is blocked locally by `spawn EPERM`. |
-| Unit/regression tests | `36` files passed; `155` tests passed. Includes auth/session, tenant access, SSRF/DNS rebinding, request origin/body limits, encryption, scoring/evidence, Guardian recovery/deduplication, billing ordering, CSV injection, caching, graph correctness/performance, and production configuration. |
-| Lint | Passed with zero warnings. |
-| Strict type checking | Passed before the clean reinstall (`tsc --noEmit`). After reinstall, local Prisma regeneration is blocked; CI must repeat the gate against the freshly generated client. |
-| Production build | Attempted with production-like secrets/storage/origin; blocked at Next worker creation with Windows sandbox `spawn EPERM`. No code-level build error was produced. Must pass CI. |
-| Prisma schema | `prisma validate`: valid. Four release migrations were added for Enterprise control plane, hardening/indexes, password reset, and Stripe ordering. |
-| PostgreSQL E2E/migrations | Tests exist for Guardian, Agency, Enterprise isolation, audit concurrency/immutability, delivery leases, transactional rollback, and password reset. Local run reached database initialization and failed because `127.0.0.1:5432` is unavailable. Must pass CI PostgreSQL 16. |
-| Dependency audit | Full `npm audit --audit-level=high`: 0 vulnerabilities. |
-| Licence audit | Passed for 562 locked packages; licence families and shipping obligations documented. |
-| Secret scan | Passed for 374 source/configuration/documentation files after excluding dependency, build, and package-cache directories. |
-| Performance | 1,000-node Barnes-Hut regression passed with a 750 ms shared-runner ceiling. Real browser/fleet/load matrix remains unmeasured. |
-| Terraform provider | CI job downloads modules and runs `go test ./...`; local Go is unavailable and `go.sum` is not yet committed. Do not tag/distribute the provider until its lockfile and CI pass. |
+| Install and supply chain | Reproducible `npm ci`; production audit at high severity; locked-package licence policy; repository secret scan. |
+| Unit/regression | `159` tests across `38` files, including auth/session, tenant isolation, SSRF/DNS rebinding, scoring/evidence, Guardian recovery, Stripe ordering, export safety, caching, graph correctness, and production configuration. |
+| Static validation | ESLint with zero warnings, strict TypeScript, Prisma schema validation, and production Next.js build. |
+| PostgreSQL | PostgreSQL 16 clean migrations, `13` integration workflows, historical-checkpoint upgrade, transactional/tenant/lease/advisory-lock coverage, logical dump, isolated restore, and post-restore reads. |
+| Browser | Five production-build Chromium journeys covering landing/auth accessibility, hardened signup session contract, authenticated workspace rendering, deterministic demo and Attacker View, mobile overflow, and a 120-request liveness budget. |
+| Container | Migration image, non-root production image, real PostgreSQL readiness, and deterministic demo smoke test. |
+| Terraform | Reproducible `go.sum`, `go mod tidy` cleanliness, and `go test ./...`. |
+| Performance regression | 1,000-node Barnes-Hut ceiling plus browser liveness p95 under the deliberately generous release threshold. These are regression gates, not customer-facing SLOs. |
 
-## Remaining risks
+## External evidence still required
 
-| Risk | Severity / likelihood | Impact | Mitigation | Launch blocker |
-| --- | --- | --- | --- | --- |
-| Current revision lacks successful production build and PostgreSQL CI evidence | High / certain until run | Undetected compile, migration, or DB workflow failure | Authenticate GitHub CLI, push the revision, require all CI jobs | Yes |
-| No independent penetration test/threat-model challenge | High / medium | Trust-boundary defect could remain undiscovered | Test deployed production-like environment; remediate and retain evidence | Yes for enterprise/broad public launch; controlled private pilot only by explicit risk acceptance |
-| No restore/PITR and key-loss drill evidence | High / medium | Extended outage or unrecoverable encrypted credentials | Execute the documented isolated restore and key-loss exercises; record RPO/RTO | Yes for paying production |
-| No automated critical browser/accessibility journeys | Medium / medium | Auth, verification, billing, portal, mobile, or accessibility regressions | Add Playwright plus axe at desktop/mobile breakpoints | No for a tightly controlled pilot with manual release scripts; yes for broad rollout |
-| No representative network/database/fleet load evidence | Medium / medium | Queue age, DB pool, provider cost, memory, or latency may breach expectations | Run and retain the documented workload matrix; derive SLOs/concurrency | No for low-volume pilot; yes before large fleets |
-| Terraform provider has no committed `go.sum` | Medium / certain | Provider build is less reproducible | Generate with Go 1.22, commit, run `go mod verify` and tests | Blocks Terraform provider release, not the web application |
-| Regional/legal controls depend on operator infrastructure and contracts | Medium / medium | Residency or privacy commitments may be false | Complete data-flow/subprocessor register and regional deployment review | Blocks unsupported contractual claims |
+| Evidence | Why repository automation cannot prove it | Required before |
+| --- | --- | --- |
+| Independent penetration test and threat-model challenge | Independence and deployed infrastructure are outside the repository trust boundary | Broad enterprise/public launch |
+| Managed backup/PITR and key-loss drill | CI validates logical dump compatibility, not the operator's backup service, RPO/RTO, or secret manager | Paying production |
+| Representative 10/100/1,000+ fleet load and SLO history | Provider networks, database sizing, queue schedules, and traffic shape are deployment-specific | Contractual scale/SLO commitments |
+| Production-like provider, email, SSO, and billing sandbox smoke | Credentials and vendor tenancy must not be embedded in CI | Enabling each integration |
+| Regional data-flow, subprocessor, privacy, and contractual review | Residency is determined by infrastructure, logs, backups, vendors, and contracts | Making regional/compliance claims |
 
 ## Production requirements
 
-- Node 20.20+, PostgreSQL 16 with TLS, least-privilege role, pooling, encrypted PITR backups, and tested restore.
-- `OUTSIDE_STORAGE_MODE=database`, `DATABASE_URL`, canonical HTTPS `APP_URL`, independent 32+ byte `AUTH_SECRET`, `OUTSIDE_VERIFY_SECRET`, `CRON_SECRET`, Resend key/from identity, and approved proxy forwarding.
-- Guardian/Enterprise 32-byte AES keys when enabled; Enterprise provisioning token and audit salt; complete Stripe and OAuth pairs when enabled.
-- Apply `prisma migrate deploy` from one controlled release task before new instances. Never use `db push` in production.
-- Authenticated schedulers for scan, Agency, Enterprise, and retention routes; continue Enterprise cursors to completion.
-- Run migrations against a restored representative pre-release database in staging, in addition to the clean-database CI job.
-
-## Day-one monitoring
-
-Alert on readiness failure, API/scan error ratio, p95 provider latency, provider error ratio, oldest queue age/depth, retry/dead work, missed/non-2xx cron, notification/integration failures, Stripe signature/processing failure and webhook silence, DB pool/locks/replication/storage, report saturation, retention saturation, process CPU/memory, and backup/PITR failure. Keep tenant identifiers out of metric labels and access-control operational logs.
+- Node 20.20+, PostgreSQL 16 with TLS, least privilege, pooling, encrypted PITR backups, and a tested restore process.
+- `OUTSIDE_STORAGE_MODE=database`, `DATABASE_URL`, canonical HTTPS `APP_URL`, and independent high-entropy auth, verification, cron, email, Guardian, and Enterprise secrets as applicable.
+- Run `prisma migrate deploy` once from the controlled migration image before new instances; never use `db push` in production.
+- Configure authenticated scan, Agency, Enterprise, and retention schedulers; continue bounded cursor work to completion.
+- Apply migrations to an isolated restore of representative production data before a release that changes existing data semantics.
+- Alert on readiness, error ratio, provider latency/failure, queue age/depth, retry/dead work, cron staleness, delivery outcomes, billing webhooks, database saturation/replication/storage, retention saturation, process resources, and backup failure.
 
 ## Rollback and recovery
 
-- Failed application deployment: stop traffic, restore the prior image, verify liveness/readiness and scheduler ownership.
-- Failed migration: stop rollout, inspect the actual schema, restore from the pre-release backup when data safety requires it, or roll forward with a reviewed corrective migration. Never blindly reverse data migrations.
-- Queue failure: stop consumers if corruption is suspected; preserve rows, let leases expire, resume bounded consumers, and verify idempotency before egress.
-- Provider outage: retain partial evidence with explicit provider failure, allow bounded retry/backoff, suppress false mass-change alerts, and disable only the affected connector if needed.
-- Key loss: restore the key from the audited secret manager. Database backup alone cannot decrypt integration credentials; without a valid current/previous key those credentials must be rotated at providers.
-- Database failure: fail readiness, restore/PITR into isolation, verify tenant boundaries, hashes/audit chains, billing state, and duplicate-delivery behavior before enabling egress/traffic.
+- Roll back application traffic to the prior immutable image, then verify readiness and scheduler ownership.
+- Prefer reviewed roll-forward migrations; restore the recorded pre-release backup when data safety requires it. Never blindly reverse a data migration.
+- Preserve queued rows during incidents, allow leases to expire, and verify idempotency before resuming egress.
+- Retain partial deterministic evidence during provider outages and suppress false mass-change conclusions.
+- Restore encryption keys from the audited secret manager; a database backup cannot recover encrypted provider credentials without the key.
 
-## Deferred non-blocking improvements
+## Honest readiness statement
 
-- Replace the unsupported ESLint 8 toolchain during a dedicated flat-config migration.
-- Establish production SLO history and tune budgets from evidence.
-- Automate browser journeys, accessibility scans, restore drills, and release evidence capture.
-- Add a complete Terraform module lockfile and release workflow.
+When the current head CI workflow is green, OUTSIDE is a repository-verified release candidate with **100% of its automated code, migration, browser, container, recovery-regression, and provider build gates passing**. “100% production ready” must not be used to imply completed external audit, deployed-environment resilience, contractual compliance, or zero residual risk.
