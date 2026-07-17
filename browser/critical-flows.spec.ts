@@ -13,7 +13,9 @@ test.describe("production critical journeys", () => {
     expect(landing.violations, JSON.stringify(landing.violations, null, 2)).toEqual([]);
 
     await page.goto("/login?mode=signup");
-    await expect(page.getByRole("button", { name: "Create account", exact: true })).toBeVisible();
+    await expect(
+      page.locator("form").getByRole("button", { name: "Create account", exact: true }),
+    ).toBeVisible();
     const auth = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
@@ -26,7 +28,10 @@ test.describe("production critical journeys", () => {
     await page.getByLabel("Name").fill("Browser Release");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill("Release-gate-password-2026!");
-    await page.getByRole("button", { name: "Create account", exact: true }).click();
+    await page
+      .locator("form")
+      .getByRole("button", { name: "Create account", exact: true })
+      .click();
 
     await expect(page).toHaveURL(/\/account(?:\?|$)/);
     await expect(page.getByRole("heading", { level: 1, name: /Welcome, Browser/ })).toBeVisible();
@@ -35,7 +40,7 @@ test.describe("production critical journeys", () => {
   test("the deterministic demo completes and opens Attacker View", async ({ page }) => {
     await page.goto("/scan?target=northstar&mode=demo");
     await expect(page.getByText("Demo", { exact: true }).first()).toBeVisible();
-    const attacker = page.getByRole("button", { name: /Attacker View/i });
+    const attacker = page.locator('[data-tour="attacker"]');
     await expect(attacker).toBeVisible({ timeout: 30_000 });
     await attacker.click();
 
