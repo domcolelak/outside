@@ -20,7 +20,11 @@ describe("Guardian integrations", () => {
     const encrypted = encryptGuardianConfig({ token: "sensitive" });
     expect(encrypted).not.toContain("sensitive");
     expect(decryptGuardianConfig<{ token: string }>(encrypted)).toEqual({ token: "sensitive" });
-    expect(() => decryptGuardianConfig(`${encrypted.slice(0, -1)}x`)).toThrow();
+    const parts = encrypted.split(".");
+    const ciphertext = Buffer.from(parts[3]!, "base64url");
+    ciphertext[0] ^= 1;
+    parts[3] = ciphertext.toString("base64url");
+    expect(() => decryptGuardianConfig(parts.join("."))).toThrow();
   });
 
   it("rejects provider mismatch and private webhook endpoints", () => {
