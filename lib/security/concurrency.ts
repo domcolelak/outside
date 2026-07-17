@@ -16,7 +16,9 @@ async function acquire(scope: string, limit: number, ttlMs: number): Promise<str
   }
   const id = randomUUID();
   return prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${scope}))`;
+    // pg_advisory_xact_lock returns PostgreSQL void, which Prisma cannot
+    // deserialize through $queryRaw. Execute it without requesting a rowset.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${scope}))`;
     await tx.$executeRaw`DELETE FROM "concurrency_leases" WHERE "scope" = ${scope} AND "expiresAt" <= NOW()`;
     const rows = await tx.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint AS "count" FROM "concurrency_leases" WHERE "scope" = ${scope}`;
     if (Number(rows[0]?.count ?? 0) >= limit) return null;
