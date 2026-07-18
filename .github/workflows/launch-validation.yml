@@ -93,6 +93,9 @@ jobs:
           docker build "${args[@]}" --target runner --tag "outside:${VALIDATED_SHA}" .
           docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml config --format json |
+            jq '{caddyPorts: .services.caddy.ports, grafanaPorts: .services.grafana.ports}' \
+              > launch-evidence/compose-operator-ports.json
           docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
           backup_identity="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
           case "${backup_identity}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
