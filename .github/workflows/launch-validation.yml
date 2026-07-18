@@ -174,12 +174,14 @@ jobs:
           sleep 1
           app_id="$("${compose[@]}" ps -q app)"
           restart_count_before="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
-          docker exec "${app_id}" sh -c 'kill -KILL 1' || true
+          docker exec "${app_id}" sh -c 'kill -TERM 1' || true
           wait "${request_pid}" || true
           recovered=false
           for attempt in $(seq 1 60); do
-            if curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
-              https://outside.test:8443/api/readyz >/dev/null; then
+            restart_count_current="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
+            if test "${restart_count_current}" -gt "${restart_count_before}" &&
+              curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+                https://outside.test:8443/api/readyz >/dev/null; then
               recovered=true
               break
             fi
