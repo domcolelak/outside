@@ -145,7 +145,7 @@ export function Summary({
 function AiSummary({ result }: { result: ScanResult }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [text, setText] = useState("");
-  const [source, setSource] = useState<"template" | "anthropic">("template");
+  const [source, setSource] = useState<"template" | "openai">("template");
   const generate = async () => {
     setState("loading");
     try {
@@ -174,8 +174,8 @@ function AiSummary({ result }: { result: ScanResult }) {
     <div className="panel p-4">
       <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
         <span>Executive summary</span>
-        <span className={source === "anthropic" ? "text-signal" : "text-ink-faint"}>
-          {source === "anthropic" ? "AI-generated" : "Deterministic"}
+        <span className={source === "openai" ? "text-signal" : "text-ink-faint"}>
+          {source === "openai" ? "AI-generated" : "Deterministic"}
         </span>
       </div>
       <p className="text-[13px] leading-relaxed text-ink-soft">{text}</p>
@@ -289,7 +289,7 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
             <div className="rounded-lg border border-line bg-base-850 p-2.5">
               <div className="mono mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-ink-faint">
                 <span>Plain-English</span>
-                <span className={explain.source === "anthropic" ? "text-signal" : "text-ink-faint"}>{explain.source === "anthropic" ? "AI" : "Deterministic"}</span>
+                <span className={explain.source === "openai" ? "text-signal" : "text-ink-faint"}>{explain.source === "openai" ? "AI" : "Deterministic"}</span>
               </div>
               <p className="leading-relaxed text-ink-soft">{explain.text}</p>
             </div>
