@@ -33,8 +33,10 @@ export async function POST(req: NextRequest) {
   if ((!finding && !result) || !target) return json({ error: finding ? "Invalid finding" : "Invalid scan result" }, 422);
 
   const explainer = getExplainer();
-  const entitlement = await targetEntitlement(ctx, target, { paid: explainer.kind === "anthropic", allowDemo: true });
-  if (!entitlement) return json({ error: explainer.kind === "anthropic" ? "A verified paid organization is required" : "Verified target access is required" }, 403);
+  // The hosted OpenAI explainer is a paid capability; the template is free.
+  const hosted = explainer.kind !== "template";
+  const entitlement = await targetEntitlement(ctx, target, { paid: hosted, allowDemo: true });
+  if (!entitlement) return json({ error: hosted ? "A verified paid organization is required" : "Verified target access is required" }, 403);
   const limit = await requireBudgets([
     { key: "ai:global", limit: 120, windowMs: 60_000 },
     { key: `ai:client:${clientIdentity(req)}`, limit: 15, windowMs: 60_000 },
