@@ -173,8 +173,21 @@ jobs:
           request_pid=$!
           sleep 1
           app_id="$("${compose[@]}" ps -q app)"
+          app_host_pid="$(docker inspect "${app_id}" --format '{{.State.Pid}}')"
           restart_count_before="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
-          docker exec "${app_id}" sh -c 'kill -TERM 1' || true
+          test "${app_host_pid}" -gt 1
+          sudo kill -KILL "${app_host_pid}"
+          readiness_observed_down=false
+          for attempt in $(seq 1 20); do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 1 \
+              --insecure --resolve outside.test:8443:127.0.0.1 \
+              https://outside.test:8443/api/readyz || true)"
+            if test "${status}" != "200"; then
+              readiness_observed_down=true
+              break
+            fi
+            sleep 0.1
+          done
           wait "${request_pid}" || true
           recovered=false
           for attempt in $(seq 1 60); do
@@ -191,9 +204,11 @@ jobs:
           restart_count_after="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
           test "${restart_count_after}" -gt "${restart_count_before}"
           jq -n \
+            --argjson hostPid "${app_host_pid}" \
             --argjson before "${restart_count_before}" \
             --argjson after "${restart_count_after}" \
-            '{restartCountBefore: $before, restartCountAfter: $after, readinessRecovered: true}' \
+            --argjson observedDown "${readiness_observed_down}" \
+            '{hostPid: $hostPid, restartCountBefore: $before, restartCountAfter: $after, readinessObservedDown: $observedDown, readinessRecovered: true}' \
             > launch-evidence/application-restart.json
           docker exec "${postgres_id}" psql -U outside -d outside -v ON_ERROR_STOP=1 \
             -c "UPDATE monitors SET \"leaseUntil\"=NOW()-INTERVAL '1 second' WHERE id='launch_drill_monitor';"
