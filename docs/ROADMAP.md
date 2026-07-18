@@ -7,7 +7,7 @@ This file records the remaining product boundary. It is not a claim that planned
 - Passive CT/DNS discovery, verified-target HTTPS/TLS observation, typed SSE progress, deterministic evidence, findings, score, and recommendations.
 - PostgreSQL persistence for tenant-scoped targets, scans, temporal asset snapshots, changes, recommendation status, audit events, AI analyses, monitors, rate limits, webhook events, and email outbox state.
 - Email/password accounts, Google OAuth when configured, email verification, organizations, RBAC, hashed/expiring invites, DNS and well-known-file domain verification.
-- Atomic scheduled-monitor claims, retry backoff, alerts, PDF reports, Stripe subscriptions, and optional read-only Anthropic explanations.
+- Atomic scheduled-monitor claims, retry backoff, alerts, PDF reports, Stripe subscriptions, and optional read-only OpenAI explanations.
 - Responsive canvas graph with Barnes-Hut repulsion, stale-object reconciliation, viewport culling, and idle/visibility suspension.
 - A connector credential registry and validated remediation proposal previews.
 - OUTSIDE Guardian continuous snapshots, semantic event correlation, Exposure Drift, living SPF/DKIM/DMARC/DNSSEC/HSTS/HTTPS/security.txt/MTA-STS/TLS checklist, evidence-backed recommendations, provider-tailored remediation guides, grouped email/workflow notifications, retryable delivery history, and weekly executive digests.

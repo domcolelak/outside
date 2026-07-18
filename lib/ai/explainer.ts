@@ -5,19 +5,21 @@
  * returns natural-language text ONLY. It can never create assets, findings,
  * evidence, or scores — the deterministic pipeline owns all of those. The
  * default TemplateExplainer needs no API key, so the product always works;
- * AnthropicExplainer is used when ANTHROPIC_API_KEY is present and degrades to
- * the template on any error.
+ * OpenAIExplainer is used when OPENAI_API_KEY is present and degrades to the
+ * template on any error.
  */
 
 import type { Finding, ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
 import { isTransientHttp, retryTransient, Semaphore } from "./resilience";
 
-// Bounds concurrent Anthropic calls across the process (agents/requests share it).
+// Bounds concurrent hosted-AI calls across the process (agents/requests share it).
 const aiSemaphore = new Semaphore(4);
 
+export type ExplainerKind = "template" | "openai";
+
 export interface Explainer {
-  readonly kind: "template" | "anthropic";
+  readonly kind: ExplainerKind;
   /** A plain-English executive summary of the external surface. */
   executiveSummary(result: ScanResult): Promise<string>;
   /** A plain-English explanation of a single finding. */
@@ -74,11 +76,12 @@ const FINDING_PROMPT =
   "fields — never invent details. Keep the observed fact separate from the inference and the possible " +
   "concern. Do not claim compromise or exploitation. 2–3 sentences of plain prose, then the recommended action.";
 
-export class AnthropicExplainer implements Explainer {
-  readonly kind = "anthropic" as const;
+/** OpenAI Chat Completions. Active when OPENAI_API_KEY is present. */
+export class OpenAIExplainer implements Explainer {
+  readonly kind = "openai" as const;
   constructor(
     private apiKey: string,
-    private model = process.env.OUTSIDE_AI_MODEL ?? "claude-sonnet-5",
+    private model = process.env.OUTSIDE_OPENAI_MODEL ?? "gpt-4o-mini",
     private fallback: Explainer = new TemplateExplainer(),
   ) {}
 
@@ -86,30 +89,32 @@ export class AnthropicExplainer implements Explainer {
     const once = async (): Promise<string> => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15_000);
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         signal: controller.signal,
         headers: {
           "content-type": "application/json",
-          "x-api-key": this.apiKey,
-          "anthropic-version": "2023-06-01",
+          authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           model: this.model,
           max_tokens: maxTokens,
-          system,
-          messages: [{ role: "user", content: userContent }],
+          temperature: 0.3,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: userContent },
+          ],
         }),
       }).finally(() => clearTimeout(timer));
 
       if (!res.ok) {
         // Attach the status so the retry classifier can tell transient from fatal.
-        const err = new Error(`Anthropic API ${res.status}`) as Error & { status?: number };
+        const err = new Error(`OpenAI API ${res.status}`) as Error & { status?: number };
         err.status = res.status;
         throw err;
       }
-      const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
-      const text = data.content?.filter((b) => b.type === "text").map((b) => b.text).join("").trim();
+      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      const text = data.choices?.[0]?.message?.content?.trim();
       if (!text) throw new Error("Empty AI response");
       return text;
     };
@@ -137,18 +142,15 @@ export class AnthropicExplainer implements Explainer {
         concern: finding.concern,
         recommendation: finding.recommendation,
       };
-      return await this.call(
-        FINDING_PROMPT,
-        `Finding:\n${JSON.stringify(projection)}`,
-        300,
-      );
+      return await this.call(FINDING_PROMPT, `Finding:\n${JSON.stringify(projection)}`, 300);
     } catch {
       return this.fallback.explainFinding(finding, target);
     }
   }
 }
 
+/** The hosted explainer when OPENAI_API_KEY is set, else the deterministic template. */
 export function getExplainer(): Explainer {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return key ? new AnthropicExplainer(key) : new TemplateExplainer();
+  const key = process.env.OPENAI_API_KEY;
+  return key ? new OpenAIExplainer(key) : new TemplateExplainer();
 }
