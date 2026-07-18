@@ -7,7 +7,7 @@ function requestNonce(): string {
   return crypto.randomUUID().replaceAll("-", "");
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const nonce = requestNonce();
   const requestId = crypto.randomUUID();
   const csp = contentSecurityPolicy(process.env.NODE_ENV === "production", nonce);

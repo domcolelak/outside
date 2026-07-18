@@ -11,7 +11,7 @@ const nextConfig = {
     return [
       {
         source: "/:path*",
-        // CSP is request-specific and nonce-backed in middleware. Static
+        // CSP is request-specific and nonce-backed in the proxy. Static
         // headers retain the rest of the browser security baseline.
         headers: createSecurityHeaders(process.env.NODE_ENV === "production").filter((header) => header.key !== "Content-Security-Policy"),
       },
