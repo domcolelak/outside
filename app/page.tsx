@@ -36,7 +36,7 @@ export default function Landing() {
         <div className="hero-orb pointer-events-none absolute left-[18%] top-20 h-[520px] w-[520px] rounded-full" />
         <div className="relative mx-auto grid max-w-[1380px] gap-16 px-6 pb-24 pt-20 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:pt-28">
           <div className="min-w-0 animate-rise-in">
-            <span className="mono mb-7 inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/[.04] px-3 py-1.5 text-[10px] uppercase tracking-[.2em] text-signal">
+            <span className="mono mb-7 inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/4 px-3 py-1.5 text-[10px] uppercase tracking-[.2em] text-signal">
               <span className="relative flex h-1.5 w-1.5"><span className="absolute h-full w-full animate-ping rounded-full bg-signal opacity-30"/><span className="relative h-1.5 w-1.5 rounded-full bg-signal"/></span> External exposure intelligence
             </span>
             <h1 className="display-type max-w-3xl text-4xl font-semibold leading-[.98] tracking-[-.045em] text-ink sm:text-5xl md:text-7xl">
@@ -50,7 +50,7 @@ export default function Landing() {
           </div>
           <div className="min-w-0 animate-rise-in [animation-delay:180ms]"><LandingDemo /></div>
         </div>
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-base-950 to-transparent"/>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-base-950 to-transparent"/>
       </section>
 
       {/* Guardian */}
@@ -64,7 +64,7 @@ export default function Landing() {
             <div className="mt-7 flex flex-wrap gap-2">{["Exposure Drift", "Security checklist", "Remediation guides", "Executive digest", "Slack · Teams · Jira"].map((item) => <span key={item} className="mono rounded-full border border-line bg-base-900/70 px-3 py-1.5 text-[10px] text-ink-soft">{item}</span>)}</div>
           </div>
           <div className="premium-surface relative overflow-hidden p-5 md:p-7">
-            <div className="mono mb-4 inline-flex rounded border border-accent/20 bg-accent/5 px-2 py-1 text-[8px] uppercase tracking-wider text-accent">Illustrative synthetic scenario</div>
+            <div className="mono mb-4 inline-flex rounded-sm border border-accent/20 bg-accent/5 px-2 py-1 text-[8px] uppercase tracking-wider text-accent">Illustrative synthetic scenario</div>
             <div className="absolute right-5 top-5 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-signal shadow-glow"/><span className="mono text-[9px] uppercase text-signal">watching</span></div>
             <div className="mono text-[9px] uppercase tracking-[.18em] text-ink-faint">Exposure Drift · 30 days</div>
             <div className="mt-3 text-2xl font-medium text-ink">External exposure is becoming <span className="text-signal">simpler.</span></div>

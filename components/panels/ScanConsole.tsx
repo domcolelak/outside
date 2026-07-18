@@ -25,7 +25,7 @@ export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; 
         <div className="mt-3 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div>
         <div className="mt-3 space-y-1.5">
           {stages.map((s) => (
-            <div key={s.stage} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs transition ${s.status === "active" ? "border border-signal/15 bg-signal/[.04]" : "border border-transparent"}`}>
+            <div key={s.stage} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs transition ${s.status === "active" ? "border border-signal/15 bg-signal/4" : "border border-transparent"}`}>
               <StageDot status={s.status} />
               <span className={s.status === "done" ? "text-ink-soft" : s.status === "active" ? "text-ink" : "text-ink-faint"}>
                 {s.label}

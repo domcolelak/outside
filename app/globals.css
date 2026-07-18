@@ -1,10 +1,90 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-:root {
+@theme {
+  --color-base-600: #1e2637;
+  --color-base-700: #161c2b;
+  --color-base-800: #0f1420;
+  --color-base-850: #0b0f17;
+  --color-base-900: #080b11;
+  --color-base-950: #05070a;
+
+  --color-line: rgba(148, 173, 214, 0.1);
+  --color-line-strong: rgba(148, 173, 214, 0.18);
+
+  --color-ink: #e8edf6;
+  --color-ink-soft: #aab6cc;
+  --color-ink-faint: #6b7793;
+
+  --color-signal: #38e1c3;
+  --color-signal-bright: #5ff5da;
+  --color-signal-dim: #1f7d6e;
+
+  --color-accent: #5b8cff;
+  --color-accent-dim: #2f4f9e;
+
+  --color-risk-low: #5ff5da;
+  --color-risk-medium: #f5c451;
+  --color-risk-high: #ff8a5b;
+  --color-risk-critical: #ff5b6e;
+
   --font-sans: "Inter Variable", "Inter", "SF Pro Display", "Segoe UI Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --shadow-panel:
+    0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 24px 60px -30px rgba(0, 0, 0, 0.9);
+  --shadow-glow: 0 0 40px -8px rgba(56, 225, 195, 0.35);
+
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+
+  @keyframes fade-up {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
 }
 
 html,
