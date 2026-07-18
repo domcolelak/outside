@@ -54,7 +54,7 @@ The public override requires a trusted certificate and makes blackbox TLS valida
 ## Operator access
 
 - Product: `APP_URL`.
-- Grafana: `http://127.0.0.1:3001` by default; use an SSH tunnel rather than exposing it publicly.
+- Grafana: `http://127.0.0.1:3001` by default. The loopback-only operator listener is proxied by Caddy to avoid publishing the monitoring container directly; use an SSH tunnel rather than exposing it publicly.
 - Prometheus and Alertmanager have no host ports and remain on the internal monitoring network.
 - Application, scheduler, exporters, and backup processes run without root. cAdvisor is the explicit exception: it requires privileged host visibility and must only run on a dedicated staging host. Use the infrastructure provider's native container metrics in production.
 

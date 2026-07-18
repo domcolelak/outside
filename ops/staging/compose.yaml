@@ -105,6 +105,7 @@ services:
       STAGING_DOMAIN: ${STAGING_DOMAIN:-outside.test}
     ports:
       - ${HTTPS_PORT:-8443}:443
+      - 127.0.0.1:${GRAFANA_PORT:-3001}:3001
     volumes:
       - ./proxy/Caddyfile.internal:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -233,12 +234,6 @@ services:
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
       GF_PLUGINS_PUBLIC_KEY_RETRIEVAL_DISABLED: "true"
-    ports:
-      - name: operator-ui
-        target: 3000
-        published: "${GRAFANA_PORT:-3001}"
-        host_ip: 127.0.0.1
-        protocol: tcp
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro

@@ -1,8 +1,9 @@
 services:
   caddy:
-    ports:
+    ports: !override
       - 80:80
       - ${HTTPS_PORT:-443}:443
+      - 127.0.0.1:${GRAFANA_PORT:-3001}:3001
     volumes:
       - ./proxy/Caddyfile.public:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
