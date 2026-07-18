@@ -7,5 +7,5 @@ RUN chmod 0555 backup.sh restore.sh backup-loop.sh \
     && chown -R postgres:postgres /backups /metrics
 USER postgres
 HEALTHCHECK --interval=60s --timeout=3s --start-period=30s --retries=3 \
-  CMD test -f /metrics/outside_backup.prom
+  CMD grep -q '^outside_backup_last_success_unixtime ' /metrics/outside_backup.prom
 CMD ["/opt/outside/backup-loop.sh"]

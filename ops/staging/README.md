@@ -15,7 +15,11 @@ Copy `ops/staging/.env.staging.example` to the repository root as `.env.staging`
 install -m 0600 ops/staging/.env.staging.example .env.staging
 ```
 
-Do not commit `.env.staging`. Use test-mode Stripe, a staging-only Resend domain, staging integration destinations, and staging-only encryption keys.
+Do not commit `.env.staging`. Use test-mode Stripe, a staging-only Resend domain, staging integration destinations, and staging-only encryption keys. Generate the backup identity once, escrow it outside the database and place the single `AGE-SECRET-KEY-1...` line in `BACKUP_ENCRYPTION_KEY`:
+
+```bash
+docker run --rm --entrypoint age-keygen outside-staging-backup
+```
 
 ## Isolated internal-TLS drill
 
@@ -70,7 +74,7 @@ Application rollback uses the prior immutable image. Do not reverse a data migra
 
 ## Backup and restore
 
-The `backup` service immediately creates an encrypted custom-format PostgreSQL dump and then follows `BACKUP_INTERVAL_SECONDS`. Encryption uses age passphrase mode; the passphrase must be escrowed separately from database storage.
+The `backup` service immediately creates an encrypted custom-format PostgreSQL dump and then follows `BACKUP_INTERVAL_SECONDS`. Encryption uses a native age X25519 identity; the identity must be escrowed separately from database storage. Losing it makes existing backups unrecoverable.
 
 To create an additional backup:
 
