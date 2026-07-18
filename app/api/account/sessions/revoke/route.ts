@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthStore, getSessionContext } from "@/lib/auth";
-import { clearedSessionCookie } from "@/lib/auth/session";
+import { clearedSessionCookies } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +11,6 @@ export async function POST() {
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   await (await getAuthStore()).revokeSessions(ctx.user.id);
   const response = NextResponse.json({ ok: true });
-  response.headers.append("Set-Cookie", clearedSessionCookie());
+  for (const cookie of clearedSessionCookies()) response.headers.append("Set-Cookie", cookie);
   return response;
 }

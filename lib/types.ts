@@ -53,6 +53,7 @@ export type DiscoveryMethod =
   | "http_observation"
   | "technology_fingerprint"
   | "passive_subdomain"
+  | "domain_registration"
   | "seed"
   | "demo";
 

@@ -5,6 +5,7 @@ import { getRecommendationStatuses, listAudit, setRecommendationStatus } from "@
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { normalizeDomain } from "@/lib/security/target";
 import type { RecommendationStatus } from "@/lib/aegis/types";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +36,9 @@ export async function POST(req: NextRequest) {
 
   let body: { target?: string; recId?: string; status?: string };
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    body = await readLimitedJson(req, 12_000) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
   let target: string;
   try {

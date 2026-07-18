@@ -1,0 +1,24 @@
+{
+	admin 0.0.0.0:2019
+	metrics {
+		per_host
+	}
+}
+
+{$STAGING_DOMAIN:outside.test} {
+	tls internal
+	encode zstd gzip
+	reverse_proxy app:3000 {
+		header_up Host {host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto https
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+:3001 {
+	reverse_proxy grafana:3000
+}

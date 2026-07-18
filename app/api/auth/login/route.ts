@@ -3,6 +3,8 @@ import { getAuthStore } from "@/lib/auth";
 import { verifyPassword } from "@/lib/auth/password";
 import { SESSION_MAX_AGE, sessionCookie, signSession } from "@/lib/auth/session";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
+import { getEnterpriseStore } from "@/lib/enterprise/store";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +20,9 @@ export async function POST(req: NextRequest) {
 
   let body: { email?: string; password?: string };
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    body = await readLimitedJson(req, 16_000) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request." }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 
   const email = String(body.email ?? "").trim().toLowerCase();
@@ -32,6 +34,12 @@ export async function POST(req: NextRequest) {
   const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
   if (!user || !ok) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+  }
+
+  const breakGlass = new Set((process.env.ENTERPRISE_BREAK_GLASS_EMAILS ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
+  if (!breakGlass.has(user.email)) {
+    const domain = user.email.split("@")[1], memberships = await store.membershipsForUser(user.id), enterprise = await getEnterpriseStore();
+    if (domain) for (const membership of memberships) { const workspace = await enterprise.workspaceByOrg(membership.org.id); if (!workspace) continue; const providers = await enterprise.list(workspace.id, "identityProviders"); if (providers.some((provider) => provider.enabled === true && provider.enforceSso === true && Array.isArray(provider.domains) && provider.domains.includes(domain))) return NextResponse.json({ error: "Enterprise SSO is required for this account.", code: "sso_required", ssoUrl: `/api/enterprise/sso?email=${encodeURIComponent(user.email)}` }, { status: 403 }); }
   }
 
   const res = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name } });

@@ -8,6 +8,7 @@ import { sendDurably } from "@/lib/email/outbox";
 import { welcomeEmail } from "@/lib/email/templates";
 import { APP_URL } from "@/lib/config/runtime";
 import { isValidEmail } from "@/lib/auth/validation";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +19,9 @@ export async function POST(req: NextRequest) {
 
   let body: { email?: string; name?: string; password?: string; orgName?: string };
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    body = await readLimitedJson(req, 20_000) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request." }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 
   const email = String(body.email ?? "").trim().toLowerCase();

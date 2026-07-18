@@ -3,6 +3,7 @@ import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { getMonitorStore, PLAN_MONITOR_LIMIT, type Frequency } from "@/lib/monitoring";
 import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
 import { getStore } from "@/lib/persistence";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,9 @@ export async function POST(req: NextRequest) {
 
   let body: { orgId?: string; domain?: string; frequency?: string };
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    body = await readLimitedJson(req, 8_000) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
   const orgId = String(body.orgId ?? "");
   const membership = ctx.memberships.find((m) => m.org.id === orgId);

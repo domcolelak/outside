@@ -7,6 +7,8 @@ import { renderReport } from "@/lib/report/render";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { recordUsage } from "@/lib/usage/record";
+import { operationalLog } from "@/lib/observability/log";
+import { recordReportOperation } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,14 +32,17 @@ export async function POST(req: NextRequest) {
     { key: `report:org:${entitlement.orgId}`, limit: 500, windowMs: 30 * 24 * 60 * 60_000 },
   ]);
   if (!limit.ok) return json({ error: "Report usage limit exceeded", retryAfter: limit.retryAfter }, 429);
+  const startedAt = performance.now();
   try {
     const pdf = await withConcurrency("report:global", 4, 60_000, () => renderReport(result));
     await recordUsage(entitlement.orgId, ctx.user.id, "report");
     const safeName = result.target.replace(/[^a-z0-9.-]/gi, "_");
+    recordReportOperation("success", performance.now() - startedAt);
     return new Response(pdf, { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="outside-${safeName}.pdf"`, "cache-control": "no-store" } });
   } catch (error) {
-    if (error instanceof CapacityError) return json({ error: error.message }, 503);
-    console.error("[report] generation failed", error);
+    if (error instanceof CapacityError) { recordReportOperation("capacity", performance.now() - startedAt); return json({ error: error.message }, 503); }
+    recordReportOperation("failed", performance.now() - startedAt);
+    operationalLog("error", "report.generation_failed", { organizationId: entitlement.orgId }, error);
     return json({ error: "Report generation failed" }, 500);
   }
 }

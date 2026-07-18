@@ -47,6 +47,8 @@ export interface MonitorStore {
   create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }): Promise<Monitor | null>;
   setEnabled(id: string, orgId: string, enabled: boolean): Promise<Monitor | null>;
   remove(id: string, orgId: string): Promise<boolean>;
+  /** Make existing monitors for the selected organizations eligible on the next cron tick. */
+  scheduleNow(orgIds: string[], now?: Date): Promise<number>;
   /** Atomically claim due work, excluding live leases. */
   claimDue(now: Date, limit: number, leaseMs: number): Promise<Monitor[]>;
   complete(id: string, leaseId: string, ranAt: Date): Promise<boolean>;
@@ -94,6 +96,7 @@ class InMemoryMonitorStore implements MonitorStore {
     this.monitors = this.monitors.filter((x) => !(x.id === id && x.orgId === orgId));
     return this.monitors.length < before;
   }
+  async scheduleNow(orgIds: string[], at = new Date()) { let changed = 0; for (const monitor of this.monitors) if (orgIds.includes(monitor.orgId) && monitor.enabled) { monitor.nextRunAt = at.toISOString(); monitor.leaseId = null; monitor.leaseUntil = null; changed += 1; } return changed; }
   async claimDue(now: Date, limit: number, leaseMs: number) {
     const leaseId = randomUUID();
     const rows = this.monitors.filter((m) => m.enabled && new Date(m.nextRunAt) <= now && (!m.leaseUntil || new Date(m.leaseUntil) <= now)).slice(0, limit);
