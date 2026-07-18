@@ -51,6 +51,7 @@ jobs:
           cat > .env.staging <<EOF
           OUTSIDE_IMAGE=outside:${VALIDATED_SHA}
           OUTSIDE_MIGRATOR_IMAGE=outside-migrator:${VALIDATED_SHA}
+          OUTSIDE_BACKUP_IMAGE=outside-backup:${VALIDATED_SHA}
           STAGING_DOMAIN=outside.test
           APP_URL=https://outside.test:8443
           HTTPS_PORT=8443
@@ -84,6 +85,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p launch-evidence
+          source .env.staging
           version="$(node -p "require('./package.json').version")"
           built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           args=(--build-arg "APP_VERSION=${version}" --build-arg "GIT_SHA=${VALIDATED_SHA}" --build-arg "BUILD_TIME=${built_at}")
@@ -91,11 +94,9 @@ jobs:
           docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
           docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
-          backup_image="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml images -q backup)"
-          backup_identity="$(docker run --rm --entrypoint age-keygen "${backup_image}" 2>/dev/null | tail -n 1)"
+          backup_identity="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
           case "${backup_identity}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
           sed -i "s|^BACKUP_ENCRYPTION_KEY=.*|BACKUP_ENCRYPTION_KEY=${backup_identity}|" .env.staging
-          mkdir -p launch-evidence
           cat > launch-evidence/artifact.json <<EOF
           {
             "version": "${version}",
@@ -225,8 +226,7 @@ jobs:
           restored_migrations="$(docker exec "${postgres_id}" psql -U outside -d outside_restore -Atc \
             'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
           test "${restored_migrations}" = "12"
-          backup_image="$("${compose[@]}" images -q backup)"
-          wrong_key="$(docker run --rm --entrypoint age-keygen "${backup_image}" 2>/dev/null | tail -n 1)"
+          wrong_key="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
           case "${wrong_key}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
           if "${compose[@]}" run --rm -e "BACKUP_ENCRYPTION_KEY=${wrong_key}" \
             backup /opt/outside/restore.sh "${backup_path}" \
@@ -267,6 +267,7 @@ jobs:
         shell: bash
         run: |
           set +e
+          mkdir -p launch-evidence
           compose=(docker compose --env-file .env.staging -f ops/staging/compose.yaml)
           curl --silent http://127.0.0.1:3001/api/health > launch-evidence/grafana-health-final.json
           "${compose[@]}" exec -T alert-sink node -e \

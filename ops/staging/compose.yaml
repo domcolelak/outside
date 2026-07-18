@@ -202,6 +202,7 @@ services:
     mem_limit: 128m
 
   backup:
+    image: ${OUTSIDE_BACKUP_IMAGE:-outside-backup:local}
     build: ./backup
     restart: unless-stopped
     environment:
