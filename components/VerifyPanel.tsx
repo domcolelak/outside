@@ -90,7 +90,7 @@ export function VerifyPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-base-950/80 backdrop-blur-sm px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-base-950/80 backdrop-blur-xs px-4" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-labelledby="verify-title" className="panel w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>

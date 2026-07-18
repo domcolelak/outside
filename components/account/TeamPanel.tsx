@@ -76,7 +76,7 @@ export function TeamPanel({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="teammate@company.com"
               type="email"
-              className="mono min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+              className="mono min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-hidden"
             />
             <select value={role} onChange={(e) => setRole(e.target.value)} className="mono rounded-md border border-line bg-base-950 px-2 py-2 text-xs text-ink-soft">
               {canGrantAdmin && <option value="admin">Admin</option>}

@@ -59,7 +59,7 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
           value={domain}
           onChange={(e) => setDomain(e.target.value)}
           placeholder="company.com"
-          className="mono min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+          className="mono min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-hidden"
         />
         <select value={frequency} onChange={(e) => setFrequency(e.target.value as "daily" | "weekly")} className="mono rounded-md border border-line bg-base-950 px-2 py-2 text-xs text-ink-soft">
           <option value="daily">Daily</option>

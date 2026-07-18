@@ -59,7 +59,7 @@ export default function IntegrationsPage() {
                     <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{connector.summary}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {connector.remediates.map((categoryId) => (
-                        <span key={categoryId} className="mono rounded border border-line px-1.5 py-0.5 text-[10px] text-ink-faint">
+                        <span key={categoryId} className="mono rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-ink-faint">
                           {REMEDIATION_LABEL[categoryId] ?? categoryId}
                         </span>
                       ))}
