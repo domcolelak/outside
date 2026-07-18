@@ -14,7 +14,7 @@ backup="$1"
 target="$2"
 test -f "${backup}"
 
-temporary="$(mktemp /tmp/outside-restore.XXXXXX.dump)"
+temporary="$(mktemp /tmp/outside-restore-dump.XXXXXX)"
 identity="$(mktemp /tmp/outside-restore-identity.XXXXXX)"
 trap 'rm -f "${temporary}" "${identity}"' EXIT
 chmod 0600 "${identity}"
