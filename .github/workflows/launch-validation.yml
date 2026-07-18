@@ -64,12 +64,11 @@ jobs:
           ENTERPRISE_ENCRYPTION_KEY=$(random_key)
           ENTERPRISE_PROVISIONING_TOKEN=$(random_hex 32)
           AUDIT_IP_SALT=$(random_hex 16)
-          BACKUP_ENCRYPTION_KEY=$(random_hex 32)
+          BACKUP_ENCRYPTION_KEY=GENERATED_AFTER_BACKUP_IMAGE_BUILD
           GRAFANA_ADMIN_PASSWORD=$(random_hex 24)
           OUTSIDE_DATA_REGION=eu
           OUTSIDE_EMAIL_IMMEDIATE_DELIVERY=false
           OUTSIDE_TRUST_PROXY=true
-          GRAFANA_BIND=127.0.0.1
           GRAFANA_PORT=3001
           BACKUP_INTERVAL_SECONDS=86400
           BACKUP_RETENTION_DAYS=14
@@ -91,6 +90,11 @@ jobs:
           docker build "${args[@]}" --target runner --tag "outside:${VALIDATED_SHA}" .
           docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
+          backup_image="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml images -q backup)"
+          backup_identity="$(docker run --rm --entrypoint age-keygen "${backup_image}" 2>/dev/null | tail -n 1)"
+          case "${backup_identity}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
+          sed -i "s|^BACKUP_ENCRYPTION_KEY=.*|BACKUP_ENCRYPTION_KEY=${backup_identity}|" .env.staging
           mkdir -p launch-evidence
           cat > launch-evidence/artifact.json <<EOF
           {
@@ -221,7 +225,10 @@ jobs:
           restored_migrations="$(docker exec "${postgres_id}" psql -U outside -d outside_restore -Atc \
             'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
           test "${restored_migrations}" = "12"
-          if "${compose[@]}" run --rm -e BACKUP_ENCRYPTION_KEY=deliberately-wrong-key \
+          backup_image="$("${compose[@]}" images -q backup)"
+          wrong_key="$(docker run --rm --entrypoint age-keygen "${backup_image}" 2>/dev/null | tail -n 1)"
+          case "${wrong_key}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
+          if "${compose[@]}" run --rm -e "BACKUP_ENCRYPTION_KEY=${wrong_key}" \
             backup /opt/outside/restore.sh "${backup_path}" \
             "postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside_restore"; then
             echo "Restore unexpectedly accepted the wrong key" >&2
