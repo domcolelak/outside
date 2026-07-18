@@ -25,8 +25,12 @@ jobs:
   ephemeral-staging:
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    env:
+      VALIDATED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.VALIDATED_SHA }}
 
       - uses: actions/setup-node@v5
         with:
@@ -45,8 +49,8 @@ jobs:
           random_hex() { openssl rand -hex "$1"; }
           random_key() { openssl rand -base64 32 | tr -d '\n'; }
           cat > .env.staging <<EOF
-          OUTSIDE_IMAGE=outside:${GITHUB_SHA}
-          OUTSIDE_MIGRATOR_IMAGE=outside-migrator:${GITHUB_SHA}
+          OUTSIDE_IMAGE=outside:${VALIDATED_SHA}
+          OUTSIDE_MIGRATOR_IMAGE=outside-migrator:${VALIDATED_SHA}
           STAGING_DOMAIN=outside.test
           APP_URL=https://outside.test:8443
           HTTPS_PORT=8443
@@ -83,18 +87,18 @@ jobs:
           set -euo pipefail
           version="$(node -p "require('./package.json').version")"
           built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          args=(--build-arg "APP_VERSION=${version}" --build-arg "GIT_SHA=${GITHUB_SHA}" --build-arg "BUILD_TIME=${built_at}")
-          docker build "${args[@]}" --target runner --tag "outside:${GITHUB_SHA}" .
-          docker build "${args[@]}" --target migrator --tag "outside-migrator:${GITHUB_SHA}" .
+          args=(--build-arg "APP_VERSION=${version}" --build-arg "GIT_SHA=${VALIDATED_SHA}" --build-arg "BUILD_TIME=${built_at}")
+          docker build "${args[@]}" --target runner --tag "outside:${VALIDATED_SHA}" .
+          docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
           mkdir -p launch-evidence
           cat > launch-evidence/artifact.json <<EOF
           {
             "version": "${version}",
-            "commit": "${GITHUB_SHA}",
+            "commit": "${VALIDATED_SHA}",
             "builtAt": "${built_at}",
-            "applicationImageId": "$(docker image inspect "outside:${GITHUB_SHA}" --format '{{.Id}}')",
-            "migratorImageId": "$(docker image inspect "outside-migrator:${GITHUB_SHA}" --format '{{.Id}}')",
+            "applicationImageId": "$(docker image inspect "outside:${VALIDATED_SHA}" --format '{{.Id}}')",
+            "migratorImageId": "$(docker image inspect "outside-migrator:${VALIDATED_SHA}" --format '{{.Id}}')",
             "schemaVersion": "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)",
             "ciRun": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           }
@@ -112,7 +116,7 @@ jobs:
             fi
             sleep 2
           done
-          jq -e --arg commit "${GITHUB_SHA}" '.status == "ready" and .persistence == "database" and .release.commit == $commit' launch-evidence/ready.json
+          jq -e --arg commit "${VALIDATED_SHA}" '.status == "ready" and .persistence == "database" and .release.commit == $commit' launch-evidence/ready.json
           app_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q app)"
           test "$(docker inspect "${app_id}" --format '{{.Config.User}}')" = "nextjs"
           test "$(docker inspect "${app_id}" --format '{{.HostConfig.ReadonlyRootfs}}')" = "true"
@@ -266,7 +270,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: outside-launch-validation-${{ github.sha }}
+          name: outside-launch-validation-${{ env.VALIDATED_SHA }}
           path: |
             launch-evidence
             playwright-report
@@ -275,13 +279,13 @@ jobs:
           retention-days: 30
 
       - name: Publish evidence summary
-        if: ${{ !cancelled() }}
+        if: ${{ success() }}
         shell: bash
         run: |
           {
             echo "## Production-like launch validation"
             echo
-            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Commit: \`${VALIDATED_SHA}\`"
             echo "- HTTPS production container: exercised"
             echo "- Browser customer journeys: exercised"
             echo "- Application interruption and lease recovery: exercised"
