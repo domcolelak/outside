@@ -28,11 +28,11 @@ jobs:
     env:
       VALIDATED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.VALIDATED_SHA }}
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -315,7 +315,7 @@ jobs:
 
       - name: Upload launch evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: outside-launch-validation-${{ env.VALIDATED_SHA }}
           path: |
