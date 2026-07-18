@@ -33,7 +33,7 @@ const ASSURANCE_LABEL: Record<Assurance, { label: string; tone: string }> = {
 
 export function AssuranceTag({ assurance }: { assurance: Assurance }) {
   const a = ASSURANCE_LABEL[assurance];
-  return <span className={`mono rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${a.tone}`}>{a.label}</span>;
+  return <span className={`mono rounded-sm border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${a.tone}`}>{a.label}</span>;
 }
 
 export function Confidence({ value }: { value: number }) {

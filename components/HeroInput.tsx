@@ -42,7 +42,7 @@ export function HeroInput() {
             placeholder="yourcompany.com"
             spellCheck={false}
             autoComplete="off"
-            className="mono min-w-0 flex-1 bg-transparent px-2 py-3 text-ink placeholder:text-ink-faint focus:outline-none"
+            className="mono min-w-0 flex-1 bg-transparent px-2 py-3 text-ink placeholder:text-ink-faint focus:outline-hidden"
           />
         </div>
         <button

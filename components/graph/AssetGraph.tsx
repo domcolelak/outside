@@ -490,7 +490,7 @@ export function AssetGraph({
         onPointerLeave={() => { hoveredIdRef.current = null; setHoverInfo(null); wakeRef.current(); }}
         onWheel={onWheel}
       />
-      {hoverInfo && (() => { const asset = nodesRef.current.get(hoverInfo.id)?.asset; if (!asset) return null; return <div className="pointer-events-none fixed z-[60] max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[10px] text-ink">{asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[8px] uppercase text-ink-faint"><span>{asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(asset) }}>{asset.priority}</span></div><div className="mt-1 text-[9px] text-ink-faint">Click to inspect evidence</div></div>; })()}
+      {hoverInfo && (() => { const asset = nodesRef.current.get(hoverInfo.id)?.asset; if (!asset) return null; return <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[10px] text-ink">{asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[8px] uppercase text-ink-faint"><span>{asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(asset) }}>{asset.priority}</span></div><div className="mt-1 text-[9px] text-ink-faint">Click to inspect evidence</div></div>; })()}
       {controls && (
         <div data-capture-hide className="absolute right-3 top-3 flex flex-col gap-1">
           <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
@@ -509,7 +509,7 @@ function ControlButton({ label, onClick, children }: { label: string; onClick: (
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="mono flex h-8 w-8 items-center justify-center rounded-md border border-line bg-base-900/70 text-sm text-ink-soft backdrop-blur transition hover:border-signal/40 hover:text-signal"
+      className="mono flex h-8 w-8 items-center justify-center rounded-md border border-line bg-base-900/70 text-sm text-ink-soft backdrop-blur-sm transition hover:border-signal/40 hover:text-signal"
     >
       {children}
     </button>

@@ -106,7 +106,7 @@ function Input({ label, value, onChange, ...rest }: { label: string; value: stri
         {...rest}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-signal/40 focus:outline-none"
+        className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-signal/40 focus:outline-hidden"
       />
     </label>
   );
