@@ -1,15 +1,15 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 
-describe("middleware CSP nonce propagation", () => {
+describe("proxy CSP nonce propagation", () => {
   it("forwards the response policy to the Next.js renderer request", () => {
     const request = new NextRequest("https://outside.example/login", {
       headers: { host: "outside.example" },
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
     const responsePolicy = response.headers.get("content-security-policy");
     const forwardedPolicy = response.headers.get(
       "x-middleware-request-content-security-policy",
