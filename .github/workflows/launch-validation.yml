@@ -28,11 +28,11 @@ jobs:
     env:
       VALIDATED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ env.VALIDATED_SHA }}
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -210,8 +210,11 @@ jobs:
             --argjson observedDown "${readiness_observed_down}" \
             '{hostPid: $hostPid, restartCountBefore: $before, restartCountAfter: $after, readinessObservedDown: $observedDown, readinessRecovered: true}' \
             > launch-evidence/application-restart.json
+          # Reset nextRunAt as well as the lease: when the interrupted request
+          # finishes its fast-failing scan before the kill lands, retry backoff
+          # pushes nextRunAt minutes ahead and the recovered claim would race.
           docker exec "${postgres_id}" psql -U outside -d outside -v ON_ERROR_STOP=1 \
-            -c "UPDATE monitors SET \"leaseUntil\"=NOW()-INTERVAL '1 second' WHERE id='launch_drill_monitor';"
+            -c "UPDATE monitors SET \"leaseUntil\"=NOW()-INTERVAL '1 second', \"nextRunAt\"=NOW()-INTERVAL '1 second' WHERE id='launch_drill_monitor';"
           curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
             --header "Authorization: Bearer ${CRON_SECRET}" \
             https://outside.test:8443/api/cron/scan > launch-evidence/recovered-scan.json
@@ -315,7 +318,7 @@ jobs:
 
       - name: Upload launch evidence
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: outside-launch-validation-${{ env.VALIDATED_SHA }}
           path: |
