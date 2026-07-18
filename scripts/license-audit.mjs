@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 
 const lock = JSON.parse(await readFile(new URL("../package-lock.json", import.meta.url), "utf8"));
-const overrides = new Map([["png-js", "MIT"]]);
+const overrides = new Map([
+  ["png-js", "MIT"],
+  // Ships an MIT LICENSE file but omits the license field from package.json.
+  ["seq-queue", "MIT"],
+]);
 const denied = /\b(?:AGPL|GPL|SSPL|BUSL)-[0-9.]+/i;
 const inventory = new Map();
 const failures = [];
