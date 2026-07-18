@@ -27,6 +27,14 @@ describe("mutation origin policy", () => {
     expect(mutationOriginAllowed(proxied, "https://different.example")).toBe(false);
   });
 
+  it("allows the actual listener origin for direct and local release deployments", () => {
+    const direct = {
+      ...request("POST", { origin: "http://localhost:3000", "sec-fetch-site": "same-origin" }),
+      url: "http://localhost:3000/api/account",
+    };
+    expect(mutationOriginAllowed(direct, "https://outside-ci.example")).toBe(true);
+  });
+
   it("rejects cross-site and malformed browser origins", () => {
     expect(
       mutationOriginAllowed(

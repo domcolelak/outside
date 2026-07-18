@@ -26,9 +26,12 @@ export function mutationOriginAllowed(
   try {
     // Reverse proxies commonly expose an internal request URL to Next.js. The
     // configured public origin is authoritative and avoids trusting spoofable
-    // forwarded host/protocol headers. Development falls back to request.url.
-    const expectedOrigin = new URL(canonicalOrigin ?? request.url).origin;
-    return new URL(origin).origin === expectedOrigin;
+    // forwarded host/protocol headers. The actual listener origin remains
+    // valid for direct deployments and local release tests.
+    const browserOrigin = new URL(origin).origin;
+    const listenerOrigin = new URL(request.url).origin;
+    if (canonicalOrigin && browserOrigin === new URL(canonicalOrigin).origin) return true;
+    return browserOrigin === listenerOrigin;
   } catch {
     return false;
   }
