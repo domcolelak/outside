@@ -9,7 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN apk add --no-cache openssl
 
 FROM base AS dependencies
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
 RUN npm ci
 
