@@ -19,7 +19,7 @@ jobs:
       OUTSIDE_VERIFY_SECRET: ci-only-verify-secret-at-least-thirty-two-bytes
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -68,7 +68,7 @@ jobs:
       GUARDIAN_ENCRYPTION_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -119,7 +119,7 @@ jobs:
       OUTSIDE_EMAIL_IMMEDIATE_DELIVERY: "false"
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
