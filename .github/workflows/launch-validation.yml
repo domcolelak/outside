@@ -137,6 +137,12 @@ jobs:
           set -euo pipefail
           node scripts/measure-http.mjs https://outside.test:8443/api/livez 100 > launch-evidence/livez-performance.json
           node scripts/measure-http.mjs https://outside.test:8443/api/readyz 50 > launch-evidence/readyz-performance.json
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3001/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
           curl --fail --silent http://127.0.0.1:3001/api/health > launch-evidence/grafana-health.json
           docker compose --env-file .env.staging -f ops/staging/compose.yaml exec -T prometheus \
             promtool check config /etc/prometheus/prometheus.yaml > launch-evidence/prometheus-validation.txt
