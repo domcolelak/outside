@@ -10,6 +10,25 @@ describe("PostgreSQL transaction retries", () => {
     expect(isRetryablePostgresTransactionError(new Error("network failure"))).toBe(false);
   });
 
+  it("recognizes driver-adapter error shapes", () => {
+    // Raw query wrapped by the client runtime: P2010 + meta.driverAdapterError.
+    const wrapped = (originalCode: string) => ({
+      code: "P2010",
+      meta: { driverAdapterError: { name: "DriverAdapterError", cause: { kind: "postgres", originalCode } } },
+    });
+    expect(isRetryablePostgresTransactionError(wrapped("40001"))).toBe(true);
+    expect(isRetryablePostgresTransactionError(wrapped("40P01"))).toBe(true);
+    expect(isRetryablePostgresTransactionError(wrapped("23505"))).toBe(false);
+
+    // Unmapped SQLSTATE rethrown as a bare DriverAdapterError without a Prisma code.
+    const bare = (originalCode: string) => ({
+      name: "DriverAdapterError",
+      cause: { kind: "postgres", originalCode },
+    });
+    expect(isRetryablePostgresTransactionError(bare("40P01"))).toBe(true);
+    expect(isRetryablePostgresTransactionError(bare("57014"))).toBe(false);
+  });
+
   it("restarts a retryable transaction and returns the committed result", async () => {
     const operation = vi.fn()
       .mockRejectedValueOnce({ code: "P2010", meta: { code: "40001" } })
