@@ -30,7 +30,7 @@ export class PrismaMonitorStore implements MonitorStore {
   async create(input: { orgId: string; domain: string; frequency: Frequency; limit?: number }) {
     try {
       return await prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`monitor:${input.orgId}`}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`monitor:${input.orgId}`}))`;
         const count = await tx.monitor.count({ where: { orgId: input.orgId } });
         if (count >= (input.limit ?? Number.MAX_SAFE_INTEGER)) return null;
         const row = await tx.monitor.create({ data: { orgId: input.orgId, domain: input.domain.toLowerCase(), frequency: input.frequency, nextRunAt: new Date() } });
@@ -51,6 +51,7 @@ export class PrismaMonitorStore implements MonitorStore {
     const res = await prisma.monitor.deleteMany({ where: { id, orgId } });
     return res.count > 0;
   }
+  async scheduleNow(orgIds: string[], at = new Date()) { if (!orgIds.length) return 0; return (await prisma.monitor.updateMany({ where: { orgId: { in: orgIds }, enabled: true }, data: { nextRunAt: at, leaseId: null, leaseUntil: null } })).count; }
   async claimDue(now: Date, limit: number, leaseMs: number) {
     const leaseId = randomUUID();
     const rows = await prisma.$queryRaw<MonitorRow[]>`

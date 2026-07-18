@@ -60,6 +60,24 @@ export function inviteEmail(to: string, orgName: string, role: string, acceptUrl
   return { to, subject: `You're invited to ${orgName} on OUTSIDE`, html, text: `You've been invited to join ${orgName} as ${role} on OUTSIDE.\nAccept: ${acceptUrl}` };
 }
 
+export function agencyInviteEmail(to: string, agencyName: string, role: string, acceptUrl: string, branding?: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }): EmailMessage {
+  const sender = branding?.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`;
+  const color = /^#[0-9a-f]{6}$/i.test(branding?.primaryColor ?? "") ? branding!.primaryColor! : "#38e1c3";
+  const footer = branding?.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : "";
+  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">You've been invited to the <strong style="color:#e8edf6;">${escapeHtml(agencyName)}</strong> security workspace as <strong style="color:#e8edf6;">${escapeHtml(role)}</strong>.</p><a href="${escapeHtml(acceptUrl)}" style="display:inline-block;margin:12px 0;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Open secure invitation</a>${footer}`;
+  const html = branding?.whiteLabel
+    ? `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-size:15px;letter-spacing:2px;font-weight:700;color:#e8edf6;">${escapeHtml(sender)}</div><div style="height:1px;background:rgba(148,173,214,0.14);margin:20px 0;"></div><h1 style="font-size:20px;margin:0 0 12px;color:#e8edf6;">You're invited by ${escapeHtml(agencyName)}</h1>${body}</div></body></html>`
+    : shell(`You're invited by ${agencyName}`, body);
+  return { to, subject: `${sender}: secure workspace invitation`, html, text: `${agencyName} invited you as ${role}. Accept: ${acceptUrl}${branding?.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
+}
+
+export function agencyReportReadyEmail(to: string, reportTitle: string, reportUrl: string, agencyName: string, branding: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }): EmailMessage {
+  const sender = branding.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`; const color = /^#[0-9a-f]{6}$/i.test(branding.primaryColor ?? "") ? branding.primaryColor! : "#38e1c3";
+  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">Your security report <strong style="color:#e8edf6;">${escapeHtml(reportTitle)}</strong> is ready for secure review.</p><a href="${escapeHtml(reportUrl)}" style="display:inline-block;margin:12px 0;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Open report</a>${branding.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : ""}`;
+  const html = branding.whiteLabel ? `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-weight:700;letter-spacing:2px;">${escapeHtml(sender)}</div><h1 style="font-size:20px;">Security report ready</h1>${body}</div></body></html>` : shell("Security report ready", body);
+  return { to, subject: `${sender}: ${reportTitle}`, html, text: `${reportTitle} is ready: ${reportUrl}${branding.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
+}
+
 export function welcomeEmail(to: string, name: string, verificationUrl?: string): EmailMessage {
   const actionUrl = verificationUrl ?? APP_URL;
   const actionLabel = verificationUrl ? "Verify email" : "Open OUTSIDE";
@@ -78,4 +96,13 @@ export function verifyEmail(to: string, verificationUrl: string): EmailMessage {
      <a href="${escapeHtml(verificationUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Verify email</a>`,
   );
   return { to, subject: "Verify your OUTSIDE email", html, text: `Verify your email address: ${verificationUrl}` };
+}
+
+export function passwordResetEmail(to: string, resetUrl: string): EmailMessage {
+  const html = shell(
+    "Reset your OUTSIDE password",
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">A password reset was requested for this account. This single-use link expires in 30 minutes. If you did not request it, no action is required.</p>
+     <a href="${escapeHtml(resetUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Reset password</a>`,
+  );
+  return { to, subject: "Reset your OUTSIDE password", html, text: `Reset your OUTSIDE password within 30 minutes: ${resetUrl}\n\nIf you did not request this, no action is required.` };
 }

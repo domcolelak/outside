@@ -1,0 +1,10 @@
+modules:
+  outside_https:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: false

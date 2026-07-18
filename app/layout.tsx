@@ -6,6 +6,10 @@ const SITE_URL = APP_URL;
 const DESCRIPTION =
   "OUTSIDE maps your publicly observable digital footprint and reveals forgotten, unexpected, and changing external assets — using passive, safe, public data sources.";
 
+// A per-request CSP nonce cannot be embedded in statically generated HTML.
+// Dynamic rendering lets Next.js apply the middleware nonce to every script.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "OUTSIDE — See your company from the outside",

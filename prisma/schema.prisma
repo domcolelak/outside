@@ -31,6 +31,37 @@ enum Plan {
   agency
 }
 
+enum AgencyRole {
+  owner
+  admin
+  manager
+  analyst
+  billing
+  viewer
+}
+
+enum AgencyClientStatus {
+  onboarding
+  active
+  paused
+  offboarded
+}
+
+enum AgencyPortalMode {
+  disabled
+  readonly
+  collaborative
+}
+
+enum AgencyJobStatus {
+  queued
+  running
+  completed
+  partially_failed
+  failed
+  cancelled
+}
+
 enum MonitorFrequency {
   daily
   weekly
@@ -96,6 +127,7 @@ model ConcurrencyLease {
   expiresAt DateTime
 
   @@index([scope, expiresAt])
+  @@index([expiresAt])
   @@map("concurrency_leases")
 }
 
@@ -109,6 +141,7 @@ model UsageEvent {
 
   @@index([orgId, kind, createdAt])
   @@index([userId, createdAt])
+  @@index([createdAt])
   @@map("usage_events")
 }
 
@@ -129,40 +162,701 @@ model EmailOutbox {
   sentAt         DateTime?
 
   @@index([status, nextAttemptAt, leasedUntil])
+  @@index([status, sentAt])
   @@map("email_outbox")
 }
 
 model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  name         String
-  passwordHash String
+  id                String             @id @default(cuid())
+  email             String             @unique
+  name              String
+  passwordHash      String
   // Default verifies legacy rows during additive migration; all new password
   // signups explicitly write null until the signed verification link is used.
-  emailVerifiedAt DateTime? @default(now())
-  sessionVersion Int          @default(0)
-  createdAt    DateTime     @default(now())
-  memberships  Membership[]
+  emailVerifiedAt   DateTime?          @default(now())
+  sessionVersion    Int                @default(0)
+  createdAt         DateTime           @default(now())
+  memberships       Membership[]
+  agencyMemberships AgencyMembership[]
+  passwordResets    PasswordResetToken[]
 
   @@map("users")
 }
 
+model PasswordResetToken {
+  id        String    @id
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
 model Organization {
-  id                   String       @id @default(cuid())
-  name                 String
-  slug                 String
-  plan                 Plan         @default(free)
-  stripeCustomerId     String?      @unique
-  stripeSubscriptionId String?
-  subscriptionStatus   String?
-  createdAt            DateTime     @default(now())
-  memberships          Membership[]
-  monitors             Monitor[]
-  invites              Invite[]
-  targets              Target[]
-  verifications        DomainVerification[]
+  id                      String                     @id @default(cuid())
+  name                    String
+  slug                    String
+  plan                    Plan                       @default(free)
+  stripeCustomerId        String?                    @unique
+  stripeSubscriptionId    String?
+  subscriptionStatus      String?
+  stripeEventCreated      Int?
+  stripeEventRank         Int                        @default(0)
+  stripeEventId           String?
+  createdAt               DateTime                   @default(now())
+  memberships             Membership[]
+  monitors                Monitor[]
+  invites                 Invite[]
+  targets                 Target[]
+  verifications           DomainVerification[]
+  guardianSnapshots       GuardianSnapshot[]
+  guardianEvidence        GuardianEvidenceSnapshot[]
+  guardianEvents          GuardianEvent[]
+  guardianRecommendations GuardianRecommendation[]
+  guardianChannels        GuardianChannel[]
+  guardianDeliveries      GuardianDelivery[]
+  guardianDigests         GuardianDigest[]
+  guardianActivities      GuardianActivity[]
+  guardianRetention       GuardianRetentionPolicy?
+  ownedAgency             AgencyWorkspace?           @relation("AgencyOwnerOrganization")
+  agencyClients           AgencyClient[]             @relation("AgencyClientOrganization")
+  enterprise              EnterpriseWorkspace?
 
   @@map("organizations")
+}
+
+model EnterpriseWorkspace {
+  id                String                       @id @default(cuid())
+  org               Organization                 @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId             String                       @unique
+  licenseStatus     String                       @default("active")
+  licensedSeats     Int                          @default(25)
+  features          String[]
+  dataRegion        String                       @default("eu")
+  retention         Json                         @default("{}")
+  provisioningMode  String                       @default("manual")
+  expiresAt         DateTime?
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  identityProviders EnterpriseIdentityProvider[]
+  roles             EnterpriseRole[]
+  bindings          EnterpriseRoleBinding[]
+  units             EnterpriseOrgUnit[]
+  ownership         EnterpriseOwnership[]
+  policies          EnterprisePolicy[]
+  approvals         EnterpriseApproval[]
+  exceptions        EnterpriseRiskException[]
+  apiTokens         EnterpriseApiToken[]
+  integrations      EnterpriseIntegration[]
+  deliveries        EnterpriseDelivery[]
+  tickets           EnterpriseTicketLink[]
+  exports           EnterpriseExport[]
+  flags             EnterpriseFeatureFlag[]
+  directoryUsers    EnterpriseDirectoryUser[]
+  directoryGroups   EnterpriseDirectoryGroup[]
+  audit             EnterpriseAuditEvent[]
+
+  @@map("enterprise_workspaces")
+}
+
+model EnterpriseDirectoryUser {
+  id                 String                     @id @default(cuid())
+  workspace          EnterpriseWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId        String
+  identityProvider   EnterpriseIdentityProvider @relation(fields: [identityProviderId], references: [id], onDelete: Restrict)
+  identityProviderId String
+  userId             String?
+  externalId         String?
+  userName           String
+  displayName        String
+  active             Boolean                    @default(true)
+  departmentId       String?
+  attributes         Json                       @default("{}")
+  lastSyncedAt       DateTime                   @default(now())
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@unique([workspaceId, userName])
+  @@unique([identityProviderId, externalId])
+  @@index([workspaceId, userId])
+  @@index([workspaceId, identityProviderId])
+  @@map("enterprise_directory_users")
+}
+
+model EnterpriseDirectoryGroup {
+  id                 String                     @id @default(cuid())
+  workspace          EnterpriseWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId        String
+  identityProvider   EnterpriseIdentityProvider @relation(fields: [identityProviderId], references: [id], onDelete: Restrict)
+  identityProviderId String
+  externalId         String?
+  displayName        String
+  memberIds          String[]
+  attributes         Json                       @default("{}")
+  lastSyncedAt       DateTime                   @default(now())
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+
+  @@unique([identityProviderId, displayName])
+  @@unique([identityProviderId, externalId])
+  @@index([workspaceId, identityProviderId])
+  @@map("enterprise_directory_groups")
+}
+
+model EnterpriseIdentityProvider {
+  id              String                     @id @default(cuid())
+  workspace       EnterpriseWorkspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId     String
+  protocol        String
+  name            String
+  domains         String[]
+  enabled         Boolean                    @default(false)
+  enforceSso      Boolean                    @default(false)
+  jitProvisioning Boolean                    @default(false)
+  configEncrypted String
+  scimTokenHash   String?                    @unique
+  scimTokenPrefix String?
+  lastSyncAt      DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  directoryUsers  EnterpriseDirectoryUser[]
+  directoryGroups EnterpriseDirectoryGroup[]
+
+  @@index([workspaceId, protocol, enabled])
+  @@map("enterprise_identity_providers")
+}
+
+model EnterpriseRole {
+  id          String              @id @default(cuid())
+  workspace   EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  name        String
+  description String?
+  permissions String[]
+  system      Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([workspaceId, name])
+  @@map("enterprise_roles")
+}
+
+model EnterpriseRoleBinding {
+  id            String              @id @default(cuid())
+  workspace     EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId   String
+  roleId        String
+  principalType String
+  principalId   String
+  scopeType     String              @default("organization")
+  scopeId       String?
+  conditions    Json                @default("{}")
+  createdBy     String
+  createdAt     DateTime            @default(now())
+
+  @@unique([workspaceId, roleId, principalType, principalId, scopeType, scopeId])
+  @@index([workspaceId, principalType, principalId])
+  @@map("enterprise_role_bindings")
+}
+
+model EnterpriseOrgUnit {
+  id          String              @id @default(cuid())
+  workspace   EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  parentId    String?
+  kind        String              @default("department")
+  name        String
+  externalId  String?
+  managerId   String?
+  path        String
+  metadata    Json                @default("{}")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([workspaceId, path])
+  @@index([workspaceId, parentId])
+  @@map("enterprise_org_units")
+}
+
+model EnterpriseOwnership {
+  id          String              @id @default(cuid())
+  workspace   EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  subjectType String
+  subjectId   String
+  ownerType   String
+  ownerId     String
+  role        String              @default("accountable")
+  source      String              @default("manual")
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([workspaceId, subjectType, subjectId, ownerType, ownerId, role])
+  @@index([workspaceId, subjectType, subjectId])
+  @@map("enterprise_ownership")
+}
+
+model EnterprisePolicy {
+  id          String              @id @default(cuid())
+  workspace   EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  kind        String
+  name        String
+  description String?
+  enabled     Boolean             @default(true)
+  version     Int                 @default(1)
+  document    Json
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([workspaceId, kind, name])
+  @@index([workspaceId, enabled, kind])
+  @@map("enterprise_policies")
+}
+
+model EnterpriseApproval {
+  id           String              @id @default(cuid())
+  workspace    EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId  String
+  workflow     String
+  subjectType  String
+  subjectId    String
+  status       String              @default("pending")
+  requestedBy  String
+  approverIds  String[]
+  decidedBy    String?
+  decisionNote String?
+  payload      Json                @default("{}")
+  expiresAt    DateTime?
+  createdAt    DateTime            @default(now())
+  decidedAt    DateTime?
+
+  @@index([workspaceId, status, createdAt])
+  @@map("enterprise_approvals")
+}
+
+model EnterpriseRiskException {
+  id                   String              @id @default(cuid())
+  workspace            EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId          String
+  subjectType          String
+  subjectId            String
+  policyId             String?
+  reason               String
+  compensatingControls String?
+  status               String              @default("pending")
+  requestedBy          String
+  approvedBy           String?
+  expiresAt            DateTime
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([workspaceId, status, expiresAt])
+  @@map("enterprise_risk_exceptions")
+}
+
+model EnterpriseApiToken {
+  id          String              @id @default(cuid())
+  workspace   EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  name        String
+  prefix      String
+  secretHash  String              @unique
+  permissions String[]
+  scopes      Json                @default("{}")
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  @@index([workspaceId, revokedAt, expiresAt])
+  @@map("enterprise_api_tokens")
+}
+
+model EnterpriseIntegration {
+  id              String               @id @default(cuid())
+  workspace       EnterpriseWorkspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId     String
+  provider        String
+  category        String
+  name            String
+  enabled         Boolean              @default(true)
+  configEncrypted String
+  eventTypes      String[]
+  severities      String[]
+  status          String               @default("configured")
+  lastDeliveryAt  DateTime?
+  lastError       String?
+  createdBy       String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deliveries      EnterpriseDelivery[]
+
+  @@index([workspaceId, category, enabled])
+  @@map("enterprise_integrations")
+}
+
+model EnterpriseDelivery {
+  id             String                @id @default(cuid())
+  workspace      EnterpriseWorkspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId    String
+  integration    EnterpriseIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  integrationId  String
+  idempotencyKey String                @unique
+  eventId        String
+  payload        Json
+  status         String                @default("pending")
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime              @default(now())
+  leaseId        String?
+  leasedUntil    DateTime?
+  lastError      String?
+  createdAt      DateTime              @default(now())
+  deliveredAt    DateTime?
+
+  @@index([status, nextAttemptAt, leasedUntil])
+  @@index([workspaceId, createdAt])
+  @@map("enterprise_deliveries")
+}
+
+model EnterpriseTicketLink {
+  id           String              @id @default(cuid())
+  workspace    EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId  String
+  provider     String
+  findingId    String
+  externalId   String
+  externalUrl  String?
+  status       String
+  syncVersion  Int                 @default(1)
+  lastSyncedAt DateTime            @default(now())
+  metadata     Json                @default("{}")
+
+  @@unique([workspaceId, provider, findingId])
+  @@index([workspaceId, provider, externalId])
+  @@map("enterprise_ticket_links")
+}
+
+model EnterpriseExport {
+  id                       String              @id @default(cuid())
+  workspace                EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId              String
+  name                     String
+  kind                     String
+  format                   String
+  schedule                 String?
+  destinationIntegrationId String?
+  filters                  Json                @default("{}")
+  enabled                  Boolean             @default(true)
+  nextRunAt                DateTime?
+  lastRunAt                DateTime?
+  lastStatus               String?
+  createdBy                String
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+
+  @@index([workspaceId, enabled, nextRunAt])
+  @@map("enterprise_exports")
+}
+
+model EnterpriseFeatureFlag {
+  id          String              @id @default(cuid())
+  workspace   EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  key         String
+  enabled     Boolean             @default(false)
+  rollout     Int                 @default(100)
+  rules       Json                @default("{}")
+  updatedBy   String
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([workspaceId, key])
+  @@map("enterprise_feature_flags")
+}
+
+model EnterpriseAuditEvent {
+  id           String              @id @default(cuid())
+  workspace    EnterpriseWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  workspaceId  String
+  sequence     BigInt
+  actorType    String
+  actorId      String
+  action       String
+  resourceType String
+  resourceId   String?
+  requestId    String?
+  ipHash       String?
+  detail       Json                @default("{}")
+  previousHash String
+  hash         String
+  createdAt    DateTime            @default(now())
+
+  @@unique([workspaceId, sequence])
+  @@index([workspaceId, createdAt])
+  @@map("enterprise_audit_events")
+}
+
+model AgencyWorkspace {
+  id               String               @id @default(cuid())
+  ownerOrg         Organization         @relation("AgencyOwnerOrganization", fields: [ownerOrgId], references: [id], onDelete: Cascade)
+  ownerOrgId       String               @unique
+  name             String
+  slug             String               @unique
+  whiteLabel       Boolean              @default(false)
+  consultantMode   Boolean              @default(true)
+  logoUrl          String?
+  primaryColor     String               @default("#38e1c3")
+  accentColor      String               @default("#5b8cff")
+  supportEmail     String?
+  customDomain     String?              @unique
+  emailFromName    String?
+  emailFooter      String?
+  resellerParentId String?
+  resellerParent   AgencyWorkspace?     @relation("AgencyResellerHierarchy", fields: [resellerParentId], references: [id], onDelete: SetNull)
+  resellerChildren AgencyWorkspace[]    @relation("AgencyResellerHierarchy")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  memberships      AgencyMembership[]
+  clients          AgencyClient[]
+  groups           AgencyGroup[]
+  invites          AgencyInvite[]
+  notes            AgencyNote[]
+  findingShares    AgencyFindingShare[]
+  jobs             AgencyBulkJob[]
+  reports          AgencyReport[]
+  apiKeys          AgencyApiKey[]
+  activities       AgencyActivity[]
+
+  @@index([resellerParentId])
+  @@map("agency_workspaces")
+}
+
+model AgencyMembership {
+  agency    AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId  String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  role      AgencyRole      @default(viewer)
+  seatLabel String?
+  active    Boolean         @default(true)
+  createdAt DateTime        @default(now())
+
+  @@id([agencyId, userId])
+  @@index([userId, active])
+  @@map("agency_memberships")
+}
+
+model AgencyGroup {
+  id          String          @id @default(cuid())
+  agency      AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId    String
+  name        String
+  color       String          @default("#5b8cff")
+  description String?
+  clients     AgencyClient[]
+  createdAt   DateTime        @default(now())
+
+  @@unique([agencyId, name])
+  @@map("agency_groups")
+}
+
+model AgencyClient {
+  id                  String               @id @default(cuid())
+  agency              AgencyWorkspace      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId            String
+  organization        Organization         @relation("AgencyClientOrganization", fields: [orgId], references: [id], onDelete: Cascade)
+  orgId               String
+  group               AgencyGroup?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groupId             String?
+  status              AgencyClientStatus   @default(onboarding)
+  portalMode          AgencyPortalMode     @default(readonly)
+  externalRef         String?
+  serviceTier         String               @default("standard")
+  slaResponseMinutes  Int                  @default(480)
+  notificationRouting Json                 @default("{}")
+  billingMode         String               @default("agency")
+  monthlyPriceCents   Int?
+  currency            String               @default("EUR")
+  addedAt             DateTime             @default(now())
+  offboardedAt        DateTime?
+  notes               AgencyNote[]
+  findingShares       AgencyFindingShare[]
+  slaEvents           AgencySlaEvent[]
+  invites             AgencyInvite[]
+
+  @@unique([agencyId, orgId])
+  @@index([agencyId, status, groupId])
+  @@map("agency_clients")
+}
+
+model AgencyInvite {
+  id         String          @id @default(cuid())
+  agency     AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  email      String
+  role       AgencyRole
+  kind       String          @default("seat")
+  client     AgencyClient?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String?
+  tokenHash  String          @unique
+  createdBy  String
+  createdAt  DateTime        @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  acceptedBy String?
+  revokedAt  DateTime?
+
+  @@index([agencyId, email, acceptedAt, expiresAt])
+  @@map("agency_invites")
+}
+
+model AgencyNote {
+  id         String          @id @default(cuid())
+  agency     AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  client     AgencyClient    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String
+  authorId   String
+  body       String
+  visibility String          @default("internal")
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([agencyId, clientId, createdAt])
+  @@map("agency_notes")
+}
+
+model AgencyFindingShare {
+  id               String          @id @default(cuid())
+  agency           AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId         String
+  client           AgencyClient    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId         String
+  recommendationId String
+  sharedBy         String
+  clientMessage    String?
+  status           String          @default("shared")
+  sharedAt         DateTime        @default(now())
+
+  @@unique([agencyId, clientId, recommendationId])
+  @@index([clientId, sharedAt])
+  @@map("agency_finding_shares")
+}
+
+model AgencyBulkJob {
+  id             String          @id @default(cuid())
+  agency         AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId       String
+  type           String
+  status         AgencyJobStatus @default(queued)
+  idempotencyKey String          @unique
+  clientOrgIds   String[]
+  payload        Json            @default("{}")
+  result         Json?
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  @@index([agencyId, status, createdAt])
+  @@map("agency_bulk_jobs")
+}
+
+model AgencyReport {
+  id          String              @id @default(cuid())
+  agency      AgencyWorkspace     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId    String
+  clientOrgId String?
+  periodStart DateTime
+  periodEnd   DateTime
+  kind        String
+  status      String              @default("ready")
+  title       String
+  content     Json
+  branding    Json
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  shares      AgencyReportShare[]
+
+  @@index([agencyId, clientOrgId, createdAt])
+  @@map("agency_reports")
+}
+
+model AgencyReportShare {
+  id        String       @id @default(cuid())
+  report    AgencyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId  String
+  agencyId  String
+  email     String
+  tokenHash String       @unique
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+
+  @@index([agencyId, reportId, expiresAt])
+  @@map("agency_report_shares")
+}
+
+model AgencyApiKey {
+  id         String          @id @default(cuid())
+  agency     AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId   String
+  name       String
+  prefix     String
+  secretHash String          @unique
+  scopes     String[]
+  createdBy  String
+  createdAt  DateTime        @default(now())
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  @@index([agencyId, revokedAt])
+  @@map("agency_api_keys")
+}
+
+model AgencySlaEvent {
+  id             String       @id @default(cuid())
+  client         AgencyClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId       String
+  findingId      String
+  priority       Priority
+  openedAt       DateTime
+  dueAt          DateTime
+  resolvedAt     DateTime?
+  breached       Boolean      @default(false)
+  status         String       @default("open")
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+  lastObservedAt DateTime     @default(now())
+  escalatedAt    DateTime?
+
+  @@unique([clientId, findingId])
+  @@index([clientId, breached, dueAt])
+  @@map("agency_sla_events")
+}
+
+model AgencyActivity {
+  id          String          @id @default(cuid())
+  agency      AgencyWorkspace @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agencyId    String
+  clientOrgId String?
+  actorId     String
+  type        String
+  message     String
+  detail      Json            @default("{}")
+  createdAt   DateTime        @default(now())
+
+  @@index([agencyId, createdAt])
+  @@index([agencyId, clientOrgId, createdAt])
+  @@map("agency_activity")
 }
 
 model Membership {
@@ -170,6 +864,8 @@ model Membership {
   orgId         String
   role          Role         @default(viewer)
   notifyChanges Boolean      @default(true)
+  active        Boolean      @default(true)
+  provisionedBy String?
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
@@ -199,18 +895,18 @@ model Invite {
 }
 
 model Monitor {
-  id         String       @id @default(cuid())
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  org        Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId      String
   domain     String
   frequency  MonitorFrequency @default(daily)
-  enabled    Boolean      @default(true)
+  enabled    Boolean          @default(true)
   lastScanAt DateTime?
   nextRunAt  DateTime
-  createdAt  DateTime     @default(now())
+  createdAt  DateTime         @default(now())
   leaseId    String?
   leaseUntil DateTime?
-  attempts   Int          @default(0)
+  attempts   Int              @default(0)
   lastError  String?
 
   @@unique([orgId, domain])
@@ -232,18 +928,195 @@ model Target {
 }
 
 model Scan {
-  id         String         @id
-  orgId      String
-  target     Target         @relation(fields: [targetId], references: [id], onDelete: Cascade)
-  targetId   String
-  finishedAt DateTime
-  mode       ScanMode
-  scoreValue Int
-  assetCount Int
-  snapshots  AssetSnapshot[]
+  id                String                     @id
+  orgId             String
+  target            Target                     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  targetId          String
+  finishedAt        DateTime
+  mode              ScanMode
+  scoreValue        Int
+  assetCount        Int
+  snapshots         AssetSnapshot[]
+  guardianSnapshots GuardianSnapshot[]
+  guardianEvidence  GuardianEvidenceSnapshot[]
+  guardianEvents    GuardianEvent[]
 
   @@index([targetId, finishedAt])
   @@map("scans")
+}
+
+model GuardianSnapshot {
+  id            String       @default(cuid())
+  org           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId         String
+  scan          Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId        String
+  target        String
+  observedAt    DateTime
+  exposureScore Int
+  metrics       Json
+  inventory     Json
+  checklist     Json
+
+  @@id([id, observedAt])
+  @@unique([scanId, observedAt])
+  @@index([orgId, target, observedAt])
+  @@map("guardian_snapshots")
+}
+
+model GuardianEvidenceSnapshot {
+  id          String
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  scan        Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId      String
+  target      String
+  observedAt  DateTime
+  contentHash String
+  recordCount Int
+  snapshot    Json
+
+  @@id([id, observedAt])
+  @@unique([scanId, observedAt])
+  @@index([orgId, target, observedAt])
+  @@index([orgId, contentHash])
+  @@map("guardian_evidence_snapshots")
+}
+
+model GuardianEvent {
+  id             String
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId          String
+  scan           Scan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanId         String
+  target         String
+  type           String
+  category       String
+  severity       Priority
+  confidence     Float
+  title          String
+  summary        String
+  why            String
+  affectedAssets String[]
+  evidence       Json
+  groupKey       String
+  observedAt     DateTime
+
+  @@id([id, observedAt])
+  @@unique([orgId, scanId, groupKey, observedAt])
+  @@index([orgId, target, observedAt])
+  @@index([orgId, severity, observedAt])
+  @@map("guardian_events")
+}
+
+model GuardianRecommendation {
+  id              String               @id
+  org             Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId           String
+  target          String
+  code            String
+  status          RecommendationStatus @default(open)
+  priority        Priority
+  confidence      Float
+  title           String
+  why             String
+  reasoning       String
+  affectedAssets  String[]
+  evidence        Json
+  suggestedReview String
+  businessImpact  String
+  guides          Json
+  firstObservedAt DateTime
+  lastObservedAt  DateTime
+
+  @@unique([orgId, target, code])
+  @@index([orgId, target, status, priority])
+  @@map("guardian_recommendations")
+}
+
+model GuardianChannel {
+  id              String             @id @default(cuid())
+  org             Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId           String
+  type            String
+  name            String
+  encryptedConfig String
+  destinationHint String
+  enabled         Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deliveries      GuardianDelivery[]
+
+  @@index([orgId, enabled])
+  @@map("guardian_channels")
+}
+
+model GuardianDelivery {
+  id             String           @id @default(cuid())
+  idempotencyKey String           @unique
+  org            Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId          String
+  channel        GuardianChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  channelId      String?
+  channelType    String
+  target         String
+  kind           String
+  status         String           @default("pending")
+  itemCount      Int
+  payload        Json
+  attempts       Int              @default(0)
+  nextAttemptAt  DateTime         @default(now())
+  leaseId        String?
+  leasedUntil    DateTime?
+  lastError      String?
+  createdAt      DateTime         @default(now())
+  deliveredAt    DateTime?
+
+  @@index([status, nextAttemptAt, leasedUntil])
+  @@index([orgId, createdAt])
+  @@map("guardian_deliveries")
+}
+
+model GuardianDigest {
+  id          String       @id @default(cuid())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId       String
+  target      String
+  weekOf      DateTime
+  generatedAt DateTime
+  content     Json
+
+  @@unique([orgId, target, weekOf])
+  @@index([orgId, generatedAt])
+  @@map("guardian_digests")
+}
+
+model GuardianActivity {
+  id        String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  target    String
+  type      String
+  message   String
+  createdAt DateTime
+
+  @@id([id, createdAt])
+  @@index([orgId, createdAt])
+  @@map("guardian_activity")
+}
+
+model GuardianRetentionPolicy {
+  org          Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String       @id
+  scanDays     Int          @default(730)
+  snapshotDays Int          @default(365)
+  eventDays    Int          @default(365)
+  deliveryDays Int          @default(90)
+  activityDays Int          @default(180)
+  digestDays   Int          @default(730)
+  updatedAt    DateTime     @updatedAt
+
+  @@map("guardian_retention_policies")
 }
 
 model AssetIdentity {
@@ -278,7 +1151,7 @@ model RecommendationState {
   target    String
   recId     String
   status    RecommendationStatus
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime             @updatedAt
 
   @@id([orgId, target, recId])
   @@index([orgId, target])
@@ -302,16 +1175,18 @@ model ProcessedEvent {
   id        String   @id
   createdAt DateTime @default(now())
 
+  @@index([createdAt])
+
   @@map("processed_events")
 }
 
 model DomainVerification {
-  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  org        Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId      String
   domain     String
   token      String
   status     VerificationStatus @default(pending)
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime           @default(now())
   verifiedAt DateTime?
 
   @@id([orgId, domain])

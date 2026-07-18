@@ -13,6 +13,8 @@ import type { ScanEvent } from "@/lib/types";
 import { getSessionContext } from "@/lib/auth";
 import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
+import { processGuardianScan } from "@/lib/guardian/process";
+import { recordScanOperation } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +48,9 @@ export async function GET(req: NextRequest) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const startedAt = performance.now();
+      let experience: "real" | "demo" = "real";
+      let outcome: "success" | "failed" | "cancelled" = "failed";
       const encoder = new TextEncoder();
       const emit: Emit = (event) => {
         signal.throwIfAborted();
@@ -57,12 +62,14 @@ export async function GET(req: NextRequest) {
         // Demo scans carry a synthetic change story and are NOT persisted.
         const demoOrg = findDemoOrg(rawTarget) ?? (mode === "demo" ? findDemoOrg("northstar") : null);
         if (demoOrg || isDemoDomain(rawTarget)) {
+          experience = "demo";
           const org = demoOrg ?? findDemoOrg(rawTarget)!;
           const result = await runDemoScan(org, scanId, emit);
           // Aegis: derive the protection posture + correlate findings into incidents.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
           emit({ type: "result", result });
+          outcome = "success";
         } else {
           const domain = normalizeDomain(rawTarget);
           const ctx = await getSessionContext();
@@ -70,16 +77,20 @@ export async function GET(req: NextRequest) {
           const result = await runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal });
           // Persist + derive change detection against this target's history.
           const store = await getStore();
-          if (orgId) await recordScan(store, result, orgId);
+          if (orgId) {
+            const persisted = await recordScan(store, result, orgId);
+            if (persisted) await processGuardianScan(orgId, result, { notify: false, weeklyDigest: false });
+          }
           // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
           if (orgId) await applyStoredRecommendationStatus(orgId, result.target, result.posture);
           emit({ type: "result", result });
+          outcome = "success";
         }
         }));
       } catch (error) {
-        if (signal.aborted) return;
+        if (signal.aborted) { outcome = "cancelled"; return; }
         const message = error instanceof CapacityError
           ? error.message
           : error instanceof InvalidTargetError
@@ -87,6 +98,7 @@ export async function GET(req: NextRequest) {
             : "Scan failed. The target may be unreachable or a public data source was unavailable.";
         emit({ type: "error", message });
       } finally {
+        recordScanOperation(experience, outcome, performance.now() - startedAt);
         if (!signal.aborted) controller.close();
       }
     },

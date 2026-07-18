@@ -15,14 +15,17 @@ export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [logs.length]);
+  const complete = stages.filter((stage) => stage.status === "done").length;
+  const progress = scanning ? ((complete + .4) / Math.max(stages.length, 1)) * 100 : 100;
 
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-line px-4 py-3">
-        <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Discovery sequence</div>
+        <div className="flex items-center justify-between"><div className="mono text-[10px] uppercase tracking-[.16em] text-ink-faint">Discovery sequence</div><div className="mono text-[9px] text-signal">{complete}/{stages.length}</div></div>
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div>
         <div className="mt-3 space-y-1.5">
           {stages.map((s) => (
-            <div key={s.stage} className="flex items-center gap-2.5 text-xs">
+            <div key={s.stage} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs transition ${s.status === "active" ? "border border-signal/15 bg-signal/[.04]" : "border border-transparent"}`}>
               <StageDot status={s.status} />
               <span className={s.status === "done" ? "text-ink-soft" : s.status === "active" ? "text-ink" : "text-ink-faint"}>
                 {s.label}

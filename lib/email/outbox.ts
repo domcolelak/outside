@@ -52,6 +52,7 @@ export async function deliverOutboxBatch(limit = 10): Promise<{ sent: number; fa
 /** Enqueue durably, then make one best-effort delivery pass for low latency. */
 export async function sendDurably(message: EmailMessage, idempotencyKey: string): Promise<boolean> {
   const queued = await enqueueEmail(message, idempotencyKey);
-  if (queued && process.env.DATABASE_URL) await deliverOutboxBatch(5).catch((error) => console.error("[email] outbox delivery deferred", error));
+  const immediate = process.env.OUTSIDE_EMAIL_IMMEDIATE_DELIVERY !== "false";
+  if (queued && process.env.DATABASE_URL && immediate) await deliverOutboxBatch(5).catch((error) => console.error("[email] outbox delivery deferred", error));
   return queued;
 }

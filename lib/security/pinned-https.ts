@@ -10,6 +10,8 @@ export interface PinnedHttpsResponse {
 
 export interface PinnedHttpsOptions {
   path: string;
+  method?: "GET" | "POST";
+  body?: string;
   timeoutMs?: number;
   maxBodyBytes?: number;
   headers?: Record<string, string>;
@@ -58,12 +60,12 @@ function requestAddress(hostname: string, address: string, options: PinnedHttpsO
       {
         hostname: address,
         port: 443,
-        method: "GET",
+        method: options.method ?? "GET",
         path: options.path,
         servername: hostname,
         rejectUnauthorized: true,
         agent: false,
-        headers: { host: hostname, ...options.headers },
+        headers: { ...options.headers, host: hostname, ...(options.body ? { "content-length": Buffer.byteLength(options.body) } : {}) },
       },
       (res) => {
         const status = res.statusCode ?? 0;
@@ -104,6 +106,6 @@ function requestAddress(hostname: string, address: string, options: PinnedHttpsO
       else options.signal.addEventListener("abort", () => req.destroy(options.signal?.reason), { once: true });
     }
     req.on("error", (error) => finish(() => reject(error)));
-    req.end();
+    req.end(options.body);
   });
 }

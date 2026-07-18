@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterCtHosts } from "./providers";
+import { classifyDmarc, filterCtHosts, identifyDnsProvider, identifyInfrastructureProvider, identifyMailProvider } from "./providers";
 
 describe("filterCtHosts — CT entity resolution", () => {
   const rows = [
@@ -30,5 +30,37 @@ describe("filterCtHosts — CT entity resolution", () => {
 
   it("normalizes wildcards, casing and trailing dots", () => {
     expect(names).toContain("example.com");
+  });
+});
+
+describe("Guardian DNS control classification", () => {
+  it("classifies DMARC only from an explicit policy", () => {
+    expect(classifyDmarc(["\"v=DMARC1; p=reject; rua=mailto:dmarc@example.com\""])).toBe("enforced");
+    expect(classifyDmarc(["v=DMARC1; p=none"])).toBe("monitoring");
+    expect(classifyDmarc(["v=DMARC1; rua=mailto:dmarc@example.com"])).toBe("invalid");
+    expect(classifyDmarc([])).toBe("missing");
+  });
+
+  it("identifies providers only from observed authoritative nameserver suffixes", () => {
+    expect(identifyDnsProvider(["abby.ns.cloudflare.com", "mark.ns.cloudflare.com"])).toBe("Cloudflare");
+    expect(identifyDnsProvider(["ns-100.awsdns-12.com", "ns-200.awsdns-24.net"])).toBe("Amazon Route 53");
+    expect(identifyDnsProvider(["ns1.internal.example"])).toBeUndefined();
+  });
+
+  it("identifies mail platforms only from observed MX suffixes", () => {
+    expect(identifyMailProvider(["aspmx.l.google.com"])).toBe("Google Workspace");
+    expect(identifyMailProvider(["acme-com.mail.protection.outlook.com"])).toBe("Microsoft 365");
+    expect(identifyMailProvider(["mail.acme.com"])).toBeUndefined();
+  });
+
+  it("identifies cloud and CDN providers only from explicit CNAME suffixes", () => {
+    expect(identifyInfrastructureProvider(["d111.cloudfront.net"])).toEqual({
+      cloudProvider: "Amazon Web Services",
+      cdn: "Amazon CloudFront",
+      providerEvidence: ["Public DNS CNAME points to d111.cloudfront.net."],
+    });
+    expect(identifyInfrastructureProvider(["acme.azurewebsites.net"]).cloudProvider).toBe("Microsoft Azure");
+    expect(identifyInfrastructureProvider(["cloudfront.net.attacker.example"])).toEqual({ providerEvidence: [] });
+    expect(identifyInfrastructureProvider(["custom.example"])).toEqual({ providerEvidence: [] });
   });
 });

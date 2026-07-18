@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useScan } from "@/components/useScan";
+import type { StageState } from "@/components/useScan";
 import { AssetGraph } from "@/components/graph/AssetGraph";
 import { ScanConsole } from "@/components/panels/ScanConsole";
 import { Summary } from "@/components/panels/Summary";
@@ -12,6 +13,8 @@ import { AttackerView } from "@/components/AttackerView";
 import { VerifyPanel } from "@/components/VerifyPanel";
 import { Wordmark } from "@/components/Wordmark";
 import { PRIORITY_STYLE } from "@/lib/analysis/priority";
+import { PresentationControls } from "@/components/experience/PresentationControls";
+import { Walkthrough, type WalkthroughStep } from "@/components/experience/Walkthrough";
 
 function ScanView() {
   const params = useSearchParams();
@@ -22,6 +25,8 @@ function ScanView() {
   const [attacker, setAttacker] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<"none" | "pending" | "verified">("none");
+  const [walkthrough, setWalkthrough] = useState(false);
+  const autoPresented = useRef(false);
 
   const resultTarget = scan.result?.target;
   const resultIsDemo = scan.result?.isDemo;
@@ -32,6 +37,9 @@ function ScanView() {
       .then((d) => setVerifyStatus(d.status === "verified" ? "verified" : d.status === "pending" ? "pending" : "none"))
       .catch(() => {});
   }, [resultTarget, resultIsDemo]);
+  useEffect(() => {
+    if (scan.status === "done" && params.get("present") === "1" && !autoPresented.current) { autoPresented.current = true; setAttacker(true); }
+  }, [params, scan.status]);
 
   const [query, setQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<Set<string>>(new Set());
@@ -64,6 +72,13 @@ function ScanView() {
     return ids;
   }, [query, priorityFilter, scan.assets]);
 
+  const tourSteps = useMemo<WalkthroughStep[]>(() => [
+    { eyebrow: "External surface", title: "The graph is the shared mental model", body: "Every node is an entity resolved from public observations. Select any node to inspect why it exists.", selector: "[data-tour='graph']" },
+    { eyebrow: "Asset inspection", title: "Evidence stays one click away", body: "The asset lens separates routing, technology, signals, confidence and discovery provenance.", selector: "[data-tour='asset-lens']", action: () => setSelectedId(scan.assets.find((asset) => asset.kind !== "root_domain")?.id ?? scan.assets[0]?.id ?? null) },
+    { eyebrow: "Explainability", title: "Posture is transparent", body: "The right rail explains score impact, findings, historical changes and report-ready summaries.", selector: "[data-tour='intelligence']", action: () => setSelectedId(null) },
+    { eyebrow: "Cinematic replay", title: "Tell the story in under twenty seconds", body: "Attacker View replays discovery—not exploitation—with each reveal connected to literal evidence.", selector: "[data-tour='attacker']" },
+  ], [scan.assets]);
+
   if (!target) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -77,7 +92,7 @@ function ScanView() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex items-center justify-between border-b border-line px-5 py-3">
+      <header data-capture-hide className="relative z-40 flex items-center justify-between border-b border-line bg-base-950/82 px-4 py-3 backdrop-blur-xl md:px-5">
         <div className="flex items-center gap-4">
           <Link href="/"><Wordmark className="h-5" /></Link>
           <div className="hidden items-center gap-2 md:flex">
@@ -102,23 +117,25 @@ function ScanView() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {scan.status === "done" && <button onClick={() => setWalkthrough(true)} className="mono hidden rounded-lg border border-line px-3 py-2 text-[9px] uppercase text-ink-faint transition hover:border-signal/30 hover:text-signal md:block">Guided tour</button>}
           {scan.status === "done" && (
-            <button onClick={() => setAttacker(true)} className="mono rounded-md border border-signal/30 bg-signal/10 px-3 py-1.5 text-xs text-signal hover:bg-signal/20">
-              Attacker View
+            <button data-tour="attacker" onClick={() => setAttacker(true)} className="mono rounded-lg border border-signal/30 bg-signal/10 px-3 py-2 text-[9px] uppercase tracking-wider text-signal hover:bg-signal/20">
+              ▶ Attacker View
             </button>
           )}
+          {scan.status === "done" && <PresentationControls name={`outside-${scan.result?.target ?? target}`} onPresent={() => setAttacker(true)} className="hidden md:flex"/>}
           <Link href="/" className="mono text-xs text-ink-soft hover:text-ink">New scan</Link>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[300px_1fr_390px] lg:grid-rows-[minmax(0,1fr)]">
         {/* Console (desktop rail; on mobile the live logs are summarized in-graph) */}
-        <aside className="hidden border-r border-line bg-base-900/60 lg:block">
+        <aside data-capture-hide className="hidden border-r border-line bg-base-900/60 lg:block">
           <ScanConsole stages={scan.stages} logs={scan.logs} scanning={scan.status === "scanning"} />
         </aside>
 
         {/* Graph */}
-        <main className="relative min-h-[320px] flex-1 lg:min-h-0">
+        <main data-tour="graph" className="relative min-h-[320px] flex-1 lg:min-h-0">
           <div className="grid-backdrop pointer-events-none absolute inset-0" />
           <AssetGraph
             assets={scan.assets}
@@ -138,14 +155,7 @@ function ScanView() {
               setPriorityFilter={setPriorityFilter}
             />
           )}
-          {scan.assets.length === 0 && scan.status !== "error" && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="mx-auto h-14 w-14 animate-pulse-ring rounded-full border border-signal/40" />
-                <p className="mono mt-4 text-sm text-ink-soft">Resolving root domain…</p>
-              </div>
-            </div>
-          )}
+          {scan.status === "scanning" && <CinematicScanStatus stages={scan.stages} assetCount={scan.assets.length} latest={scan.logs.at(-1)?.message}/>}
           {scan.status === "error" && (
             <div className="absolute inset-0 flex items-center justify-center px-6">
               <div className="panel max-w-md p-6 text-center">
@@ -161,20 +171,21 @@ function ScanView() {
         </main>
 
         {/* Right rail — stacks below the graph on mobile so findings stay reachable */}
-        <aside className="block h-[46vh] shrink-0 border-t border-line bg-base-900/60 lg:h-auto lg:border-l lg:border-t-0">
+        <aside data-tour={selected ? "asset-lens" : "intelligence"} className="block h-[46vh] shrink-0 border-t border-line bg-base-900/60 lg:h-auto lg:border-l lg:border-t-0">
           {selected ? (
             <NodeDetail asset={selected} onClose={() => setSelectedId(null)} />
           ) : scan.result ? (
             <Summary result={scan.result} onSelectAsset={setSelectedId} onOpenAttacker={() => setAttacker(true)} />
           ) : (
-            <div className="flex h-full items-center justify-center px-6 text-center">
-              <p className="mono text-xs text-ink-faint">Assets and findings will appear here as the external surface is mapped.</p>
-            </div>
+            <IntelligenceEmpty scanning={scan.status === "scanning"}/>
           )}
         </aside>
       </div>
 
-      {attacker && scan.result && <AttackerView result={scan.result} onClose={() => setAttacker(false)} />}
+      {attacker && scan.result && (
+        <AttackerView result={scan.result} onClose={() => setAttacker(false)} autoPresent={params.get("present") === "1"}/>
+      )}
+      <Walkthrough open={walkthrough} onClose={() => setWalkthrough(false)} steps={tourSteps}/>
       {verifyOpen && resultTarget && (
         <VerifyPanel
           domain={resultTarget}
@@ -187,6 +198,17 @@ function ScanView() {
       )}
     </div>
   );
+}
+
+function CinematicScanStatus({ stages, assetCount, latest }: { stages: StageState[]; assetCount: number; latest?: string }) {
+  const activeIndex = Math.max(0, stages.findIndex((stage) => stage.status === "active"));
+  const active = stages[activeIndex] ?? stages[0];
+  const progress = Math.max(4, ((stages.filter((stage) => stage.status === "done").length + .45) / Math.max(stages.length, 1)) * 100);
+  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/[.06]"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[9px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[9px] uppercase tracking-[.18em] text-signal">Discovery in progress</div><div className="mono text-[8px] text-ink-faint">{assetCount} entities</div></div><div className="mt-1 text-sm font-medium text-ink">{active?.label ?? "Establishing external viewpoint"}</div><div className="mono mt-1 truncate text-[9px] text-ink-faint">{latest ?? "Opening deterministic provider sequence…"}</div></div></div><div className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${stage.label}`}/>)}</div></div></div>;
+}
+
+function IntelligenceEmpty({ scanning }: { scanning: boolean }) {
+  return <div className="flex h-full items-center justify-center px-7 text-center"><div className="max-w-xs"><div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-line bg-base-950/50"><div className={`h-2.5 w-2.5 rounded-full bg-signal ${scanning ? "animate-breathe shadow-glow" : ""}`}/><span className="absolute inset-3 rounded-xl border border-signal/10"/></div><div className="mt-5 text-sm font-medium text-ink">{scanning ? "Building the intelligence layer" : "Select an asset to inspect"}</div><p className="mt-2 text-xs leading-5 text-ink-faint">{scanning ? "Findings, evidence and posture appear only after deterministic observations are correlated." : "Routing, technology, confidence, signals and source evidence stay one click from the graph."}</p></div></div>;
 }
 
 const FILTER_PRIORITIES: Array<{ key: string; color: string; label: string }> = [

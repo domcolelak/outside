@@ -1,0 +1,352 @@
+name: Production-like launch validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/launch-validation.yml"
+      - "ops/staging/**"
+      - "scripts/measure-http.mjs"
+      - "Dockerfile"
+      - "docker-entrypoint.sh"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "browser/**"
+      - "prisma/**"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
+
+permissions:
+  contents: read
+
+jobs:
+  ephemeral-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      VALIDATED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.VALIDATED_SHA }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20.20.0
+          cache: npm
+
+      - name: Install browser validation dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Generate isolated production-style staging configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          random_hex() { openssl rand -hex "$1"; }
+          random_key() { openssl rand -base64 32 | tr -d '\n'; }
+          cat > .env.staging <<EOF
+          OUTSIDE_IMAGE=outside:${VALIDATED_SHA}
+          OUTSIDE_MIGRATOR_IMAGE=outside-migrator:${VALIDATED_SHA}
+          OUTSIDE_BACKUP_IMAGE=outside-backup:${VALIDATED_SHA}
+          STAGING_DOMAIN=outside.test
+          APP_URL=https://outside.test:8443
+          HTTPS_PORT=8443
+          POSTGRES_PASSWORD=$(random_hex 32)
+          AUTH_SECRET=$(random_hex 32)
+          OUTSIDE_VERIFY_SECRET=$(random_hex 32)
+          CRON_SECRET=$(random_hex 32)
+          RESEND_API_KEY=staging-resend-$(random_hex 20)
+          EMAIL_FROM='OUTSIDE Staging <outside-staging@outside.invalid>'
+          GUARDIAN_ENCRYPTION_KEY=$(random_key)
+          ENTERPRISE_ENCRYPTION_KEY=$(random_key)
+          ENTERPRISE_PROVISIONING_TOKEN=$(random_hex 32)
+          AUDIT_IP_SALT=$(random_hex 16)
+          BACKUP_ENCRYPTION_KEY=GENERATED_AFTER_BACKUP_IMAGE_BUILD
+          GRAFANA_ADMIN_PASSWORD=$(random_hex 24)
+          OUTSIDE_DATA_REGION=eu
+          OUTSIDE_EMAIL_IMMEDIATE_DELIVERY=false
+          OUTSIDE_TRUST_PROXY=true
+          GRAFANA_PORT=3001
+          BACKUP_INTERVAL_SECONDS=86400
+          BACKUP_RETENTION_DAYS=14
+          SCHEDULER_SCAN_INTERVAL_SECONDS=300
+          SCHEDULER_AGENCY_INTERVAL_SECONDS=600
+          SCHEDULER_ENTERPRISE_INTERVAL_SECONDS=60
+          SCHEDULER_RETENTION_INTERVAL_SECONDS=86400
+          EOF
+          chmod 0600 .env.staging
+          echo "127.0.0.1 outside.test" | sudo tee -a /etc/hosts >/dev/null
+
+      - name: Build the exact production artifact and validate Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p launch-evidence
+          source .env.staging
+          version="$(node -p "require('./package.json').version")"
+          built_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          args=(--build-arg "APP_VERSION=${version}" --build-arg "GIT_SHA=${VALIDATED_SHA}" --build-arg "BUILD_TIME=${built_at}")
+          docker build "${args[@]}" --target runner --tag "outside:${VALIDATED_SHA}" .
+          docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml config --format json |
+            jq '{caddyPorts: .services.caddy.ports, grafanaPorts: .services.grafana.ports}' \
+              > launch-evidence/compose-operator-ports.json
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
+          backup_identity="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
+          case "${backup_identity}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
+          sed -i "s|^BACKUP_ENCRYPTION_KEY=.*|BACKUP_ENCRYPTION_KEY=${backup_identity}|" .env.staging
+          cat > launch-evidence/artifact.json <<EOF
+          {
+            "version": "${version}",
+            "commit": "${VALIDATED_SHA}",
+            "builtAt": "${built_at}",
+            "applicationImageId": "$(docker image inspect "outside:${VALIDATED_SHA}" --format '{{.Id}}')",
+            "migratorImageId": "$(docker image inspect "outside-migrator:${VALIDATED_SHA}" --format '{{.Id}}')",
+            "schemaVersion": "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)",
+            "ciRun": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          }
+          EOF
+
+      - name: Deploy production-like staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml up --detach --build
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+              https://outside.test:8443/api/readyz > launch-evidence/ready.json; then
+              break
+            fi
+            sleep 2
+          done
+          jq -e --arg commit "${VALIDATED_SHA}" '.status == "ready" and .persistence == "database" and .release.commit == $commit' launch-evidence/ready.json
+          app_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q app)"
+          test "$(docker inspect "${app_id}" --format '{{.Config.User}}')" = "nextjs"
+          test "$(docker inspect "${app_id}" --format '{{.HostConfig.ReadonlyRootfs}}')" = "true"
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml ps --format json > launch-evidence/containers.json
+
+      - name: Execute real HTTPS customer journeys
+        env:
+          PLAYWRIGHT_BASE_URL: https://outside.test:8443
+          PLAYWRIGHT_EXTERNAL_SERVER: "true"
+          PLAYWRIGHT_ALLOW_INSECURE_TLS: "true"
+        run: npm run test:browser
+
+      - name: Measure availability and HTTP baseline
+        shell: bash
+        env:
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
+        run: |
+          set -euo pipefail
+          node scripts/measure-http.mjs https://outside.test:8443/api/livez 100 > launch-evidence/livez-performance.json
+          node scripts/measure-http.mjs https://outside.test:8443/api/readyz 50 > launch-evidence/readyz-performance.json
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3001/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:3001/api/health > launch-evidence/grafana-health.json
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml exec -T prometheus \
+            promtool check config /etc/prometheus/prometheus.yaml > launch-evidence/prometheus-validation.txt
+
+      - name: Drill application interruption and leased-work recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .env.staging
+          compose=(docker compose --env-file .env.staging -f ops/staging/compose.yaml)
+          "${compose[@]}" stop scheduler
+          postgres_id="$("${compose[@]}" ps -q postgres)"
+          org_id="$(docker exec "${postgres_id}" psql -U outside -d outside -Atc 'SELECT id FROM organizations ORDER BY "createdAt" LIMIT 1')"
+          test -n "${org_id}"
+          docker exec "${postgres_id}" psql -U outside -d outside -v ON_ERROR_STOP=1 \
+            -c "INSERT INTO monitors (id,\"orgId\",domain,frequency,enabled,\"nextRunAt\",\"createdAt\",attempts) VALUES ('launch_drill_monitor','${org_id}','example.invalid','daily',true,NOW()-INTERVAL '1 minute',NOW(),0) ON CONFLICT (\"orgId\",domain) DO UPDATE SET \"nextRunAt\"=NOW()-INTERVAL '1 minute',enabled=true;"
+          curl --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://outside.test:8443/api/cron/scan > launch-evidence/interrupted-scan-response.json &
+          request_pid=$!
+          sleep 1
+          app_id="$("${compose[@]}" ps -q app)"
+          app_host_pid="$(docker inspect "${app_id}" --format '{{.State.Pid}}')"
+          restart_count_before="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
+          test "${app_host_pid}" -gt 1
+          sudo kill -KILL "${app_host_pid}"
+          readiness_observed_down=false
+          for attempt in $(seq 1 20); do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 1 \
+              --insecure --resolve outside.test:8443:127.0.0.1 \
+              https://outside.test:8443/api/readyz || true)"
+            if test "${status}" != "200"; then
+              readiness_observed_down=true
+              break
+            fi
+            sleep 0.1
+          done
+          wait "${request_pid}" || true
+          recovered=false
+          for attempt in $(seq 1 60); do
+            restart_count_current="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
+            if test "${restart_count_current}" -gt "${restart_count_before}" &&
+              curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+                https://outside.test:8443/api/readyz >/dev/null; then
+              recovered=true
+              break
+            fi
+            sleep 2
+          done
+          test "${recovered}" = "true"
+          restart_count_after="$(docker inspect "${app_id}" --format '{{.RestartCount}}')"
+          test "${restart_count_after}" -gt "${restart_count_before}"
+          jq -n \
+            --argjson hostPid "${app_host_pid}" \
+            --argjson before "${restart_count_before}" \
+            --argjson after "${restart_count_after}" \
+            --argjson observedDown "${readiness_observed_down}" \
+            '{hostPid: $hostPid, restartCountBefore: $before, restartCountAfter: $after, readinessObservedDown: $observedDown, readinessRecovered: true}' \
+            > launch-evidence/application-restart.json
+          docker exec "${postgres_id}" psql -U outside -d outside -v ON_ERROR_STOP=1 \
+            -c "UPDATE monitors SET \"leaseUntil\"=NOW()-INTERVAL '1 second' WHERE id='launch_drill_monitor';"
+          curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            https://outside.test:8443/api/cron/scan > launch-evidence/recovered-scan.json
+          jq -e '.claimed == 1 and (.processed + .failed) == 1' launch-evidence/recovered-scan.json
+          docker exec "${postgres_id}" psql -U outside -d outside -Atc \
+            "SELECT json_build_object('leaseCleared',\"leaseId\" IS NULL,'attempts',attempts,'hasLastError',\"lastError\" IS NOT NULL) FROM monitors WHERE id='launch_drill_monitor';" \
+            > launch-evidence/scan-recovery-database.json
+          "${compose[@]}" start scheduler
+
+      - name: Drill database restart and connection recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose=(docker compose --env-file .env.staging -f ops/staging/compose.yaml)
+          "${compose[@]}" stop postgres
+          status="$(curl --silent --output launch-evidence/database-down.json --write-out '%{http_code}' \
+            --max-time 15 --insecure --resolve outside.test:8443:127.0.0.1 https://outside.test:8443/api/readyz || true)"
+          test "${status}" = "503" -o "${status}" = "502" -o "${status}" = "000"
+          "${compose[@]}" start postgres
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+              https://outside.test:8443/api/readyz > launch-evidence/database-recovered.json; then break; fi
+            sleep 2
+          done
+          jq -e '.status == "ready" and .persistence == "database"' launch-evidence/database-recovered.json
+
+      - name: Drill encrypted backup, clean restore, key loss and restored startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .env.staging
+          compose=(docker compose --env-file .env.staging -f ops/staging/compose.yaml)
+          started="$(date +%s)"
+          backup_path="$("${compose[@]}" run --rm backup /opt/outside/backup.sh | tail -n 1)"
+          backup_duration="$(( $(date +%s) - started ))"
+          test -n "${backup_path}"
+          postgres_id="$("${compose[@]}" ps -q postgres)"
+          docker exec "${postgres_id}" dropdb -U outside --if-exists outside_restore
+          docker exec "${postgres_id}" createdb -U outside outside_restore
+          started="$(date +%s)"
+          "${compose[@]}" run --rm backup /opt/outside/restore.sh "${backup_path}" \
+            "postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside_restore" \
+            > launch-evidence/restore-output.txt
+          restore_duration="$(( $(date +%s) - started ))"
+          restored_migrations="$(docker exec "${postgres_id}" psql -U outside -d outside_restore -Atc \
+            'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
+          test "${restored_migrations}" = "12"
+          wrong_key="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
+          case "${wrong_key}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
+          if "${compose[@]}" run --rm -e "BACKUP_ENCRYPTION_KEY=${wrong_key}" \
+            backup /opt/outside/restore.sh "${backup_path}" \
+            "postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside_restore"; then
+            echo "Restore unexpectedly accepted the wrong key" >&2
+            exit 1
+          fi
+          "${compose[@]}" run --detach --name outside-restore-app \
+            -e "DATABASE_URL=postgresql://outside:${POSTGRES_PASSWORD}@postgres:5432/outside_restore?schema=public" app >/dev/null
+          for attempt in $(seq 1 60); do
+            if docker exec outside-restore-app node -e \
+              "fetch('http://127.0.0.1:3000/api/readyz').then(async r=>{const b=await r.json();if(r.status!==200||b.status!=='ready')process.exit(1)}).catch(()=>process.exit(1))"; then break; fi
+            sleep 2
+          done
+          docker exec outside-restore-app node -e \
+            "fetch('http://127.0.0.1:3000/api/readyz').then(async r=>{console.log(await r.text());if(r.status!==200)process.exit(1)}).catch(()=>process.exit(1))" \
+            > launch-evidence/restored-app-ready.json
+          docker rm --force outside-restore-app >/dev/null
+          cat > launch-evidence/backup-restore.json <<EOF
+          {"backupDurationSeconds":${backup_duration},"restoreDurationSeconds":${restore_duration},"migrationCount":${restored_migrations},"wrongKeyRejected":true,"restoredApplicationReady":true}
+          EOF
+
+      - name: Drill failed deployment health check
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose=(docker compose --env-file .env.staging -f ops/staging/compose.yaml)
+          "${compose[@]}" run --detach --name outside-bad-app \
+            -e 'DATABASE_URL=postgresql://outside:invalid@unreachable.invalid:5432/outside?connect_timeout=3' app >/dev/null
+          sleep 5
+          docker exec outside-bad-app node -e \
+            "fetch('http://127.0.0.1:3000/api/readyz',{signal:AbortSignal.timeout(15000)}).then(async r=>{console.log(await r.text());if(r.status!==503)process.exit(1)}).catch(()=>process.exit(1))" \
+            > launch-evidence/failed-deployment-health.json
+          docker rm --force outside-bad-app >/dev/null
+
+      - name: Capture observability and validation evidence
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set +e
+          mkdir -p launch-evidence
+          compose=(docker compose --env-file .env.staging -f ops/staging/compose.yaml)
+          curl --silent http://127.0.0.1:3001/api/health > launch-evidence/grafana-health-final.json
+          "${compose[@]}" exec -T alert-sink node -e \
+            "fetch('http://prometheus:9090/api/v1/alerts').then(async r=>{console.log(await r.text());if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" \
+            > launch-evidence/prometheus-alerts.json
+          "${compose[@]}" logs --no-color --timestamps > launch-evidence/staging.log
+          "${compose[@]}" ps --format json > launch-evidence/containers-final.json
+          docker stats --no-stream --format \
+            '{"container":"{{.Name}}","cpu":"{{.CPUPerc}}","memory":"{{.MemUsage}}","network":"{{.NetIO}}","block":"{{.BlockIO}}"}' \
+            > launch-evidence/container-resources.ndjson
+          sha256sum launch-evidence/* > launch-evidence/SHA256SUMS
+
+      - name: Upload launch evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: outside-launch-validation-${{ env.VALIDATED_SHA }}
+          path: |
+            launch-evidence
+            playwright-report
+            test-results
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish evidence summary
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          {
+            echo "## Production-like launch validation"
+            echo
+            echo "- Commit: \`${VALIDATED_SHA}\`"
+            echo "- HTTPS production container: exercised"
+            echo "- Browser customer journeys: exercised"
+            echo "- Application interruption and lease recovery: exercised"
+            echo "- PostgreSQL restart and pool recovery: exercised"
+            echo "- Encrypted backup, wrong-key rejection, clean restore and restored startup: exercised"
+            echo "- Failed deployment readiness rejection: exercised"
+            if test -f launch-evidence/livez-performance.json; then
+              echo "- Liveness p95: \`$(jq -r '.latencyMs.p95' launch-evidence/livez-performance.json) ms\`"
+            fi
+            if test -f launch-evidence/readyz-performance.json; then
+              echo "- Readiness p95: \`$(jq -r '.latencyMs.p95' launch-evidence/readyz-performance.json) ms\`"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Tear down isolated staging
+        if: always()
+        run: docker compose --env-file .env.staging -f ops/staging/compose.yaml down --volumes --remove-orphans

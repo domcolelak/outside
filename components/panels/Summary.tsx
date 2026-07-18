@@ -7,6 +7,8 @@ import { AssuranceTag, Confidence, PriorityDot, PRIORITY_STYLE } from "@/compone
 import { HistoryPanel } from "@/components/panels/HistoryPanel";
 import { ProtectionPanel } from "@/components/panels/ProtectionPanel";
 import { InvestigationPanel } from "@/components/panels/InvestigationPanel";
+import { EvidenceIntelligencePanel } from "@/components/guardian/EvidenceIntelligence";
+import { ReportPreview } from "@/components/report/ReportPreview";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -108,7 +110,7 @@ export function Summary({
         <div className="mt-0.5 text-sm text-ink">Replay how the surface was revealed →</div>
       </button>
 
-      <ExportButton result={result} />
+      <ReportPreview result={result} />
 
       <AiSummary result={result} />
 
@@ -132,9 +134,7 @@ export function Summary({
             <FindingCard key={f.id} finding={f} target={result.target} onSelect={() => onSelectAsset(f.assetId)} />
           ))}
           {result.findings.length === 0 && (
-            <div className="rounded-lg border border-line bg-base-850 px-3 py-4 text-center text-xs text-ink-faint">
-              No review-priority findings on the observable surface.
-            </div>
+            <div className="rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-6 text-center"><div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div><div className="mt-3 text-xs font-medium text-ink">No priority review items</div><div className="mt-1 text-[10px] leading-5 text-ink-faint">Guardian will create a finding only when deterministic observations support it.</div></div>
           )}
         </div>
       </div>
@@ -183,43 +183,6 @@ function AiSummary({ result }: { result: ScanResult }) {
   );
 }
 
-function ExportButton({ result }: { result: ScanResult }) {
-  const [state, setState] = useState<"idle" | "working" | "error">("idle");
-  const download = async () => {
-    setState("working");
-    try {
-      const res = await fetch("/api/report", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(result),
-      });
-      if (!res.ok) throw new Error("failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `outside-${result.target.replace(/[^a-z0-9.-]/gi, "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      setState("idle");
-    } catch {
-      setState("error");
-      setTimeout(() => setState("idle"), 2500);
-    }
-  };
-  return (
-    <button
-      onClick={download}
-      disabled={state === "working"}
-      className="mono w-full rounded-xl border border-line px-4 py-2.5 text-left text-xs text-ink-soft transition hover:bg-base-700/40 disabled:opacity-60"
-    >
-      {state === "working" ? "Generating PDF…" : state === "error" ? "Export failed — retry" : "↓ Export report (PDF)"}
-    </button>
-  );
-}
-
 const CHANGE_META: Record<ChangeType, { mark: string; label: string; color: string }> = {
   asset_appeared: { mark: "+", label: "New", color: "#38e1c3" },
   asset_returned: { mark: "↻", label: "Returned", color: "#f5c451" },
@@ -257,7 +220,7 @@ function Changes({
             <button
               key={i}
               onClick={() => assetId && onSelect(assetId)}
-              className="panel flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-base-700/40"
+              className="panel motion-card flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-base-700/40"
             >
               <span className="mono mt-0.5 w-3 shrink-0 text-center" style={{ color: meta.color }}>{meta.mark}</span>
               <div className="min-w-0 flex-1">
@@ -278,7 +241,7 @@ function Changes({
 
 function Stat({ label, value, tone = "ok" }: { label: string; value: number; tone?: "ok" | "warn" }) {
   return (
-    <div className="panel px-3 py-2.5">
+    <div className="panel motion-card px-3 py-2.5">
       <div className={`text-2xl font-semibold ${tone === "warn" && value > 0 ? "text-risk-high" : "text-ink"}`}>{value}</div>
       <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
     </div>
@@ -299,7 +262,7 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
     }
   };
   return (
-    <div className="panel overflow-hidden">
+    <div className="panel motion-card overflow-hidden">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-base-700/40">
         <PriorityDot priority={finding.priority} />
         <div className="min-w-0 flex-1">
@@ -321,6 +284,7 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
             <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Recommended review</div>
             <p className="mt-0.5 leading-relaxed text-ink">{finding.recommendation}</p>
           </div>
+          <EvidenceIntelligencePanel orgId="" target={target} findingId={finding.id} />
           {explain.state === "done" ? (
             <div className="rounded-lg border border-line bg-base-850 p-2.5">
               <div className="mono mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-ink-faint">

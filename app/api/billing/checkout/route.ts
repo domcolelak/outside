@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore, getSessionContext, hasOrgRole } from "@/lib/auth";
 import { PLANS, type PlanId } from "@/lib/billing/plans";
 import { APP_URL, getStripe, isBillingEnabled } from "@/lib/billing/stripe";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
+import { recordFunnelEvent } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +17,9 @@ export async function POST(req: NextRequest) {
 
   let body: { orgId?: string; plan?: string };
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    body = await readLimitedJson(req, 8_000) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 
   const orgId = String(body.orgId ?? "");
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
       email: ctx.user.email,
       name: membership.org.name,
       metadata: { orgId },
-    });
+    }, { idempotencyKey: `outside:customer:${orgId}` });
     customerId = customer.id;
     await auth.setSubscription?.(orgId, { plan: membership.org.plan, stripeCustomerId: customerId });
   }
@@ -58,5 +60,6 @@ export async function POST(req: NextRequest) {
     subscription_data: { metadata: { orgId, plan: planId } },
   });
 
+  recordFunnelEvent("checkout_started", "product");
   return NextResponse.json({ url: session.url });
 }

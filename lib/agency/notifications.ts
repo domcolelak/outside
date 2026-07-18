@@ -1,0 +1,20 @@
+import type { GuardianStore } from "@/lib/guardian/store-model";
+import type { GuardianEvent } from "@/lib/guardian/types";
+import type { AgencyClient, AgencyNotificationRouting, AgencyWorkspace } from "./types";
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+export function normalizedRouting(client: AgencyClient): AgencyNotificationRouting { const raw = client.notificationRouting; const fallback: AgencyNotificationRouting["severities"] = ["critical", "high"]; const severities = Array.isArray(raw.severities) ? raw.severities.filter((item): item is AgencyNotificationRouting["severities"][number] => typeof item === "string" && ["critical", "high", "medium", "low", "info"].includes(item)) : fallback; return { emails: Array.isArray(raw.emails) ? raw.emails.filter((item): item is string => typeof item === "string") : [], channelIds: Array.isArray(raw.channelIds) ? raw.channelIds.filter((item): item is string => typeof item === "string") : [], severities }; }
+
+export async function queueAgencyClientNotifications(store: GuardianStore, workspace: AgencyWorkspace, client: AgencyClient, events: GuardianEvent[]): Promise<number> {
+  const routing = normalizedRouting(client); const filtered = events.filter((event) => routing.severities.includes(event.severity)); if (!filtered.length) return 0;
+  const grouped = new Map<string, GuardianEvent[]>(); for (const event of filtered) grouped.set(`${event.scanId}:${event.target}`, [...(grouped.get(`${event.scanId}:${event.target}`) ?? []), event]);
+  const available = (await store.channels(client.orgId)).filter((channel) => channel.enabled && routing.channelIds.includes(channel.id)); let count = 0;
+  for (const group of grouped.values()) { const first = group[0]; if (!first) continue; const payload = { kind: "event_group", target: first.target, scanId: first.scanId, observedAt: first.observedAt, events: group };
+    await Promise.all(available.map((channel) => store.queueDelivery({ idempotencyKey: `agency:${workspace.id}:${client.id}:${first.scanId}:${channel.id}`, orgId: client.orgId, channelId: channel.id, channelType: channel.type, target: first.target, kind: "event_group", itemCount: group.length, payload })));
+    const sender = workspace.branding.emailFromName || workspace.name; const text = `${sender} observed ${group.length} external change(s) for ${first.target}.\n\n${group.map((event) => `${event.severity.toUpperCase()}: ${event.title}\n${event.summary}\nEvidence: ${event.evidence.map((item) => `${item.source}: ${item.observation}`).join(", ")}`).join("\n\n")}\n\n${workspace.branding.emailFooter ?? "Review these deterministic public observations in your client portal."}`;
+    const html = `<div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px;border-top:4px solid ${escapeHtml(workspace.branding.primaryColor)}"><p style="color:${escapeHtml(workspace.branding.primaryColor)};letter-spacing:.12em">${escapeHtml(sender.toUpperCase())}</p><h1>${group.length} external change${group.length === 1 ? "" : "s"}</h1><p>${escapeHtml(first.target)}</p>${group.map((event) => `<div style="margin:18px 0;padding:16px;border:1px solid #244339;border-radius:12px"><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.summary)}</p><small>${escapeHtml(event.why)}</small></div>`).join("")}<p style="color:#8aa59a">${escapeHtml(workspace.branding.emailFooter ?? "Deterministic observations only. Review in the client portal.")}</p></div>`;
+    await Promise.all(routing.emails.map((email) => store.queueDelivery({ idempotencyKey: `agency:${workspace.id}:${client.id}:${first.scanId}:email:${email}`, orgId: client.orgId, channelId: null, channelType: "email", target: first.target, kind: "event_group", itemCount: group.length, payload: { to: email, subject: `${sender}: ${group.length} important change${group.length === 1 ? "" : "s"} for ${first.target}`, text, html } })));
+    count += available.length + routing.emails.length;
+  }
+  return count;
+}

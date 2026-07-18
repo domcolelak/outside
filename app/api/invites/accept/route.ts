@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore, getSessionContext } from "@/lib/auth";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +13,9 @@ export async function POST(req: NextRequest) {
 
   let body: { token?: string };
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    body = await readLimitedJson(req, 4_000) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
   const token = String(body.token ?? "");
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 422 });

@@ -1,0 +1,10 @@
+import { NextRequest, NextResponse } from "next/server";
+import { agencyAccess } from "@/lib/agency/access";
+import { agencyAnalytics } from "@/lib/agency/analytics";
+import { getAgencyStore } from "@/lib/agency/store";
+import { cleanText } from "@/lib/agency/validation";
+import { readLimitedJson } from "@/lib/http/body";
+
+export const runtime = "nodejs"; export const dynamic = "force-dynamic";
+export async function GET(req: NextRequest) { const agencyId = new URL(req.url).searchParams.get("agencyId"); const access = await agencyAccess(req, "billing:manage", agencyId); if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); return NextResponse.json((await agencyAnalytics(await getAgencyStore(), access.workspace.id, 30)).billing, { headers: { "cache-control": "private, no-store" } }); }
+export async function PATCH(req: NextRequest) { const agencyId = new URL(req.url).searchParams.get("agencyId"); const access = await agencyAccess(req, "billing:manage", agencyId); if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 }); const body = await readLimitedJson(req, 10_000) as Record<string, unknown>; const clientId = cleanText(body.clientId, 100), mode = cleanText(body.billingMode, 20), currency = cleanText(body.currency, 3).toUpperCase(); if (!clientId || !["agency", "direct", "reseller"].includes(mode) || !/^[A-Z]{3}$/.test(currency)) return NextResponse.json({ error: "Invalid billing configuration" }, { status: 422 }); const store = await getAgencyStore(); const client = await store.updateClient(access.workspace.id, clientId, { billingMode: mode, monthlyPriceCents: Math.max(0, Math.min(100_000_000, Math.round(Number(body.monthlyPriceCents) || 0))), currency }); if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 }); await store.appendActivity({ agencyId: access.workspace.id, clientOrgId: client.orgId, actorId: access.actorId, type: "billing.updated", message: `Billing configuration updated for ${client.organizationName}`, detail: { clientId, mode, currency } }); return NextResponse.json({ client }); }

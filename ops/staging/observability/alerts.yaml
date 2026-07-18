@@ -1,0 +1,107 @@
+groups:
+  - name: outside-critical
+    rules:
+      - alert: OutsideApplicationUnavailable
+        expr: probe_success{job="outside-readiness"} == 0
+        for: 2m
+        labels: { severity: critical, owner: platform }
+        annotations:
+          summary: OUTSIDE readiness probe is failing
+          action: Check Caddy and application logs, then database readiness; roll back the latest deployment if the failure began during rollout.
+
+      - alert: OutsideDatabaseUnavailable
+        expr: up{job="outside-postgres"} == 0
+        for: 2m
+        labels: { severity: critical, owner: database }
+        annotations:
+          summary: PostgreSQL exporter cannot reach the database
+          action: Check database availability, credentials, connections and storage; stop migrations and outbound jobs until integrity is known.
+
+      - alert: OutsideSchedulerMissed
+        expr: time() - outside_scheduler_last_success_unixtime{job=~"scan|enterprise"} > 900
+        for: 5m
+        labels: { severity: critical, owner: platform }
+        annotations:
+          summary: A frequent OUTSIDE scheduled job has not completed
+          action: Inspect scheduler and application logs, queue leases and cron authentication; resume one scheduler owner only.
+
+      - alert: OutsideBillingWebhookFailures
+        expr: increase(outside_billing_webhook_events_total{billing_outcome="failed"}[10m]) > 0
+        labels: { severity: critical, owner: billing }
+        annotations:
+          summary: A verified Stripe event failed during processing
+          action: Pause entitlement changes if ordering is uncertain, inspect the event ID and safely replay it from Stripe.
+
+      - alert: OutsideHttpErrorRateHigh
+        expr: |
+          sum(rate(caddy_http_request_duration_seconds_count{code=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(caddy_http_request_duration_seconds_count[5m])), 0.001) > 0.05
+        for: 5m
+        labels: { severity: critical, owner: platform }
+        annotations:
+          summary: More than 5% of edge requests return server errors
+          action: Correlate affected routes with application logs and dependencies; stop rollout or drain the unhealthy instance.
+
+      - alert: OutsideBackupMissing
+        expr: time() - outside_backup_last_success_unixtime > 93600
+        for: 10m
+        labels: { severity: critical, owner: database }
+        annotations:
+          summary: No successful encrypted logical backup in 26 hours
+          action: Inspect backup logs and storage capacity, run a manual backup, verify its manifest, and escalate if the RPO is at risk.
+
+  - name: outside-warning
+    rules:
+      - alert: OutsideGuardianQueueOld
+        expr: outside_guardian_queue_oldest_age_seconds > 900
+        for: 10m
+        labels: { severity: warning, owner: platform }
+        annotations:
+          summary: Guardian ready work is older than 15 minutes
+          action: Check provider latency, delivery retries, expired leases and scheduler cadence before increasing concurrency.
+
+      - alert: OutsideProviderFailureRateHigh
+        expr: |
+          sum(rate(outside_provider_runs_total{run_status="failed"}[15m]))
+          /
+          clamp_min(sum(rate(outside_provider_runs_total[15m])), 0.001) > 0.25
+        for: 15m
+        labels: { severity: warning, owner: discovery }
+        annotations:
+          summary: Discovery providers are failing abnormally often
+          action: Identify the affected provider, confirm the outage externally, preserve degraded evidence labels, and avoid retry amplification.
+
+      - alert: OutsideProviderLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(outside_provider_duration_seconds_bucket[15m]))) > 10
+        for: 15m
+        labels: { severity: warning, owner: discovery }
+        annotations:
+          summary: Discovery provider p95 latency exceeds 10 seconds
+          action: Compare providers, cache effectiveness and upstream status; tune concurrency only after ruling out upstream throttling.
+
+      - alert: OutsideSchedulerFailures
+        expr: increase(outside_scheduler_runs_total{result="failed"}[15m]) >= 3
+        labels: { severity: warning, owner: platform }
+        annotations:
+          summary: A scheduled workflow has failed repeatedly
+          action: Inspect the named job response and correlated application logs; verify credentials and bounded retry state.
+
+      - alert: OutsideContainerMemoryHigh
+        expr: |
+          container_memory_working_set_bytes{name=~".*(app|scheduler).*"}
+          /
+          clamp_min(container_spec_memory_limit_bytes{name=~".*(app|scheduler).*"}, 1) > 0.85
+        for: 15m
+        labels: { severity: warning, owner: platform }
+        annotations:
+          summary: An OUTSIDE container is above 85% of its memory limit
+          action: Inspect scan/report concurrency and heap growth; capture diagnostics before a controlled restart.
+
+      - alert: OutsideDiskSpaceLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} < 0.15
+        for: 15m
+        labels: { severity: warning, owner: platform }
+        annotations:
+          summary: Host filesystem has less than 15% free space
+          action: Identify database, backup, metrics or container-log growth; preserve required evidence before cleanup.
