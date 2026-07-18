@@ -36,7 +36,7 @@
     "next": "^16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "stripe": "^17.7.0",
+    "stripe": "^22.3.2",
     "tldts": "^7.4.8"
   },
   "devDependencies": {
