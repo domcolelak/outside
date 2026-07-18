@@ -2,6 +2,21 @@ name: Production-like launch validation
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/launch-validation.yml"
+      - "ops/staging/**"
+      - "scripts/measure-http.mjs"
+      - "Dockerfile"
+      - "docker-entrypoint.sh"
+      - "package.json"
+      - "package-lock.json"
+      - "playwright.config.ts"
+      - "browser/**"
+      - "prisma/**"
+      - "app/**"
+      - "components/**"
+      - "lib/**"
 
 permissions:
   contents: read
