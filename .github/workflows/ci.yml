@@ -18,8 +18,8 @@ jobs:
       AUTH_SECRET: ci-only-auth-secret-at-least-thirty-two-bytes
       OUTSIDE_VERIFY_SECRET: ci-only-verify-secret-at-least-thirty-two-bytes
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -67,8 +67,8 @@ jobs:
       OUTSIDE_STORAGE_MODE: database
       GUARDIAN_ENCRYPTION_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -118,8 +118,8 @@ jobs:
       EMAIL_FROM: OUTSIDE Browser CI <browser@outside.example>
       OUTSIDE_EMAIL_IMMEDIATE_DELIVERY: "false"
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20.20.0
           cache: npm
@@ -130,7 +130,7 @@ jobs:
       - run: npm run test:browser
       - name: Upload browser diagnostics
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-release-evidence
           path: |
@@ -158,7 +158,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://outside:outside@127.0.0.1:5432/outside_container
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Build and run the migration image
         run: |
           docker build --target migrator --tag outside-migrator:ci .
@@ -196,8 +196,8 @@ jobs:
       run:
         working-directory: terraform-provider-outside
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: terraform-provider-outside/go.mod
           cache: false
