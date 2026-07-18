@@ -69,7 +69,7 @@ export class PrismaMonitorStore implements MonitorStore {
   async complete(id: string, leaseId: string, ranAt: Date) {
     const changed = await prisma.$executeRaw`
       UPDATE "monitors" SET "lastScanAt" = ${ranAt},
-        "nextRunAt" = ${ranAt} + CASE WHEN "frequency" = 'weekly' THEN INTERVAL '7 days' ELSE INTERVAL '1 day' END,
+        "nextRunAt" = ${ranAt}::timestamp + CASE WHEN "frequency" = 'weekly' THEN INTERVAL '7 days' ELSE INTERVAL '1 day' END,
         "leaseId" = NULL, "leaseUntil" = NULL, "lastError" = NULL
       WHERE "id" = ${id} AND "leaseId" = ${leaseId}
     `;
