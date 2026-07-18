@@ -145,7 +145,7 @@ function RecCard({
           <div className="rounded-lg border border-line bg-base-850 p-3">
             <div className="mono mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-ink-faint">
               <span>Remediation · guided</span>
-              {rec.remediation.connector && <span className="rounded border border-line px-1.5 py-0.5 text-ink-soft">connector: {rec.remediation.connector}</span>}
+              {rec.remediation.connector && <span className="rounded-sm border border-line px-1.5 py-0.5 text-ink-soft">connector: {rec.remediation.connector}</span>}
             </div>
             <p className="text-ink-soft">{rec.remediation.summary}</p>
             <ol className="mt-2 space-y-1.5">
@@ -222,7 +222,7 @@ function ProposalPreview({ proposal }: { proposal: ChangeProposal }) {
           <span className={proposal.validation.ok ? "text-signal" : "text-risk-medium"}>
             {proposal.validation.ok ? "✓ validated in-scope" : "⚠ review"}
           </span>
-          <button onClick={copy} className="rounded border border-line px-1.5 py-0.5 text-ink-soft hover:bg-base-700">{copied ? "copied" : "copy"}</button>
+          <button onClick={copy} className="rounded-sm border border-line px-1.5 py-0.5 text-ink-soft hover:bg-base-700">{copied ? "copied" : "copy"}</button>
         </span>
       </div>
       <pre className="scroll-thin overflow-x-auto whitespace-pre text-[11px] leading-relaxed text-ink-soft">{text}</pre>

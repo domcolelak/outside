@@ -58,7 +58,7 @@ function ResetPasswordForm() {
 }
 
 function Field({ label, value, onChange, ...input }: { label: string; value: string; onChange: (value: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
-  return <label className="block"><span className="mono mb-1 block text-[10px] uppercase tracking-wide text-ink-faint">{label}</span><input {...input} required value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-sm text-ink focus:border-signal/40 focus:outline-none"/></label>;
+  return <label className="block"><span className="mono mb-1 block text-[10px] uppercase tracking-wide text-ink-faint">{label}</span><input {...input} required value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-sm text-ink focus:border-signal/40 focus:outline-hidden"/></label>;
 }
 
 export default function ResetPasswordPage() {

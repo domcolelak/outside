@@ -204,7 +204,7 @@ function CinematicScanStatus({ stages, assetCount, latest }: { stages: StageStat
   const activeIndex = Math.max(0, stages.findIndex((stage) => stage.status === "active"));
   const active = stages[activeIndex] ?? stages[0];
   const progress = Math.max(4, ((stages.filter((stage) => stage.status === "done").length + .45) / Math.max(stages.length, 1)) * 100);
-  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/[.06]"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[9px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[9px] uppercase tracking-[.18em] text-signal">Discovery in progress</div><div className="mono text-[8px] text-ink-faint">{assetCount} entities</div></div><div className="mt-1 text-sm font-medium text-ink">{active?.label ?? "Establishing external viewpoint"}</div><div className="mono mt-1 truncate text-[9px] text-ink-faint">{latest ?? "Opening deterministic provider sequence…"}</div></div></div><div className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${stage.label}`}/>)}</div></div></div>;
+  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/6"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[9px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[9px] uppercase tracking-[.18em] text-signal">Discovery in progress</div><div className="mono text-[8px] text-ink-faint">{assetCount} entities</div></div><div className="mt-1 text-sm font-medium text-ink">{active?.label ?? "Establishing external viewpoint"}</div><div className="mono mt-1 truncate text-[9px] text-ink-faint">{latest ?? "Opening deterministic provider sequence…"}</div></div></div><div className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${stage.label}`}/>)}</div></div></div>;
 }
 
 function IntelligenceEmpty({ scanning }: { scanning: boolean }) {
@@ -234,7 +234,7 @@ function GraphControls({
   };
   return (
     <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-2 rounded-lg border border-line bg-base-900/70 px-2.5 py-1.5 backdrop-blur">
+      <div className="flex items-center gap-2 rounded-lg border border-line bg-base-900/70 px-2.5 py-1.5 backdrop-blur-sm">
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-ink-faint" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
         </svg>
@@ -242,7 +242,7 @@ function GraphControls({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search assets…"
-          className="mono w-36 bg-transparent text-xs text-ink placeholder:text-ink-faint focus:outline-none"
+          className="mono w-36 bg-transparent text-xs text-ink placeholder:text-ink-faint focus:outline-hidden"
         />
         {query && (
           <button onClick={() => setQuery("")} className="text-ink-faint hover:text-ink" aria-label="Clear">×</button>
@@ -255,7 +255,7 @@ function GraphControls({
             <button
               key={p.key}
               onClick={() => toggle(p.key)}
-              className={`mono flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] backdrop-blur transition ${active ? "border-signal/40 bg-signal/10 text-ink" : "border-line bg-base-900/70 text-ink-soft hover:text-ink"}`}
+              className={`mono flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] backdrop-blur-sm transition ${active ? "border-signal/40 bg-signal/10 text-ink" : "border-line bg-base-900/70 text-ink-soft hover:text-ink"}`}
             >
               <span className="h-2 w-2 rounded-full" style={{ background: p.color, boxShadow: `0 0 8px ${p.color}88` }} />
               {p.label}
@@ -277,7 +277,7 @@ function GraphLegend() {
     { c: "#38e1c3", l: "Info" },
   ];
   return (
-    <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-base-900/70 px-3 py-2 backdrop-blur">
+    <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-base-900/70 px-3 py-2 backdrop-blur-sm">
       {items.map((i) => (
         <span key={i.l} className="mono flex items-center gap-1.5 text-[10px] text-ink-soft">
           <span className="h-2 w-2 rounded-full" style={{ background: i.c, boxShadow: `0 0 8px ${i.c}88` }} />
