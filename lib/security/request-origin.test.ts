@@ -10,11 +10,30 @@ const request = (method: string, values: Record<string, string> = {}) => ({
 describe("mutation origin policy", () => {
   it("allows safe requests and same-origin browser mutations", () => {
     expect(mutationOriginAllowed(request("GET", { origin: "https://evil.example" }))).toBe(true);
-    expect(mutationOriginAllowed(request("POST", { origin: "https://outside.example", "sec-fetch-site": "same-origin" }))).toBe(true);
+    expect(
+      mutationOriginAllowed(
+        request("POST", { origin: "https://outside.example", "sec-fetch-site": "same-origin" }),
+        "https://outside.example",
+      ),
+    ).toBe(true);
+  });
+
+  it("uses the configured public origin behind a reverse proxy", () => {
+    const proxied = {
+      ...request("POST", { origin: "https://outside.example:8443", "sec-fetch-site": "same-origin" }),
+      url: "http://app:3000/api/account",
+    };
+    expect(mutationOriginAllowed(proxied, "https://outside.example:8443")).toBe(true);
+    expect(mutationOriginAllowed(proxied, "https://different.example")).toBe(false);
   });
 
   it("rejects cross-site and malformed browser origins", () => {
-    expect(mutationOriginAllowed(request("POST", { origin: "https://evil.example" }))).toBe(false);
+    expect(
+      mutationOriginAllowed(
+        request("POST", { origin: "https://evil.example" }),
+        "https://outside.example",
+      ),
+    ).toBe(false);
     expect(mutationOriginAllowed(request("PATCH", { "sec-fetch-site": "cross-site" }))).toBe(false);
     expect(mutationOriginAllowed(request("DELETE", { origin: "not a URL" }))).toBe(false);
   });
