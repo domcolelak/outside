@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AnthropicExplainer, TemplateExplainer, getExplainer } from "./explainer";
+import { OpenAIExplainer, TemplateExplainer, getExplainer } from "./explainer";
 import type { ScanResult } from "@/lib/types";
 
 function fixture(): ScanResult {
@@ -36,12 +36,12 @@ describe("AI explanation layer", () => {
     expect(JSON.stringify(result)).toBe(snapshot);
   });
 
-  it("Anthropic explainer degrades to the template when the API call fails", async () => {
+  it("OpenAI explainer degrades to the template when the API call fails", async () => {
     // Stub fetch so the test never touches the network.
     const original = globalThis.fetch;
     globalThis.fetch = (async () => new Response("nope", { status: 500 })) as typeof fetch;
     try {
-      const e = new AnthropicExplainer("sk-invalid", "claude-sonnet-5");
+      const e = new OpenAIExplainer("sk-invalid", "gpt-4o-mini");
       const text = await e.executiveSummary(fixture());
       expect(text).toContain("acme.com"); // fell back to template
     } finally {
@@ -49,12 +49,12 @@ describe("AI explanation layer", () => {
     }
   });
 
-  it("Anthropic explainer uses model text on success", async () => {
+  it("OpenAI explainer uses model text on success", async () => {
     const original = globalThis.fetch;
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ content: [{ type: "text", text: "Custom AI summary for acme.com." }] }), { status: 200 })) as typeof fetch;
+      new Response(JSON.stringify({ choices: [{ message: { content: "Custom AI summary for acme.com." } }] }), { status: 200 })) as typeof fetch;
     try {
-      const e = new AnthropicExplainer("sk-test", "claude-sonnet-5");
+      const e = new OpenAIExplainer("sk-test", "gpt-4o-mini");
       const text = await e.executiveSummary(fixture());
       expect(text).toBe("Custom AI summary for acme.com.");
     } finally {
@@ -76,9 +76,16 @@ describe("AI explanation layer", () => {
   });
 
   it("factory returns template when no API key is configured", () => {
-    const prev = process.env.ANTHROPIC_API_KEY;
-    delete process.env.ANTHROPIC_API_KEY;
+    const prev = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     expect(getExplainer().kind).toBe("template");
-    if (prev) process.env.ANTHROPIC_API_KEY = prev;
+    if (prev) process.env.OPENAI_API_KEY = prev;
+  });
+
+  it("factory returns the OpenAI explainer when its key is present", () => {
+    const prev = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "sk-openai-test";
+    expect(getExplainer().kind).toBe("openai");
+    if (prev) process.env.OPENAI_API_KEY = prev; else delete process.env.OPENAI_API_KEY;
   });
 });
