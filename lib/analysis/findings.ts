@@ -6,6 +6,7 @@
 
 import type { Asset, Edge, Finding, Signal } from "@/lib/types";
 import { PRIORITY_RANK } from "@/lib/analysis/priority";
+import { correlateKnownVulnerabilities } from "@/lib/analysis/vulnerabilities";
 
 function fid(assetId: string, code: string) {
   return `find_${assetId}_${code}`.replace(/[^a-z0-9_]/gi, "_");
@@ -118,6 +119,9 @@ export function generateFindings(assets: Asset[], edges: Edge[], now: string): F
       createdAt: now,
     });
   }
+
+  // Correlate disclosed technology versions against known vulnerabilities / EOL branches.
+  out.push(...correlateKnownVulnerabilities(assets, now));
 
   return out.sort((a, b) => {
     const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
