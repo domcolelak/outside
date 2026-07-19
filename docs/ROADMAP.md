@@ -5,6 +5,7 @@ This file records the remaining product boundary. It is not a claim that planned
 ## Implemented
 
 - Passive CT/DNS discovery, verified-target HTTPS/TLS observation, typed SSE progress, deterministic evidence, findings, score, and recommendations.
+- Deterministic known-vulnerability correlation of disclosed technology versions (Server / X-Powered-By) against a curated CVE / CISA-KEV / end-of-life set, feeding prioritized findings and the exposure score with explicit backporting caveats.
 - PostgreSQL persistence for tenant-scoped targets, scans, temporal asset snapshots, changes, recommendation status, audit events, AI analyses, monitors, rate limits, webhook events, and email outbox state.
 - Email/password accounts, Google OAuth when configured, email verification, organizations, RBAC, hashed/expiring invites, DNS and well-known-file domain verification.
 - Atomic scheduled-monitor claims, retry backoff, alerts, PDF reports, Stripe subscriptions, and optional read-only OpenAI explanations.
@@ -25,6 +26,7 @@ This file records the remaining product boundary. It is not a claim that planned
 - Multi-region job routing, dedicated worker processes, or provider-specific circuit breakers for very large fleets.
 - A complete operator observability package. OTLP metrics and structured operational logs are available, but dashboards, alert policies, distributed tracing, and SLO ownership depend on the deployment platform.
 - Automated PostgreSQL backup/restore validation and disaster-recovery orchestration.
+- A live vulnerability feed. Known-vulnerability correlation currently uses a curated, offline seed set; a scheduled NVD + CISA-KEV sync would slot in behind the same version matcher without changing the finding shape.
 
 ## Recommended next investments
 

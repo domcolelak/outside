@@ -117,6 +117,21 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
     });
   }
 
+  // Known-vulnerability correlation from disclosed technology versions. Derived
+  // from the same findings so the score and the finding list never disagree.
+  const vulnFindings = findings.filter((f) => f.category === "known-vulnerability");
+  if (vulnFindings.length) {
+    const penalty = vulnFindings.reduce((sum, f) =>
+      sum + (f.priority === "critical" ? 12 : f.priority === "high" ? 8 : f.priority === "medium" ? 4 : 2), 0);
+    const critical = vulnFindings.filter((f) => f.priority === "critical").length;
+    components.push({
+      code: "known_vulnerabilities",
+      label: `${vulnFindings.length} known-vulnerability correlation${vulnFindings.length > 1 ? "s" : ""}${critical ? ` (${critical} critical/KEV)` : ""}`,
+      impact: -Math.min(30, penalty),
+      detail: "Disclosed technology versions match known vulnerabilities or end-of-life branches; confirm against the running build.",
+    });
+  }
+
   // Mitigations.
   const cdnFronted = assets.some((a) => a.kind === "root_domain" && a.attrs.cdn && a.attrs.cdn !== "none");
   if (cdnFronted) {
