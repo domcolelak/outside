@@ -9,6 +9,7 @@ import { ProtectionPanel } from "@/components/panels/ProtectionPanel";
 import { InvestigationPanel } from "@/components/panels/InvestigationPanel";
 import { EvidenceIntelligencePanel } from "@/components/guardian/EvidenceIntelligence";
 import { ReportPreview } from "@/components/report/ReportPreview";
+import { ShareButton } from "@/components/share/ShareButton";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -66,6 +67,8 @@ export function Summary({
           Demo dataset — synthetic organization. Findings are illustrative, not a real scan.
         </div>
       )}
+
+      <ShareButton result={result} />
 
       <div className="panel flex items-center gap-4 p-4">
         <ScoreRing value={result.score.value} color={band.color} />
