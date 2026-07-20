@@ -1,5 +1,7 @@
 # OUTSIDE
 
+**Live demo: [outsideguardian.eu](https://outsideguardian.eu)** — run an anonymous external snapshot with no sign-up (`/scan?target=northstar&mode=demo`).
+
 OUTSIDE is a defensive external-surface discovery and monitoring application. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and an exposure score, and tracks change for verified organizations.
 
 OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe. Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP, and technology history for every persisted finding.
