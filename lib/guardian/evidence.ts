@@ -28,6 +28,7 @@ const METHOD_RELIABILITY: Record<DiscoveryMethod, number> = {
   domain_registration: 0.9,
   technology_fingerprint: 0.76,
   passive_subdomain: 0.72,
+  service_observation: 0.78,
   threat_intel: 0.7,
   demo: 0.45,
 };

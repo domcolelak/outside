@@ -30,6 +30,7 @@ import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
 import { recordProviderMetrics } from "@/lib/observability/metrics";
 import { enrichThreatIntel, intelEnabled } from "@/lib/intel/enrich";
 import { discoverPassiveHostnames, passiveDnsEnabled } from "./passive-dns";
+import { censysConfigured, enrichCensysServices } from "./censys";
 
 export type Emit = (event: ScanEvent) => void | Promise<void>;
 
@@ -427,6 +428,20 @@ export async function runPassiveScan(
     } catch (error) {
       if (signal?.aborted) throw error;
       await emit({ type: "log", level: "warn", message: `Threat-intelligence enrichment skipped: ${(error as Error).message}` });
+    }
+  }
+
+  // Optional Censys service discovery: observed services on resolved public IPs.
+  // Verified targets only, operator-keyed; isolated so a failure never fails the scan.
+  if (options.activeObservation && censysConfigured()) {
+    try {
+      const censysRuns = await enrichCensysServices(assets, { signal });
+      providerRuns.push(...censysRuns);
+      const seen = censysRuns.reduce((n, r) => n + r.observations, 0);
+      if (seen) await emit({ type: "log", level: "info", message: `Censys observed ${seen} service(s) on resolved addresses` });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      await emit({ type: "log", level: "warn", message: `Censys service discovery skipped: ${(error as Error).message}` });
     }
   }
 
