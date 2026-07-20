@@ -15,6 +15,7 @@ import type {
   Asset,
   AssetKind,
   AttackerBeat,
+  DiscoveryMethod,
   Edge,
   ScanEvent,
   ScanResult,
@@ -28,6 +29,7 @@ import { observeHttp, type HttpObservation } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
 import { recordProviderMetrics } from "@/lib/observability/metrics";
 import { enrichThreatIntel, intelEnabled } from "@/lib/intel/enrich";
+import { discoverPassiveHostnames, passiveDnsEnabled } from "./passive-dns";
 
 export type Emit = (event: ScanEvent) => void | Promise<void>;
 
@@ -270,7 +272,20 @@ export async function runPassiveScan(
   // Cap candidates to keep the scan bounded and responsible.
   const MAX_HOSTS = Math.max(1, Math.min(200, Number(process.env.OUTSIDE_MAX_HOSTS_PER_SCAN ?? 60) || 60));
   const ctByHost = new Map(ctHosts.map((row) => [row.host, row]));
-  const candidates = [...ctByHost.keys()].filter((host) => host !== domain).slice(0, MAX_HOSTS);
+
+  // Optional passive-DNS expansion (verified targets only, operator-keyed): buy
+  // subdomains from commercial datasets that never hit a public certificate.
+  let passiveHosts: string[] = [];
+  if (options.activeObservation && passiveDnsEnabled()) {
+    const passive = await discoverPassiveHostnames(domain, { signal });
+    passiveHosts = passive.hostnames;
+    providerRuns.push(...passive.runs);
+    if (passiveHosts.length) await emit({ type: "log", level: "info", message: `${passiveHosts.length} additional hostname(s) from passive-DNS providers` });
+  }
+
+  const passiveHostSet = new Set(passiveHosts);
+  const candidateSet = new Set([...ctByHost.keys(), ...passiveHosts].filter((host) => host !== domain));
+  const candidates = [...candidateSet].slice(0, MAX_HOSTS);
 
   await stage(emit, "dns", async () => {
     const started = new Date();
@@ -290,16 +305,26 @@ export async function runPassiveScan(
         continue;
       }
       const kind = classifyKind(host, true);
-      const firstSeen = ctByHost.get(host)?.firstSeen;
+      const ctRow = ctByHost.get(host);
+      const fromCt = !!ctRow;
+      const fromPassive = passiveHostSet.has(host);
+      const discoveredVia: DiscoveryMethod[] = [
+        ...(fromCt ? (["certificate_transparency"] as const) : []),
+        ...(fromPassive ? (["passive_subdomain"] as const) : []),
+        "dns",
+      ];
+      const sourceEvidence = [];
+      if (fromCt) sourceEvidence.push(ev("certificate_transparency", "crt.sh", "Hostname observed on a public certificate.", undefined, now));
+      if (fromPassive) sourceEvidence.push(ev("passive_subdomain", "passive-DNS", "Hostname reported by a passive-DNS dataset.", undefined, now));
       const a = asset({
         kind,
         label: host,
-        discoveredVia: ["certificate_transparency", "dns"],
+        discoveredVia,
         evidence: [
-          ev("certificate_transparency", "crt.sh", "Hostname observed on a public certificate.", undefined, now),
+          ...sourceEvidence,
           ev("dns", "DoH", `Resolves publicly (${[...(rec?.a ?? []), ...(rec?.aaaa ?? [])].slice(0, 2).join(", ")}).`, undefined, now),
         ],
-        firstObservedAt: firstSeen,
+        firstObservedAt: ctRow?.firstSeen,
         attrs: { protocols: ["HTTPS"], addresses: [...(rec?.a ?? []), ...(rec?.aaaa ?? [])] },
       });
       applyDnsInfrastructure(a, rec, now);
