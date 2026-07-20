@@ -120,6 +120,22 @@ model RateLimitBucket {
   @@map("rate_limit_buckets")
 }
 
+/// Public, unlisted, expiring snapshot of a scan the scanner chose to share.
+/// Not tenant-scoped — it is a growth/sharing artifact of public passive data.
+model ScanShare {
+  token     String   @id
+  target    String
+  score     Int
+  band      String
+  snapshot  Json
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("scan_shares")
+}
+
 model ConcurrencyLease {
   id        String   @id
   scope     String
