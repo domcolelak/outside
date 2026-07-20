@@ -11,6 +11,7 @@ This file records the remaining product boundary. It is not a claim that planned
 - Atomic scheduled-monitor claims, retry backoff, alerts, PDF reports, Stripe subscriptions, and optional read-only OpenAI explanations.
 - Responsive canvas graph with Barnes-Hut repulsion, stale-object reconciliation, viewport culling, and idle/visibility suspension.
 - A connector credential registry and validated remediation proposal previews.
+- Deterministic known-vulnerability correlation over disclosed technology versions, enriched with the live CISA Known Exploited Vulnerabilities catalogue (exploited-in-the-wild status, ransomware linkage, federal remediation due dates).
 - OUTSIDE Guardian continuous snapshots, semantic event correlation, Exposure Drift, living SPF/DKIM/DMARC/DNSSEC/HSTS/HTTPS/security.txt/MTA-STS/TLS checklist, evidence-backed recommendations, provider-tailored remediation guides, grouped email/workflow notifications, retryable delivery history, and weekly executive digests.
 - Guardian monthly PostgreSQL partitioning, plan-aware per-tenant retention, bounded cleanup, OTLP metrics for provider and queue operations, and PostgreSQL integration workflows in CI.
 - Guardian Evidence Intelligence with immutable hashed snapshots, raw/normalized viewers, provider and entity-resolution provenance, multi-source correlation, contradiction and evidence-gap detection, trace graphs, and DNS/certificate/HTTP/technology histories.

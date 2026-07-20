@@ -11,12 +11,14 @@
  *    confidence reflect that version banners can be stale, spoofed, or patched
  *    by a distribution without changing the reported version (backporting).
  *  - Only fires when the host itself disclosed a parseable product + version.
- *  - The dataset is a curated seed of well-known, internet-facing issues. A live
- *    NVD / CISA-KEV feed sync is the production path (see docs/ROADMAP.md) and
- *    would slot in behind the same matcher.
+ *  - The dataset is a curated seed of well-known, internet-facing issues. The
+ *    live CISA KEV catalogue (see lib/analysis/kev.ts) enriches matches with
+ *    authoritative exploited-in-the-wild status, ransomware linkage and the
+ *    federal remediation due date; it never widens what the matcher fires on.
  */
 
 import type { Asset, Finding, Priority } from "@/lib/types";
+import { currentKevIndex, type KevIndex } from "./kev";
 
 export interface KnownVulnerability {
   /** Normalized product key (see PRODUCT_ALIASES). */
@@ -186,8 +188,8 @@ export function parseTechnologies(technology: string): ParsedTechnology[] {
   return out;
 }
 
-function priorityFor(v: KnownVulnerability): Priority {
-  if (v.kev || v.cvss >= 9) return "critical";
+function priorityFor(v: KnownVulnerability, kevListed: boolean): Priority {
+  if (kevListed || v.cvss >= 9) return "critical";
   if (v.cvss >= 7) return "high";
   if (v.cvss >= 4) return "medium";
   return "low";
@@ -201,7 +203,7 @@ function fid(assetId: string, ref: string): string {
  * Correlate the versions hosts disclosed against the known-vulnerability set.
  * Returns findings in the same shape as the rest of the analysis pipeline.
  */
-export function correlateKnownVulnerabilities(assets: Asset[], now: string): Finding[] {
+export function correlateKnownVulnerabilities(assets: Asset[], now: string, kev: KevIndex = currentKevIndex()): Finding[] {
   const out: Finding[] = [];
   for (const asset of assets) {
     const technologies = Array.isArray(asset.attrs.technologies) ? (asset.attrs.technologies as string[]) : [];
@@ -217,11 +219,21 @@ export function correlateKnownVulnerabilities(assets: Asset[], now: string): Fin
         if (seen.has(vuln.ref)) continue;
         seen.add(vuln.ref);
 
-        const priority = priorityFor(vuln);
+        // Live CISA KEV status is authoritative when synced; otherwise fall back
+        // to the curated static flag so the product still works offline.
+        const live = /^CVE-/i.test(vuln.ref) ? kev.get(vuln.ref) : undefined;
+        const kevListed = live !== undefined || vuln.kev;
+
+        const priority = priorityFor(vuln, kevListed);
         // Version-banner correlation carries inherent uncertainty (stale banners,
         // backported distro patches). KEV membership raises confidence somewhat.
-        const confidence = Math.min(0.85, (vuln.kev ? 0.7 : 0.6) + (vuln.cvss >= 9 ? 0.05 : 0));
-        const kevNote = vuln.kev ? " This vulnerability is in CISA's Known Exploited Vulnerabilities catalogue." : "";
+        const confidence = Math.min(0.9, (kevListed ? 0.7 : 0.6) + (vuln.cvss >= 9 ? 0.05 : 0) + (live ? 0.05 : 0));
+        const kevNote = live
+          ? ` CISA added ${vuln.ref} to the Known Exploited Vulnerabilities catalogue on ${live.dateAdded}${live.knownRansomware ? " and links it to known ransomware campaigns" : ""}${live.dueDate ? `; the US federal remediation due date is ${live.dueDate}` : ""}.`
+          : vuln.kev
+            ? " This vulnerability is listed in CISA's Known Exploited Vulnerabilities catalogue."
+            : "";
+        const provenance = live && kev.syncedAt ? ` KEV status confirmed against the CISA catalogue synced ${kev.syncedAt}.` : "";
 
         out.push({
           id: fid(asset.id, vuln.ref),
@@ -231,9 +243,9 @@ export function correlateKnownVulnerabilities(assets: Asset[], now: string): Fin
           assetId: asset.id,
           category: "known-vulnerability",
           observation: `${asset.label} disclosed ${tech.raw} in its response headers.`,
-          inference: `${tech.raw} matches ${vuln.ref} (CVSS ${vuln.cvss.toFixed(1)}${vuln.kev ? ", CISA KEV" : ""}).`,
+          inference: `${tech.raw} matches ${vuln.ref} (CVSS ${vuln.cvss.toFixed(1)}${kevListed ? ", CISA KEV" : ""}).`,
           concern: `${vuln.summary}${kevNote} A version banner is not proof the running build is vulnerable — distributions sometimes backport fixes without changing the reported version — so treat this as a prioritized item to confirm, not a confirmed exploit.`,
-          reasoning: `Deterministic correlation of the disclosed version (${tech.version}) against a curated known-vulnerability set. Affected range: ${describeRange(vuln)}.`,
+          reasoning: `Deterministic correlation of the disclosed version (${tech.version}) against a curated known-vulnerability set. Affected range: ${describeRange(vuln)}.${provenance}`,
           recommendation: vuln.recommendation,
           evidence: asset.evidence,
           discoveryMethod: "technology_fingerprint",

@@ -9,6 +9,7 @@ const jobs = [
   { name: "agency", method: "POST", path: "/api/cron/agency", interval: setting("SCHEDULER_AGENCY_INTERVAL_SECONDS", 600, 30), paginated: true },
   { name: "enterprise", method: "POST", path: "/api/cron/enterprise", interval: setting("SCHEDULER_ENTERPRISE_INTERVAL_SECONDS", 60, 15), paginated: true },
   { name: "retention", method: "GET", path: "/api/cron/retention", interval: setting("SCHEDULER_RETENTION_INTERVAL_SECONDS", 86_400, 300) },
+  { name: "kev", method: "GET", path: "/api/cron/kev-sync", interval: setting("SCHEDULER_KEV_INTERVAL_SECONDS", 86_400, 300) },
 ].map((job) => ({ ...job, nextAt: Date.now() + 5_000, startedAt: 0, running: false, successes: 0, failures: 0, lastSuccess: 0, lastDuration: 0 }));
 
 function setting(name, fallback, minimum) {
