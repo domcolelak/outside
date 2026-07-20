@@ -7,6 +7,7 @@
 import type { Asset, Edge, Finding, Signal } from "@/lib/types";
 import { PRIORITY_RANK } from "@/lib/analysis/priority";
 import { correlateKnownVulnerabilities } from "@/lib/analysis/vulnerabilities";
+import { currentKevIndex, type KevIndex } from "@/lib/analysis/kev";
 
 function fid(assetId: string, code: string) {
   return `find_${assetId}_${code}`.replace(/[^a-z0-9_]/gi, "_");
@@ -16,7 +17,7 @@ function signal(asset: Asset, code: string): Signal | undefined {
   return asset.signals.find((s) => s.code === code);
 }
 
-export function generateFindings(assets: Asset[], edges: Edge[], now: string): Finding[] {
+export function generateFindings(assets: Asset[], edges: Edge[], now: string, kev: KevIndex = currentKevIndex()): Finding[] {
   const out: Finding[] = [];
 
   for (const asset of assets) {
@@ -120,8 +121,9 @@ export function generateFindings(assets: Asset[], edges: Edge[], now: string): F
     });
   }
 
-  // Correlate disclosed technology versions against known vulnerabilities / EOL branches.
-  out.push(...correlateKnownVulnerabilities(assets, now));
+  // Correlate disclosed technology versions against known vulnerabilities / EOL
+  // branches, enriched with live CISA KEV status when the catalogue is synced.
+  out.push(...correlateKnownVulnerabilities(assets, now, kev));
 
   return out.sort((a, b) => {
     const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];

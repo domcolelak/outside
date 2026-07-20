@@ -45,7 +45,8 @@ Call authenticated cron routes with `Authorization: Bearer <CRON_SECRET>`:
 - `/api/cron/scan` every 5–15 minutes;
 - `/api/cron/agency` after scanning;
 - `/api/cron/enterprise` repeatedly until `nextCursor` is null for large fleets;
-- `/api/cron/retention` daily.
+- `/api/cron/retention` daily;
+- `/api/cron/kev-sync` daily (refreshes the CISA Known Exploited Vulnerabilities catalogue).
 
 Cron work is leased and idempotent, but the scheduler must alert on missed invocations and non-2xx responses. Horizontal application scaling does not replace the scheduler.
 
