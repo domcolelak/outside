@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { checkDomainBreaches, checkIpReputation } from "./providers";
+import {
+  checkDomainBreaches,
+  checkDomainReputation,
+  checkIpGreyNoise,
+  checkIpReputation,
+  greyNoiseConfigured,
+  virusTotalConfigured,
+} from "./providers";
 import { enrichThreatIntel, intelEnabled } from "./enrich";
 import { generateIntelFindings } from "./findings";
 import type { Asset } from "@/lib/types";
@@ -47,6 +54,35 @@ describe("threat-intel providers", () => {
     const none = await checkDomainBreaches("clean.com");
     expect(none?.breaches).toEqual([]);
   });
+
+  it("returns null for GreyNoise/VirusTotal without keys", async () => {
+    vi.unstubAllEnvs();
+    expect(greyNoiseConfigured()).toBe(false);
+    expect(virusTotalConfigured()).toBe(false);
+    expect(await checkIpGreyNoise("8.8.8.8")).toBeNull();
+    expect(await checkDomainReputation("acme.com")).toBeNull();
+  });
+
+  it("parses a GreyNoise classification and reads a 404 as no signal", async () => {
+    vi.stubEnv("GREYNOISE_API_KEY", "k");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      ip: "45.9.1.1", noise: true, riot: false, classification: "malicious", name: "ScannerX", last_seen: "2026-06-01",
+    }), { status: 200 })));
+    const verdict = await checkIpGreyNoise("45.9.1.1");
+    expect(verdict).toMatchObject({ ip: "45.9.1.1", source: "GreyNoise", classification: "malicious", noise: true, name: "ScannerX" });
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
+    expect(await checkIpGreyNoise("1.1.1.1")).toBeNull();
+  });
+
+  it("parses VirusTotal domain reputation stats", async () => {
+    vi.stubEnv("VIRUSTOTAL_API_KEY", "k");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      data: { attributes: { last_analysis_stats: { malicious: 4, suspicious: 1, harmless: 60 }, reputation: -12 } },
+    }), { status: 200 })));
+    const rep = await checkDomainReputation("acme.com");
+    expect(rep).toMatchObject({ source: "VirusTotal", malicious: 4, suspicious: 1, harmless: 60, reputation: -12 });
+  });
 });
 
 describe("threat-intel enrichment", () => {
@@ -83,6 +119,24 @@ describe("threat-intel enrichment", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(internal.attrs.threatIpScore).toBeUndefined();
   });
+
+  it("attaches GreyNoise classification and VirusTotal reputation", async () => {
+    vi.stubEnv("GREYNOISE_API_KEY", "k");
+    vi.stubEnv("VIRUSTOTAL_API_KEY", "k");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("greynoise")) {
+        return new Response(JSON.stringify({ noise: true, riot: false, classification: "malicious", name: "ScannerX" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: { attributes: { last_analysis_stats: { malicious: 3, suspicious: 0 }, reputation: -5 } } }), { status: 200 });
+    }));
+
+    const root = host("root", "root_domain", ["8.8.8.8"]);
+    const runs = await enrichThreatIntel([root], "acme.com");
+    expect(runs.map((r) => r.provider).sort()).toEqual(["GreyNoise", "VirusTotal"]);
+    expect(root.attrs.greynoiseClass).toBe("malicious");
+    expect(root.attrs.greynoiseNoise).toBe(true);
+    expect(root.attrs.vtMalicious).toBe(3);
+  });
 });
 
 describe("threat-intel findings", () => {
@@ -108,5 +162,28 @@ describe("threat-intel findings", () => {
     expect(findings[0]!.category).toBe("breach-exposure");
     expect(findings[0]!.observation).toContain("2 public data breach(es)");
     expect(findings[0]!.concern).toMatch(/not evidence of a current compromise/i);
+  });
+
+  it("emits a GreyNoise finding only for a malicious classification", () => {
+    const bad = host("www", "web_service", ["45.9.1.1"]);
+    bad.attrs = { ...bad.attrs, greynoiseClass: "malicious", greynoiseIp: "45.9.1.1", greynoiseName: "ScannerX", greynoiseLastSeen: "2026-06-01" };
+    const benign = host("cdn", "web_service", ["1.1.1.1"]);
+    benign.attrs = { ...benign.attrs, greynoiseClass: "benign", greynoiseRiot: true };
+
+    const findings = generateIntelFindings([bad, benign], "now");
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.observation).toContain("GreyNoise");
+    expect(findings[0]!.observation).toContain("ScannerX");
+    expect(findings[0]!.concern).toMatch(/not a confirmed compromise/i);
+  });
+
+  it("emits a VirusTotal finding graded by vendor count", () => {
+    const root = host("root", "root_domain", []);
+    root.attrs = { ...root.attrs, vtMalicious: 6, vtSuspicious: 1, vtSource: "VirusTotal" };
+    const findings = generateIntelFindings([root], "now");
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.title).toContain("flagged by security vendors");
+    expect(findings[0]!.priority).toBe("high");
+    expect(findings[0]!.concern).toMatch(/false positives/i);
   });
 });

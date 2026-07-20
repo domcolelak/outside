@@ -10,18 +10,39 @@
 import type { Asset, ProviderRun } from "@/lib/types";
 import { isSafePublicIp } from "@/lib/security/target";
 import { mapPool } from "@/lib/discovery/net";
-import { abuseIpdbConfigured, checkDomainBreaches, checkIpReputation, hibpConfigured } from "./providers";
+import {
+  abuseIpdbConfigured,
+  checkDomainBreaches,
+  checkDomainReputation,
+  checkIpGreyNoise,
+  checkIpReputation,
+  greyNoiseConfigured,
+  hibpConfigured,
+  virusTotalConfigured,
+} from "./providers";
 
 const MAX_IPS = 16;
 const IP_CONCURRENCY = 4;
 const MAX_BREACH_NAMES = 12;
 
 export function intelEnabled(): boolean {
-  return abuseIpdbConfigured() || hibpConfigured();
+  return abuseIpdbConfigured() || hibpConfigured() || greyNoiseConfigured() || virusTotalConfigured();
 }
 
 function addressesOf(asset: Asset): string[] {
   return Array.isArray(asset.attrs.addresses) ? (asset.attrs.addresses as string[]) : [];
+}
+
+/** Map each safe public IP to the assets that resolve to it, capped for responsibility. */
+function mapIpsToAssets(assets: Asset[]): Map<string, Asset[]> {
+  const ipToAssets = new Map<string, Asset[]>();
+  for (const asset of assets) {
+    for (const ip of addressesOf(asset)) {
+      if (!isSafePublicIp(ip)) continue;
+      (ipToAssets.get(ip) ?? ipToAssets.set(ip, []).get(ip)!).push(asset);
+    }
+  }
+  return ipToAssets;
 }
 
 /** Enrich assets in place; returns a ProviderRun per attempted provider. */
@@ -30,14 +51,7 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
 
   if (abuseIpdbConfigured()) {
     const started = new Date().toISOString();
-    // Map each public IP to the assets that resolve to it, capped for responsibility.
-    const ipToAssets = new Map<string, Asset[]>();
-    for (const asset of assets) {
-      for (const ip of addressesOf(asset)) {
-        if (!isSafePublicIp(ip)) continue;
-        (ipToAssets.get(ip) ?? ipToAssets.set(ip, []).get(ip)!).push(asset);
-      }
-    }
+    const ipToAssets = mapIpsToAssets(assets);
     const ips = [...ipToAssets.keys()].slice(0, MAX_IPS);
     const errors: string[] = [];
     let flagged = 0;
@@ -65,6 +79,35 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
     }
   }
 
+  if (greyNoiseConfigured()) {
+    const started = new Date().toISOString();
+    const ipToAssets = mapIpsToAssets(assets);
+    const ips = [...ipToAssets.keys()].slice(0, MAX_IPS);
+    const errors: string[] = [];
+    let flagged = 0;
+    try {
+      const results = await mapPool(ips, IP_CONCURRENCY, (ip) => checkIpGreyNoise(ip, options), options.signal);
+      for (const result of results) {
+        if (result.error) { errors.push((result.error as Error).message); continue; }
+        const verdict = result.value;
+        if (!verdict) continue;
+        for (const asset of ipToAssets.get(result.item) ?? []) {
+          asset.attrs.greynoiseClass = verdict.classification;
+          asset.attrs.greynoiseIp = verdict.ip;
+          asset.attrs.greynoiseNoise = verdict.noise;
+          asset.attrs.greynoiseRiot = verdict.riot;
+          if (verdict.name) asset.attrs.greynoiseName = verdict.name;
+          if (verdict.lastSeen) asset.attrs.greynoiseLastSeen = verdict.lastSeen;
+        }
+        if (verdict.classification === "malicious") flagged += 1;
+      }
+      runs.push({ provider: "GreyNoise", method: "threat_intel", status: errors.length ? "partial" : "ok", startedAt: started, finishedAt: new Date().toISOString(), observations: flagged, errors: errors.slice(0, 20) });
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      runs.push({ provider: "GreyNoise", method: "threat_intel", status: "error", startedAt: started, finishedAt: new Date().toISOString(), observations: 0, errors: [(error as Error).message] });
+    }
+  }
+
   if (hibpConfigured()) {
     const started = new Date().toISOString();
     try {
@@ -82,6 +125,25 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
     } catch (error) {
       if (options.signal?.aborted) throw error;
       runs.push({ provider: "HaveIBeenPwned", method: "threat_intel", status: "error", startedAt: started, finishedAt: new Date().toISOString(), observations: 0, errors: [(error as Error).message] });
+    }
+  }
+
+  if (virusTotalConfigured()) {
+    const started = new Date().toISOString();
+    try {
+      const reputation = await checkDomainReputation(domain, options);
+      const root = assets.find((asset) => asset.kind === "root_domain");
+      if (reputation && root) {
+        root.attrs.vtMalicious = reputation.malicious;
+        root.attrs.vtSuspicious = reputation.suspicious;
+        root.attrs.vtHarmless = reputation.harmless;
+        root.attrs.vtReputation = reputation.reputation;
+        root.attrs.vtSource = reputation.source;
+      }
+      runs.push({ provider: "VirusTotal", method: "threat_intel", status: "ok", startedAt: started, finishedAt: new Date().toISOString(), observations: reputation ? reputation.malicious + reputation.suspicious : 0, errors: [] });
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      runs.push({ provider: "VirusTotal", method: "threat_intel", status: "error", startedAt: started, finishedAt: new Date().toISOString(), observations: 0, errors: [(error as Error).message] });
     }
   }
 
