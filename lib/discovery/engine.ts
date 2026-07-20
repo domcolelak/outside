@@ -27,6 +27,7 @@ import type { CtHostname, DnsRecord } from "./providers";
 import { observeHttp, type HttpObservation } from "./http";
 import { asset, edge, ev, resetSeq } from "@/lib/demo/factory";
 import { recordProviderMetrics } from "@/lib/observability/metrics";
+import { enrichThreatIntel, intelEnabled } from "@/lib/intel/enrich";
 
 export type Emit = (event: ScanEvent) => void | Promise<void>;
 
@@ -388,6 +389,21 @@ export async function runPassiveScan(
     providerRuns.push({ provider: "Target HTTPS", method: "http_observation", status: errors.length ? "partial" : observed ? "ok" : "partial", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: observed, errors: errors.slice(0, 20) });
     await emit({ type: "log", level: observed ? "info" : "warn", message: `Verified HTTPS observation completed for ${observed}/${selected.length} selected public host(s)` });
   });
+
+  // Optional third-party threat-intelligence enrichment. Verified targets only
+  // and only when an operator has configured a provider key; best-effort and
+  // isolated, so a provider failure never fails the scan. Runs before finalize
+  // so its attributes become scored findings.
+  if (options.activeObservation && intelEnabled()) {
+    try {
+      const intelRuns = await enrichThreatIntel(assets, domain, { signal });
+      providerRuns.push(...intelRuns);
+      await emit({ type: "log", level: "info", message: `Threat-intelligence enrichment completed (${intelRuns.length} provider(s))` });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      await emit({ type: "log", level: "warn", message: `Threat-intelligence enrichment skipped: ${(error as Error).message}` });
+    }
+  }
 
   const result = finalize(domain, "passive", assets, edges, timeline, linkedFromPrimary, scanId, startedAt, providerRuns);
   await stage(emit, "classify", async () => {

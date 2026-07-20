@@ -23,6 +23,7 @@ export async function GET() {
     capabilities: {
       database: { configured: !!process.env.DATABASE_URL, ready: database },
       ai: !!process.env.OPENAI_API_KEY,
+      threatIntel: !!process.env.ABUSEIPDB_API_KEY || !!process.env.HIBP_API_KEY,
       email: !!process.env.RESEND_API_KEY,
       billing: !!process.env.STRIPE_SECRET_KEY,
       scheduler: !!process.env.CRON_SECRET,
