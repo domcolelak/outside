@@ -12,6 +12,9 @@
 import type { Finding, ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
 import { isTransientHttp, retryTransient, Semaphore } from "./resilience";
+import { executiveSummaryPrompt, findingExplanationPrompt } from "./constitution";
+import { ConstitutionViolation, findConstitutionViolations } from "./guardrails";
+import { operationalLog } from "@/lib/observability/log";
 
 // Bounds concurrent hosted-AI calls across the process (agents/requests share it).
 const aiSemaphore = new Semaphore(4);
@@ -63,19 +66,6 @@ function projectForModel(result: ScanResult) {
   };
 }
 
-const SYSTEM_PROMPT =
-  "You are an analyst writing a concise executive summary of an organization's EXTERNAL, publicly observable digital surface. " +
-  "You will receive a JSON projection of a completed, deterministic scan. Rules: " +
-  "(1) Use ONLY the facts provided — never invent assets, findings, vulnerabilities, or numbers. " +
-  "(2) Distinguish observed facts from inferences; do not claim compromise, breach, or exploitation. " +
-  "(3) Be factual and measured — no sensationalism, no security buzzwords. " +
-  "(4) 3–5 sentences, plain prose, no headings or lists. If evidence is weak, say so.";
-
-const FINDING_PROMPT =
-  "You explain a SINGLE external-surface finding to a non-expert stakeholder. Use ONLY the provided " +
-  "fields — never invent details. Keep the observed fact separate from the inference and the possible " +
-  "concern. Do not claim compromise or exploitation. 2–3 sentences of plain prose, then the recommended action.";
-
 /** OpenAI Chat Completions. Active when OPENAI_API_KEY is present. */
 export class OpenAIExplainer implements Explainer {
   readonly kind = "openai" as const;
@@ -116,6 +106,13 @@ export class OpenAIExplainer implements Explainer {
       const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
       const text = data.choices?.[0]?.message?.content?.trim();
       if (!text) throw new Error("Empty AI response");
+      // Deterministic enforcement of the Aegis Constitution. A violation is not
+      // transient, so it never retries — it propagates to the template fallback.
+      const violations = findConstitutionViolations(text, userContent);
+      if (violations.length) {
+        operationalLog("error", "aegis.constitution_violation", { violations, model: this.model });
+        throw new ConstitutionViolation(violations);
+      }
       return text;
     };
     // Bounded concurrency + transient-only retries with full-jitter backoff.
@@ -124,7 +121,7 @@ export class OpenAIExplainer implements Explainer {
 
   async executiveSummary(result: ScanResult): Promise<string> {
     try {
-      return await this.call(SYSTEM_PROMPT, `Scan projection:\n${JSON.stringify(projectForModel(result))}`);
+      return await this.call(executiveSummaryPrompt(), `Scan projection:\n${JSON.stringify(projectForModel(result))}`);
     } catch {
       return this.fallback.executiveSummary(result); // never fail the request
     }
@@ -142,7 +139,7 @@ export class OpenAIExplainer implements Explainer {
         concern: finding.concern,
         recommendation: finding.recommendation,
       };
-      return await this.call(FINDING_PROMPT, `Finding:\n${JSON.stringify(projection)}`, 300);
+      return await this.call(findingExplanationPrompt(), `Finding:\n${JSON.stringify(projection)}`, 300);
     } catch {
       return this.fallback.explainFinding(finding, target);
     }
