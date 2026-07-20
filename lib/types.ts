@@ -54,6 +54,7 @@ export type DiscoveryMethod =
   | "technology_fingerprint"
   | "passive_subdomain"
   | "domain_registration"
+  | "threat_intel"
   | "seed"
   | "demo";
 
