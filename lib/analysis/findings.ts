@@ -8,6 +8,7 @@ import type { Asset, Edge, Finding, Signal } from "@/lib/types";
 import { PRIORITY_RANK } from "@/lib/analysis/priority";
 import { correlateKnownVulnerabilities } from "@/lib/analysis/vulnerabilities";
 import { currentKevIndex, type KevIndex } from "@/lib/analysis/kev";
+import { generateIntelFindings } from "@/lib/intel/findings";
 
 function fid(assetId: string, code: string) {
   return `find_${assetId}_${code}`.replace(/[^a-z0-9_]/gi, "_");
@@ -124,6 +125,10 @@ export function generateFindings(assets: Asset[], edges: Edge[], now: string, ke
   // Correlate disclosed technology versions against known vulnerabilities / EOL
   // branches, enriched with live CISA KEV status when the catalogue is synced.
   out.push(...correlateKnownVulnerabilities(assets, now, kev));
+
+  // Threat-intelligence findings from optional enrichment attributes. Absent on
+  // demo and anonymous scans, so this is a no-op unless enrichment ran.
+  out.push(...generateIntelFindings(assets, now));
 
   return out.sort((a, b) => {
     const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
