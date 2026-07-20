@@ -4,15 +4,26 @@ OUTSIDE is a defensive external-surface discovery and monitoring application. It
 
 OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe. Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP, and technology history for every persisted finding.
 
-The application is a single Next.js 15 App Router deployment using TypeScript, React 19, Prisma, PostgreSQL, Vitest, and `@react-pdf/renderer`.
+The application is a single Next.js 16 App Router deployment using TypeScript, React 19, Prisma 7, PostgreSQL 16, Tailwind CSS 4, Vitest, Playwright, and `@react-pdf/renderer`, with an accompanying Go Terraform provider.
+
+## Screenshots
+
+|  |  |
+| --- | --- |
+| ![Landing](docs/media/outside-landing.png) | ![Live discovery graph](docs/media/outside-scan-graph.png) |
+| **Landing** — passive, public sources only; no login required for an external snapshot. | **Live discovery graph** — deterministic classification, exposure score, and Aegis incident correlation. |
+| ![Attacker View](docs/media/outside-attacker-view.png) | ![Guardian dashboard](docs/media/outside-guardian.png) |
+| **Attacker View** — an evidence-backed replay of how each hostname became publicly observable. Discovery only, never exploitation. | **Guardian** — continuous change intelligence, Exposure Drift, and traceable recommendations after every scheduled scan. |
 
 ## Capability boundary
 
 - Anonymous scans use passive public sources and are not persisted.
 - Authenticated organizations can verify a domain with DNS TXT or a well-known HTTPS file.
 - Active HTTPS/TLS observation, durable history, recommendations, monitors, AI explanations, and PDF reports require authenticated access to a verified target; paid entitlements apply where configured.
+- Findings correlate disclosed technology versions against known vulnerabilities and end-of-life branches, enriched with the live CISA Known Exploited Vulnerabilities catalogue (exploited-in-the-wild status, ransomware linkage, remediation due dates). A version banner is treated as an item to confirm, never a confirmed exploit.
+- Optional third-party threat-intelligence enrichment (IP reputation, breach exposure) runs only on verified targets and only when an operator has configured a provider key; it degrades to nothing when unconfigured.
 - Aegis change proposals are validated previews. The connector registry detects configured credentials but does not execute, verify, or roll back provider changes.
-- AI is optional and read-only over deterministic scan results. It cannot add assets, findings, or scores.
+- AI is optional (OpenAI) and read-only over deterministic scan results. It cannot add assets, findings, or scores, and degrades to a deterministic template.
 - Demo data is synthetic and explicitly identified as such.
 
 ## Local development
@@ -59,7 +70,8 @@ Key areas:
 - `app/api`: authenticated API boundaries, SSE scans, cron, billing, and webhooks.
 - `lib/discovery`: bounded CT, DNS/CNAME infrastructure signals, and verified-target HTTPS/TLS/header observation.
 - `lib/security`: target validation, IP pinning, request limits, and distributed rate controls.
-- `lib/analysis`: deterministic classification, finding generation, and scoring.
+- `lib/analysis`: deterministic classification, finding generation, scoring, and known-vulnerability correlation with a live CISA KEV feed sync.
+- `lib/intel`: optional, operator-keyed threat-intelligence enrichment (IP reputation, domain breach exposure), bounded and isolated.
 - `lib/persistence`: tenant-scoped temporal identity, snapshots, diffs, and history.
 - `lib/monitoring`: atomic monitor claims, retry/backoff, and scheduled scans.
 - `lib/aegis`: recommendations, proposal validation, status, and audit trail.
@@ -135,7 +147,7 @@ docker run --read-only --tmpfs /tmp --env-file .env.production -p 3000:3000 outs
 
 Supply secrets only at runtime; the build uses non-production sentinel values and does not require production credentials.
 
-Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`, `/api/cron/agency`, `/api/cron/enterprise`, and `/api/cron/retention`. Run the Agency job after monitoring to synchronize SLA state and enqueue deduplicated client-specific notifications. The Enterprise job claims integration deliveries, schedules exports, and applies operational retention. For portfolios over its bounded batch size, continue with the returned `nextCursor` as the `after` query parameter until it is `null`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
+Configure the cron caller to send `Authorization: Bearer <CRON_SECRET>` to `/api/cron/scan`, `/api/cron/agency`, `/api/cron/enterprise`, `/api/cron/retention`, and `/api/cron/kev-sync` (daily; refreshes the CISA Known Exploited Vulnerabilities catalogue). Run the Agency job after monitoring to synchronize SLA state and enqueue deduplicated client-specific notifications. The Enterprise job claims integration deliveries, schedules exports, and applies operational retention. For portfolios over its bounded batch size, continue with the returned `nextCursor` as the `after` query parameter until it is `null`. Run retention at least daily; its advisory lock, bounded batches, and idempotent partition maintenance make overlapping invocations safe. Configure Stripe and Resend only when those optional capabilities are used. `/api/health` performs a real database readiness query in durable mode.
 
 Paid deployments that enable Guardian workflow integrations must configure an independent 32-byte `GUARDIAN_ENCRYPTION_KEY`. Integration destinations are validated as HTTPS, resolved immediately before delivery, required to resolve exclusively to public IP addresses, and contacted through an IP-pinned connection with hostname verification.
 
