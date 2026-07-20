@@ -19,6 +19,7 @@
 
 import type { Asset, Finding, Priority } from "@/lib/types";
 import { currentKevIndex, type KevIndex } from "./kev";
+import { currentEpssIndex, type EpssIndex } from "./epss";
 
 export interface KnownVulnerability {
   /** Normalized product key (see PRODUCT_ALIASES). */
@@ -188,10 +189,11 @@ export function parseTechnologies(technology: string): ParsedTechnology[] {
   return out;
 }
 
-function priorityFor(v: KnownVulnerability, kevListed: boolean): Priority {
+/** EPSS ≥ 0.5 = a >50% modeled probability of exploitation within 30 days. */
+function priorityFor(v: KnownVulnerability, kevListed: boolean, epssScore = 0): Priority {
   if (kevListed || v.cvss >= 9) return "critical";
-  if (v.cvss >= 7) return "high";
-  if (v.cvss >= 4) return "medium";
+  if (v.cvss >= 7 || epssScore >= 0.5) return "high";
+  if (v.cvss >= 4 || epssScore >= 0.1) return "medium";
   return "low";
 }
 
@@ -203,7 +205,7 @@ function fid(assetId: string, ref: string): string {
  * Correlate the versions hosts disclosed against the known-vulnerability set.
  * Returns findings in the same shape as the rest of the analysis pipeline.
  */
-export function correlateKnownVulnerabilities(assets: Asset[], now: string, kev: KevIndex = currentKevIndex()): Finding[] {
+export function correlateKnownVulnerabilities(assets: Asset[], now: string, kev: KevIndex = currentKevIndex(), epss: EpssIndex = currentEpssIndex()): Finding[] {
   const out: Finding[] = [];
   for (const asset of assets) {
     const technologies = Array.isArray(asset.attrs.technologies) ? (asset.attrs.technologies as string[]) : [];
@@ -223,11 +225,15 @@ export function correlateKnownVulnerabilities(assets: Asset[], now: string, kev:
         // to the curated static flag so the product still works offline.
         const live = /^CVE-/i.test(vuln.ref) ? kev.get(vuln.ref) : undefined;
         const kevListed = live !== undefined || vuln.kev;
+        const epssScore = /^CVE-/i.test(vuln.ref) ? epss.get(vuln.ref) : undefined;
 
-        const priority = priorityFor(vuln, kevListed);
+        const priority = priorityFor(vuln, kevListed, epssScore?.score ?? 0);
         // Version-banner correlation carries inherent uncertainty (stale banners,
         // backported distro patches). KEV membership raises confidence somewhat.
         const confidence = Math.min(0.9, (kevListed ? 0.7 : 0.6) + (vuln.cvss >= 9 ? 0.05 : 0) + (live ? 0.05 : 0));
+        const epssNote = epssScore
+          ? ` EPSS scores its 30-day exploitation probability at ${(epssScore.score * 100).toFixed(1)}% (${(epssScore.percentile * 100).toFixed(0)}th percentile).`
+          : "";
         const kevNote = live
           ? ` CISA added ${vuln.ref} to the Known Exploited Vulnerabilities catalogue on ${live.dateAdded}${live.knownRansomware ? " and links it to known ransomware campaigns" : ""}${live.dueDate ? `; the US federal remediation due date is ${live.dueDate}` : ""}.`
           : vuln.kev
@@ -243,9 +249,9 @@ export function correlateKnownVulnerabilities(assets: Asset[], now: string, kev:
           assetId: asset.id,
           category: "known-vulnerability",
           observation: `${asset.label} disclosed ${tech.raw} in its response headers.`,
-          inference: `${tech.raw} matches ${vuln.ref} (CVSS ${vuln.cvss.toFixed(1)}${kevListed ? ", CISA KEV" : ""}).`,
-          concern: `${vuln.summary}${kevNote} A version banner is not proof the running build is vulnerable — distributions sometimes backport fixes without changing the reported version — so treat this as a prioritized item to confirm, not a confirmed exploit.`,
-          reasoning: `Deterministic correlation of the disclosed version (${tech.version}) against a curated known-vulnerability set. Affected range: ${describeRange(vuln)}.${provenance}`,
+          inference: `${tech.raw} matches ${vuln.ref} (CVSS ${vuln.cvss.toFixed(1)}${kevListed ? ", CISA KEV" : ""}${epssScore ? `, EPSS ${(epssScore.score * 100).toFixed(0)}%` : ""}).`,
+          concern: `${vuln.summary}${kevNote}${epssNote} A version banner is not proof the running build is vulnerable — distributions sometimes backport fixes without changing the reported version — so treat this as a prioritized item to confirm, not a confirmed exploit.`,
+          reasoning: `Deterministic correlation of the disclosed version (${tech.version}) against a curated known-vulnerability set. Affected range: ${describeRange(vuln)}.${provenance}${epssScore && epss.syncedAt ? ` EPSS synced ${epss.syncedAt}.` : ""}`,
           recommendation: vuln.recommendation,
           evidence: asset.evidence,
           discoveryMethod: "technology_fingerprint",
