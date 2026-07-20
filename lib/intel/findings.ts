@@ -48,7 +48,58 @@ export function generateIntelFindings(assets: Asset[], now: string): Finding[] {
     });
   }
 
+  // GreyNoise: the address this asset resolves to is itself generating malicious
+  // internet-wide scan/attack traffic (RIOT-benign addresses are never flagged).
+  for (const asset of assets) {
+    if (asset.attrs.greynoiseClass !== "malicious") continue;
+    const ip = typeof asset.attrs.greynoiseIp === "string" ? asset.attrs.greynoiseIp : "";
+    const name = typeof asset.attrs.greynoiseName === "string" ? asset.attrs.greynoiseName : "";
+    const lastSeen = typeof asset.attrs.greynoiseLastSeen === "string" ? asset.attrs.greynoiseLastSeen : "";
+    out.push({
+      id: fid(asset.id, "greynoise"),
+      title: "Resolved address seen conducting malicious activity",
+      priority: "medium",
+      confidence: 0.6,
+      assetId: asset.id,
+      category: "threat-intelligence",
+      observation: `${asset.label} resolves to ${ip}, which GreyNoise classifies as malicious${name ? ` (${name})` : ""} from observed internet-wide scanning${lastSeen ? ` (last seen ${lastSeen.slice(0, 10)})` : ""}.`,
+      inference: "An address that GreyNoise sees scanning or attacking the internet, while also hosting this asset, can indicate compromised or abused shared infrastructure.",
+      concern: "GreyNoise reports on the address's behaviour across the internet, not on this specific service. On shared hosting the noise may originate from a neighbour. Treat it as a prioritized item to confirm, not a confirmed compromise.",
+      reasoning: "GreyNoise Community classification of the resolved address.",
+      recommendation: "Confirm whether the address is dedicated to this organization. If dedicated, investigate the host for compromise or outbound abuse; if shared, move sensitive surfaces to dedicated addressing.",
+      evidence: asset.evidence,
+      discoveryMethod: "threat_intel",
+      createdAt: now,
+    });
+  }
+
   const root = assets.find((asset) => asset.kind === "root_domain");
+
+  // VirusTotal: aggregate security-vendor verdicts on the domain.
+  const vtFlags = root ? num(root.attrs.vtMalicious) + num(root.attrs.vtSuspicious) : 0;
+  if (root && vtFlags > 0) {
+    const malicious = num(root.attrs.vtMalicious);
+    const suspicious = num(root.attrs.vtSuspicious);
+    const source = typeof root.attrs.vtSource === "string" ? root.attrs.vtSource : "VirusTotal";
+    const priority: Priority = vtFlags >= 5 ? "high" : vtFlags >= 2 ? "medium" : "low";
+    out.push({
+      id: fid(root.id, "vt_reputation"),
+      title: "Domain flagged by security vendors",
+      priority,
+      confidence: Math.min(0.7, 0.4 + vtFlags / 20),
+      assetId: root.id,
+      category: "threat-intelligence",
+      observation: `${source} reports ${malicious} vendor(s) flagging ${root.label} as malicious${suspicious ? ` and ${suspicious} as suspicious` : ""}.`,
+      inference: "Multiple independent security vendors flagging the domain can indicate malware distribution, phishing, or a prior compromise catalogued against it.",
+      concern: "Vendor verdicts aggregate third-party opinion and can include false positives or stale detections from a past incident. Their value is prioritizing verification, not proving the domain is currently malicious.",
+      reasoning: `Aggregate of security-vendor verdicts for the domain from ${source}.`,
+      recommendation: "Review the flagging vendors' detections, check for defacement / injected content / open redirects, and request re-analysis or delisting once the domain is confirmed clean.",
+      evidence: root.evidence,
+      discoveryMethod: "threat_intel",
+      createdAt: now,
+    });
+  }
+
   const breachCount = root ? num(root.attrs.breachCount) : 0;
   if (root && breachCount > 0) {
     const source = typeof root.attrs.breachSource === "string" ? root.attrs.breachSource : "a breach intelligence provider";
