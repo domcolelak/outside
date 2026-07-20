@@ -9,6 +9,7 @@ import { PRIORITY_RANK } from "@/lib/analysis/priority";
 import { correlateKnownVulnerabilities } from "@/lib/analysis/vulnerabilities";
 import { currentKevIndex, type KevIndex } from "@/lib/analysis/kev";
 import { generateIntelFindings } from "@/lib/intel/findings";
+import { generateMisconfigurationFindings } from "@/lib/analysis/misconfig";
 
 function fid(assetId: string, code: string) {
   return `find_${assetId}_${code}`.replace(/[^a-z0-9_]/gi, "_");
@@ -129,6 +130,10 @@ export function generateFindings(assets: Asset[], edges: Edge[], now: string, ke
   // Threat-intelligence findings from optional enrichment attributes. Absent on
   // demo and anonymous scans, so this is a no-op unless enrichment ran.
   out.push(...generateIntelFindings(assets, now));
+
+  // Misconfiguration findings from the passive HTTP/TLS observation (verified
+  // targets only). No-op on scans that never ran active observation.
+  out.push(...generateMisconfigurationFindings(assets, now));
 
   return out.sort((a, b) => {
     const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
