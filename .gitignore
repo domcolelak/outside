@@ -39,6 +39,3 @@ terraform-provider-outside/*.tfstate*
 
 # typescript
 *.tsbuildinfo
-
-# Local editor/agent tooling
-.claude/
