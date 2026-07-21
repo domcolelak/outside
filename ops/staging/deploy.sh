@@ -34,7 +34,10 @@ cd "$APP_DIR"
 # Image tags come from the env file so they stay consistent with compose.
 APP_IMAGE="$(grep -E '^OUTSIDE_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
 MIGRATOR_IMAGE="$(grep -E '^OUTSIDE_MIGRATOR_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
-APP_VERSION="$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")"
+# Parse the version straight from package.json — the deploy host has Docker but
+# not necessarily Node, so never depend on a node binary here.
+APP_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -1)"
+APP_VERSION="${APP_VERSION:-0.0.0}"
 : "${APP_IMAGE:?OUTSIDE_IMAGE must be set in $ENV_FILE}"
 : "${MIGRATOR_IMAGE:?OUTSIDE_MIGRATOR_IMAGE must be set in $ENV_FILE}"
 
@@ -66,15 +69,20 @@ else
   "${COMPOSE[@]}" up -d --force-recreate app
 fi
 
+# The app port is not published on the host (it sits behind the reverse proxy),
+# so poll the container's own HEALTHCHECK — which probes /api/readyz inside the
+# container — rather than assuming a host-reachable port.
 echo "==> Waiting for readiness"
-for _ in $(seq 1 20); do
-  if curl -fsS http://127.0.0.1:3000/api/readyz >/dev/null 2>&1; then
-    echo "==> Ready:"
-    curl -fsS http://127.0.0.1:3000/api/readyz
-    echo
+APP_CID="$("${COMPOSE[@]}" ps -q app)"
+for _ in $(seq 1 30); do
+  status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$APP_CID" 2>/dev/null || echo missing)"
+  if [ "$status" = "healthy" ]; then
+    echo "==> App is healthy. Release:"
+    docker exec "$APP_CID" node -e "fetch('http://127.0.0.1:3000/api/readyz').then(r=>r.text()).then(t=>console.log(t))" 2>/dev/null || true
     exit 0
   fi
-  sleep 2
+  [ "$status" = "unhealthy" ] && { echo "!! App reported unhealthy" >&2; exit 1; }
+  sleep 3
 done
-echo "!! App did not become ready in time" >&2
+echo "!! App did not become healthy in time" >&2
 exit 1
