@@ -16,14 +16,22 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 | **Landing** — passive, public sources only; no login required for an external snapshot. | **Live discovery graph** — deterministic classification, exposure score, and Aegis incident correlation. |
 | ![Attacker View](docs/media/outside-attacker-view.png) | ![Guardian dashboard](docs/media/outside-guardian.png) |
 | **Attacker View** — an evidence-backed replay of how each hostname became publicly observable. Discovery only, never exploitation. | **Guardian** — continuous change intelligence, Exposure Drift, and traceable recommendations after every scheduled scan. |
+| ![Findings and posture](docs/media/outside-findings.png) | |
+| **Findings & posture** — exposure score with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. | |
+
+> Screenshots are regenerated from the live demo with `node scripts/capture-screenshots.mjs`.
 
 ## Capability boundary
 
 - Anonymous scans use passive public sources and are not persisted.
 - Authenticated organizations can verify a domain with DNS TXT or a well-known HTTPS file.
 - Active HTTPS/TLS observation, durable history, recommendations, monitors, AI explanations, and PDF reports require authenticated access to a verified target; paid entitlements apply where configured.
-- Findings correlate disclosed technology versions against known vulnerabilities and end-of-life branches, enriched with the live CISA Known Exploited Vulnerabilities catalogue (exploited-in-the-wild status, ransomware linkage, remediation due dates). A version banner is treated as an item to confirm, never a confirmed exploit.
-- Optional third-party threat-intelligence enrichment (IP reputation, breach exposure) runs only on verified targets and only when an operator has configured a provider key; it degrades to nothing when unconfigured.
+- Findings correlate disclosed technology versions against known vulnerabilities and end-of-life branches, enriched with the live CISA Known Exploited Vulnerabilities catalogue (exploited-in-the-wild status, ransomware linkage, remediation due dates) and FIRST.org EPSS exploitation-probability scores. A version banner is treated as an item to confirm, never a confirmed exploit.
+- Misconfiguration findings are derived from the passive HTTP/TLS observation the scan already captured — missing security headers, HTTPS→HTTP downgrade redirects, and certificate / domain-registration expiry — with no additional requests.
+- Optional passive-DNS discovery expansion (SecurityTrails, Shodan) surfaces subdomains that never appeared on a public certificate; every returned hostname is validated to be a real subdomain of the target. Verified targets only.
+- Optional Censys service discovery reports non-web services (SSH, databases, RDP, message brokers) observed on resolved public addresses — exposure the HTTPS-only path never sees.
+- Optional third-party threat-intelligence enrichment — IP reputation (AbuseIPDB), breach exposure (HaveIBeenPwned), IP classification (GreyNoise), and domain reputation (VirusTotal) — runs only on verified targets and only when an operator has configured a provider key; it degrades to nothing when unconfigured.
+- Every enrichment provider is env-gated, bounded, and isolated: a provider failure is captured and never fails the scan, and a scan reports its own completeness so a partial discovery is never presented as whole.
 - Aegis change proposals are validated previews. The connector registry detects configured credentials but does not execute, verify, or roll back provider changes.
 - AI is optional (OpenAI) and read-only over deterministic scan results. It cannot add assets, findings, or scores, and degrades to a deterministic template.
 - Demo data is synthetic and explicitly identified as such.
