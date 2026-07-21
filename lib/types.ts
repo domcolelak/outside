@@ -169,6 +169,8 @@ export interface ScanResult {
   timeline: AttackerBeat[];
   providerRuns: ProviderRun[];
   stats: ScanStats;
+  /** Discovery completeness — whether any provider failed and, if so, whether the failure was in a discovery stage (making the asset surface potentially incomplete). Optional for reconstructed/synthetic results. */
+  coverage?: ScanCoverage;
   /** Diff against the target's previous scan, present once history exists. */
   changeSummary?: import("@/lib/persistence/model").ChangeSummary;
   /** Aegis protection posture: recommendations + potential score. */
@@ -183,6 +185,15 @@ export interface ScanStats {
   shadowAssets: number;
   highPriorityFindings: number;
   nonProdSignals: number;
+}
+
+export interface ScanCoverage {
+  /** Every provider that ran succeeded. */
+  complete: boolean;
+  /** No discovery-stage provider failed, so the discovered asset surface is trustworthy even if enrichment is partial. */
+  discoveryComplete: boolean;
+  /** Providers that errored, with the method they served and a short reason. */
+  failed: Array<{ provider: string; method: DiscoveryMethod; error: string }>;
 }
 
 /** A single beat in the Attacker View cinematic replay. */

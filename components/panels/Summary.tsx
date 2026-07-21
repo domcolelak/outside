@@ -68,6 +68,15 @@ export function Summary({
         </div>
       )}
 
+      {result.coverage && !result.coverage.complete && (
+        <div className={`rounded-lg border px-3 py-2 text-[11px] ${result.coverage.discoveryComplete ? "border-risk-medium/30 bg-risk-medium/5 text-risk-medium" : "border-risk-high/40 bg-risk-high/5 text-risk-high"}`}>
+          <span className="font-medium">
+            {result.coverage.discoveryComplete ? "Enrichment incomplete." : "Discovery incomplete — this surface may be missing assets."}
+          </span>{" "}
+          {result.coverage.failed.length} source{result.coverage.failed.length === 1 ? "" : "s"} failed: {result.coverage.failed.map((f) => f.provider).join(", ")}. Results below reflect only what was successfully observed.
+        </div>
+      )}
+
       <ShareButton result={result} />
 
       <div className="panel flex items-center gap-4 p-4">
