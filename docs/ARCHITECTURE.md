@@ -2,7 +2,7 @@
 
 ## System shape
 
-OUTSIDE is a modular monolith: one Next.js 15 App Router application, one PostgreSQL database through a process-wide Prisma client, and optional external providers. This keeps transactions and authorization inside one trust boundary while preserving clear module seams.
+OUTSIDE is a modular monolith: one Next.js 16 App Router application, one PostgreSQL database through a process-wide Prisma client, and optional external providers. This keeps transactions and authorization inside one trust boundary while preserving clear module seams.
 
 ```text
 Browser
@@ -27,7 +27,7 @@ Domain verification is scoped to an organization. Active HTTPS/TLS observation i
 
 ## Discovery and analysis
 
-`lib/discovery/engine.ts` orchestrates a typed stage sequence shared by server and client. CT and DNS providers use bounded responses, deadlines, structured `ProviderRun` telemetry, and partial-success semantics. Public CNAME suffixes provide explicit cloud/CDN signals; verified HTTPS responses add bounded literal Server/X-Powered-By technologies and recognized provider-header evidence. These remain observable signals rather than ownership claims. The maintained Public Suffix List supplies registrable-domain boundaries.
+`lib/discovery/engine.ts` orchestrates a typed stage sequence shared by server and client. CT and DNS providers use bounded responses, deadlines, structured `ProviderRun` telemetry, and partial-success semantics; a scan reports its own completeness (`ScanCoverage`) so a partial discovery is never presented as whole. On verified targets, optional operator-keyed enrichment runs bounded and isolated — commercial passive-DNS (SecurityTrails, Shodan) and Censys service discovery expand the surface, while threat-intelligence (AbuseIPDB, HaveIBeenPwned, GreyNoise, VirusTotal) and vulnerability feeds (curated CVE set enriched by live CISA KEV + FIRST.org EPSS) annotate it. Every provider is env-gated and its failure is captured, never fatal. Public CNAME suffixes provide explicit cloud/CDN signals; verified HTTPS responses add bounded literal Server/X-Powered-By technologies and recognized provider-header evidence. These remain observable signals rather than ownership claims. The maintained Public Suffix List supplies registrable-domain boundaries.
 
 Observations become canonical `Asset` and `Edge` objects. Analysis remains deterministic:
 
