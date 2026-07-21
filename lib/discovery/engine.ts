@@ -20,6 +20,7 @@ import type {
   ScanEvent,
   ScanResult,
   ScanStats,
+  ScanCoverage,
   ProviderRun,
 } from "@/lib/types";
 import { mapPool } from "./net";
@@ -46,6 +47,20 @@ async function stage(emit: Emit, s: keyof typeof SCAN_STAGE_LABELS, work: () => 
  * Classification pass shared by demo + passive: derive per-asset signals and
  * priorities, then finalize into a ScanResult.
  */
+/** Discovery methods whose failure means the *asset surface* may be incomplete
+ * (as opposed to enrichment, whose failure only leaves assets less annotated). */
+const DISCOVERY_METHODS = new Set<DiscoveryMethod>(["certificate_transparency", "dns", "passive_subdomain"]);
+
+/** Derive a completeness signal from the provider runs so a partial scan is never presented as whole. */
+export function computeScanCoverage(runs: ProviderRun[]): ScanCoverage {
+  const failed = runs.filter((r) => r.status === "error");
+  return {
+    complete: failed.length === 0,
+    discoveryComplete: !failed.some((r) => DISCOVERY_METHODS.has(r.method)),
+    failed: failed.map((r) => ({ provider: r.provider, method: r.method, error: r.errors[0] ?? "failed" })),
+  };
+}
+
 function finalize(
   target: string,
   mode: "passive" | "demo",
@@ -96,6 +111,7 @@ function finalize(
     timeline,
     providerRuns,
     stats,
+    coverage: computeScanCoverage(providerRuns),
   };
 }
 
