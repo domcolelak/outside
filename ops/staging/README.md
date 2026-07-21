@@ -62,6 +62,18 @@ The default Alertmanager receiver writes bounded, actionable alert summaries to 
 
 ## Deployment and update
 
+For an existing single-host staging deploy, `ops/staging/deploy.sh` performs the
+app build + recreate with real build provenance (git SHA + build time stamped
+into the image and surfaced by `/api/readyz`):
+
+```bash
+ops/staging/deploy.sh              # app only, from origin/master
+ops/staging/deploy.sh --migrate    # also rebuild + run the migrator
+ops/staging/deploy.sh --ref v0.2.0-rc.1
+```
+
+For a first bring-up or a controlled release, follow the manual steps below.
+
 1. Record the current commit, image IDs/digests, schema head, and backup restore point.
 2. Pull or load the exact release artifacts; never rebuild a tagged release on the host.
 3. Set `OUTSIDE_IMAGE` and `OUTSIDE_MIGRATOR_IMAGE` to immutable digests.
