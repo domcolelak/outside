@@ -44,6 +44,13 @@ jobs:
           RESEND_API_KEY: ci-only-resend-key-at-least-sixteen-bytes
           EMAIL_FROM: OUTSIDE CI <ci@outside.example>
       - run: npm audit --audit-level=high
+      - name: Generate CycloneDX SBOM
+        run: npm sbom --sbom-format cyclonedx > sbom.cdx.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
+          if-no-files-found: error
 
   postgres-e2e:
     runs-on: ubuntu-latest
