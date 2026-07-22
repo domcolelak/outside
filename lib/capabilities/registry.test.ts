@@ -10,7 +10,7 @@ const ALL_FINDING_CATEGORIES = new Set([
   "auth-surface", "breach-exposure", "certificate-expiry", "domain-expiry",
   "exposed-service", "insecure-redirect", "known-vulnerability", "mail-security",
   "non-production-exposure", "security-headers", "shadow-asset", "surface-change",
-  "threat-intelligence",
+  "threat-intelligence", "infrastructure-concentration",
 ]);
 
 const OPTIONAL_PROVIDER_KEYS = new Set([

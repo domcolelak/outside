@@ -157,6 +157,14 @@ export const CAPABILITIES: readonly Capability[] = [
     source: "lib/intel/providers.ts",
   },
 
+  // ---- Topology / Digital Twin ----
+  {
+    id: "CAP-TWIN-CONCENTRATION", name: "Concentration-risk / single-point-of-failure detection", type: "correlation", status: "production",
+    description: "Builds the Digital Twin dependency graph and flags shared nodes (CDN, nameserver, IP, technology) that a large share of the surface depends on.",
+    detects: ["infrastructure-concentration"], inputs: ["asset_graph", "edges"], evidenceMethod: "dns", passive: true, requiresProviderKey: null,
+    source: "lib/twin/twin.ts",
+  },
+
   // ---- Continuous monitoring ----
   {
     id: "CAP-GUARDIAN-CHANGE", name: "Guardian change intelligence", type: "passive_detector", status: "production",

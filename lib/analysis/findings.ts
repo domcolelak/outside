@@ -11,6 +11,7 @@ import { currentKevIndex, type KevIndex } from "@/lib/analysis/kev";
 import { generateIntelFindings } from "@/lib/intel/findings";
 import { generateMisconfigurationFindings } from "@/lib/analysis/misconfig";
 import { generateExposedServiceFindings } from "@/lib/analysis/services";
+import { generateConcentrationFindings } from "@/lib/analysis/concentration";
 
 function fid(assetId: string, code: string) {
   return `find_${assetId}_${code}`.replace(/[^a-z0-9_]/gi, "_");
@@ -139,6 +140,10 @@ export function generateFindings(assets: Asset[], edges: Edge[], now: string, ke
   // Internet-exposed non-web services from optional Censys enrichment. No-op
   // unless Censys ran (verified targets, operator-keyed).
   out.push(...generateExposedServiceFindings(assets, now));
+
+  // Concentration risk / single points of failure from the Digital Twin's
+  // dependency graph. No-op below the concentration threshold.
+  out.push(...generateConcentrationFindings(assets, edges, now));
 
   return out.sort((a, b) => {
     const p = PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority];
