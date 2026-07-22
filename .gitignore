@@ -39,3 +39,6 @@ terraform-provider-outside/*.tfstate*
 
 # typescript
 *.tsbuildinfo
+
+# Generated SBOM
+sbom.cdx.json
