@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     try {
       const pdf = await withConcurrency("enterprise-report:global", 3, 60_000, () => renderEnterpriseReport(report));
       await recordGeneration();
-      return new Response(pdf, { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${name}.pdf"`, "cache-control": "no-store" } });
+      return new Response(new Uint8Array(pdf), { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${name}.pdf"`, "cache-control": "no-store" } });
     } catch (error) {
       return NextResponse.json({ error: error instanceof CapacityError ? error.message : "Report generation failed" }, { status: error instanceof CapacityError ? 503 : 500 });
     }

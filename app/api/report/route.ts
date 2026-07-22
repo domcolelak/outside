@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     await recordUsage(entitlement.orgId, ctx.user.id, "report");
     const safeName = result.target.replace(/[^a-z0-9.-]/gi, "_");
     recordReportOperation("success", performance.now() - startedAt);
-    return new Response(pdf, { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="outside-${safeName}.pdf"`, "cache-control": "no-store" } });
+    return new Response(new Uint8Array(pdf), { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="outside-${safeName}.pdf"`, "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof CapacityError) { recordReportOperation("capacity", performance.now() - startedAt); return json({ error: error.message }, 503); }
     recordReportOperation("failed", performance.now() - startedAt);
