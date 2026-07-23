@@ -161,9 +161,9 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl px-6 py-20">
           <SectionTitle kicker="Pricing" title="Start free. Monitor when it matters." />
           <div className="mt-10 grid gap-4 md:grid-cols-3">
-            <Plan name="Snapshot" price="Free" cadence="one-off" features={["Single external snapshot", "Interactive asset graph", "Attacker View replay", "Top findings"]} />
-            <Plan name="Professional" price="$79" cadence="/mo" highlight features={["OUTSIDE Guardian", "Up to 5 monitored domains", "Vulnerability correlation (KEV + EPSS)", "Chronos time machine & Digital Twin", "Living checklist & remediation", "Weekly executive digest"]} />
-            <Plan name="Agency" price="$249" cadence="/mo" features={["Guardian across 30 client domains", "Team roles & workspaces", "White-label client reporting", "Slack, Teams, Jira & issue workflows", "API access"]} />
+            <Plan name="Snapshot" price="Free" cadence="one-off" cta={{ label: "Create free account", href: "/login" }} features={["Single external snapshot", "Interactive asset graph", "Attacker View replay", "Top findings"]} />
+            <Plan name="Professional" price="$79" cadence="/mo" highlight cta={{ label: "Start with Professional", href: "/login?next=/billing" }} features={["OUTSIDE Guardian", "Up to 5 monitored domains", "Vulnerability correlation (KEV + EPSS)", "Chronos time machine & Digital Twin", "Living checklist & remediation", "Weekly executive digest"]} />
+            <Plan name="Agency" price="$249" cadence="/mo" cta={{ label: "Start with Agency", href: "/login?next=/billing" }} features={["Guardian across 30 client domains", "Team roles & workspaces", "White-label client reporting", "Slack, Teams, Jira & issue workflows", "API access"]} />
           </div>
           <p className="mono mt-6 text-center text-xs text-ink-faint">
             Pricing reflects scanning, provider, and AI-explanation costs per monitored domain and frequency.
@@ -179,10 +179,21 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-line/60">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-xs text-ink-faint md:flex-row">
-          <Wordmark className="h-5" />
-          <span className="mono">External exposure intelligence · Passive & responsible by design</span>
-          <span className="mono">© {new Date().getFullYear()} OUTSIDE</span>
+        <div className="mx-auto max-w-6xl px-6 py-10">
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+            <div>
+              <Wordmark className="h-5" />
+              <p className="mono mt-3 max-w-xs text-xs leading-5 text-ink-faint">External exposure intelligence. Passive and responsible by design — discovery, never exploitation.</p>
+            </div>
+            <nav className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-ink-soft">
+              <a href="#how" className="hover:text-ink">How it works</a>
+              <a href="#features" className="hover:text-ink">Features</a>
+              <a href="#pricing" className="hover:text-ink">Pricing</a>
+              <a href="#security" className="hover:text-ink">Responsible use</a>
+              <Link href="/login" className="hover:text-ink">Sign in</Link>
+            </nav>
+          </div>
+          <div className="mono mt-8 border-t border-line/40 pt-6 text-[11px] text-ink-faint">© {new Date().getFullYear()} OUTSIDE · External exposure intelligence</div>
         </div>
       </footer>
     </div>
@@ -220,9 +231,9 @@ function Feature({ title, body, className = "", tone = "neutral" }: { title: str
   );
 }
 
-function Plan({ name, price, cadence, features, highlight = false }: { name: string; price: string; cadence: string; features: string[]; highlight?: boolean }) {
+function Plan({ name, price, cadence, features, cta, highlight = false }: { name: string; price: string; cadence: string; features: string[]; cta: { label: string; href: string }; highlight?: boolean }) {
   return (
-    <div className={`panel p-6 ${highlight ? "ring-1 ring-signal/40" : ""}`}>
+    <div className={`panel flex flex-col p-6 ${highlight ? "ring-1 ring-signal/40" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="text-ink">{name}</span>
         {highlight && <span className="mono rounded-md border border-signal/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-signal">Popular</span>}
@@ -231,7 +242,7 @@ function Plan({ name, price, cadence, features, highlight = false }: { name: str
         <span className="text-3xl font-semibold text-ink">{price}</span>
         <span className="mono text-xs text-ink-faint">{cadence}</span>
       </div>
-      <ul className="mt-5 space-y-2 text-sm text-ink-soft">
+      <ul className="mt-5 flex-1 space-y-2 text-sm text-ink-soft">
         {features.map((f) => (
           <li key={f} className="flex items-start gap-2">
             <span className="mt-0.5 text-signal">›</span>
@@ -239,6 +250,12 @@ function Plan({ name, price, cadence, features, highlight = false }: { name: str
           </li>
         ))}
       </ul>
+      <Link
+        href={cta.href}
+        className={`mono mt-6 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition ${highlight ? "bg-signal text-base-950 shadow-glow hover:bg-signal-bright" : "border border-line text-ink hover:bg-base-700"}`}
+      >
+        {cta.label}
+      </Link>
     </div>
   );
 }
