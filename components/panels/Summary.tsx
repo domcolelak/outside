@@ -10,6 +10,7 @@ import { InvestigationPanel } from "@/components/panels/InvestigationPanel";
 import { EvidenceIntelligencePanel } from "@/components/guardian/EvidenceIntelligence";
 import { ReportPreview } from "@/components/report/ReportPreview";
 import { ShareButton } from "@/components/share/ShareButton";
+import { TwinPanel } from "@/components/panels/TwinPanel";
 
 const BAND_LABEL: Record<string, { label: string; color: string }> = {
   guarded: { label: "Guarded", color: "#38e1c3" },
@@ -129,6 +130,8 @@ export function Summary({
       <InvestigationPanel result={result} />
 
       <ProtectionPanel result={result} onSelectAsset={onSelectAsset} />
+
+      <TwinPanel graph={result.graph} />
 
       <HistoryPanel target={result.target} isDemo={result.isDemo} />
 
