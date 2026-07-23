@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
+import { isFounder } from "@/lib/auth/founder";
 import { recordIncident, isDetectorCategory, type IncidentVerdict } from "@/lib/evolution/incidents";
 import { operationalLog } from "@/lib/observability/log";
 
@@ -17,6 +18,7 @@ const VERDICTS: IncidentVerdict[] = ["false_positive", "confirmed"];
 export async function POST(req: NextRequest) {
   const ctx = await getSessionContext();
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!isFounder(ctx)) return NextResponse.json({ error: "Evolution is restricted to the product owner." }, { status: 403 });
 
   const body = (await req.json().catch(() => null)) as { category?: unknown; verdict?: unknown } | null;
   const category = typeof body?.category === "string" ? body.category : "";

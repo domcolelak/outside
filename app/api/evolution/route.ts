@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
+import { isFounder } from "@/lib/auth/founder";
 import { currentKevIndex } from "@/lib/analysis/kev";
 import { detectCoverageGaps, buildProposals } from "@/lib/evolution/evolution";
 import { latestEvolutionRun } from "@/lib/evolution/state";
@@ -19,6 +20,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const ctx = await getSessionContext();
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!isFounder(ctx)) return NextResponse.json({ error: "Evolution is restricted to the product owner." }, { status: 403 });
 
   const kev = currentKevIndex();
   const decisions = await listDecisions();
