@@ -35,6 +35,9 @@ x-app-environment: &app-environment
   STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
   STRIPE_PRICE_PROFESSIONAL: ${STRIPE_PRICE_PROFESSIONAL:-}
   STRIPE_PRICE_AGENCY: ${STRIPE_PRICE_AGENCY:-}
+  # Allow-listed owner emails for the Evolution system control plane (comma-separated).
+  # Empty by default → Evolution is locked in production until set in .env.staging.
+  OUTSIDE_FOUNDER_EMAILS: ${OUTSIDE_FOUNDER_EMAILS:-}
   OTEL_SERVICE_NAME: outside-staging
   OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://otel-collector:4318/v1/metrics
   OTEL_METRIC_EXPORT_INTERVAL_MS: 15000
