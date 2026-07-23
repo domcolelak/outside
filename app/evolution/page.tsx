@@ -14,6 +14,7 @@ interface Proposal {
   evidence: { cveId: string; kevDateAdded: string; source: string };
 }
 interface DetectorReliability { category: string; confirmed: number; falsePositive: number; factor: number }
+interface DraftChange { proposalId: string; file: string; entry: string; requiresHumanInput: string[]; note: string }
 interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; decisionsCount: number; detectorReliability: DetectorReliability[]; lastScheduledRun: { at: string; total: number } | null; proposals: Proposal[] }
 
 const PRIORITY_COLOR: Record<Proposal["priority"], string> = { high: "text-risk-high", medium: "text-risk-medium", low: "text-ink-faint" };
@@ -23,6 +24,7 @@ export default function EvolutionPage() {
   const [data, setData] = useState<EvolutionData | null>(null);
   const [message, setMessage] = useState("");
   const [deciding, setDeciding] = useState<Record<string, "approved" | "rejected">>({});
+  const [drafts, setDrafts] = useState<Record<string, DraftChange>>({});
 
   useEffect(() => {
     fetch("/api/evolution")
@@ -44,8 +46,15 @@ export default function EvolutionPage() {
         body: JSON.stringify({ proposalId, decision }),
       });
       if (!res.ok) { setDeciding((d) => { const n = { ...d }; delete n[proposalId]; return n; }); return; }
-      // Decided proposals drop off the active list; Evolution has learned from this.
-      setData((prev) => prev && { ...prev, decisionsCount: prev.decisionsCount + 1, proposals: prev.proposals.filter((p) => p.id !== proposalId) });
+      setData((prev) => prev && { ...prev, decisionsCount: prev.decisionsCount + 1 });
+      if (decision === "approved") {
+        // Approving prepares the reviewable draft change; the card stays to show it.
+        const draftRes = await fetch(`/api/evolution/draft?proposalId=${encodeURIComponent(proposalId)}`);
+        if (draftRes.ok) { const { draft } = await draftRes.json(); setDrafts((d) => ({ ...d, [proposalId]: draft })); }
+      } else {
+        // Rejected proposals drop off the active list; Evolution has learned from this.
+        setData((prev) => prev && { ...prev, proposals: prev.proposals.filter((p) => p.id !== proposalId) });
+      }
     } catch {
       setDeciding((d) => { const n = { ...d }; delete n[proposalId]; return n; });
     }
@@ -109,23 +118,43 @@ export default function EvolutionPage() {
                       <span>Added {p.evidence.kevDateAdded}</span>
                       <span className="rounded-sm border border-line px-1.5 py-0.5">status: {p.status}</span>
                     </div>
-                    <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
-                      <button
-                        onClick={() => decide(p.id, "approved")}
-                        disabled={!!deciding[p.id]}
-                        className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
-                      >
-                        {deciding[p.id] === "approved" ? "Approving…" : "Approve"}
-                      </button>
-                      <button
-                        onClick={() => decide(p.id, "rejected")}
-                        disabled={!!deciding[p.id]}
-                        className="mono rounded-md border border-line px-3 py-1.5 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50"
-                      >
-                        {deciding[p.id] === "rejected" ? "Rejecting…" : "Reject"}
-                      </button>
-                      <span className="mono ml-auto text-[10px] text-ink-faint">Records intent for a human to implement · never auto-applied</span>
-                    </div>
+                    {drafts[p.id] ? (
+                      <div className="mt-3 border-t border-line pt-3">
+                        <div className="mono flex items-center gap-2 text-[10px] uppercase tracking-wide text-signal">✓ Approved · draft change prepared</div>
+                        <div className="mono mt-2 text-[10px] text-ink-faint">Add to <span className="text-ink-soft">{drafts[p.id]!.file}</span></div>
+                        <pre className="mono mt-1 overflow-x-auto rounded-lg border border-line bg-base-950 px-3 py-2 text-[11px] leading-relaxed text-ink-soft">{drafts[p.id]!.entry}</pre>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => navigator.clipboard?.writeText(drafts[p.id]!.entry)}
+                            className="mono rounded-md border border-line px-2.5 py-1 text-[10px] text-ink-soft hover:text-ink"
+                          >
+                            Copy draft
+                          </button>
+                          <span className="mono text-[10px] text-ink-faint">Needs you: {drafts[p.id]!.requiresHumanInput[0]}</span>
+                        </div>
+                        <div className="mt-2 rounded-lg border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[10px] leading-relaxed text-risk-medium">
+                          {drafts[p.id]!.note}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
+                        <button
+                          onClick={() => decide(p.id, "approved")}
+                          disabled={!!deciding[p.id]}
+                          className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
+                        >
+                          {deciding[p.id] === "approved" ? "Preparing draft…" : "Approve"}
+                        </button>
+                        <button
+                          onClick={() => decide(p.id, "rejected")}
+                          disabled={!!deciding[p.id]}
+                          className="mono rounded-md border border-line px-3 py-1.5 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50"
+                        >
+                          {deciding[p.id] === "rejected" ? "Rejecting…" : "Reject"}
+                        </button>
+                        <span className="mono ml-auto text-[10px] text-ink-faint">Approve → prepares a reviewable draft · never auto-applied</span>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ol>
