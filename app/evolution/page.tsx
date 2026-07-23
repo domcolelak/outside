@@ -13,7 +13,8 @@ interface Proposal {
   proposedChange: string;
   evidence: { cveId: string; kevDateAdded: string; source: string };
 }
-interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; decisionsCount: number; lastScheduledRun: { at: string; total: number } | null; proposals: Proposal[] }
+interface DetectorReliability { category: string; confirmed: number; falsePositive: number; factor: number }
+interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; decisionsCount: number; detectorReliability: DetectorReliability[]; lastScheduledRun: { at: string; total: number } | null; proposals: Proposal[] }
 
 const PRIORITY_COLOR: Record<Proposal["priority"], string> = { high: "text-risk-high", medium: "text-risk-medium", low: "text-ink-faint" };
 
@@ -128,6 +129,25 @@ export default function EvolutionPage() {
                   </li>
                 ))}
               </ol>
+            )}
+
+            {data.detectorReliability.length > 0 && (
+              <section className="mt-10">
+                <h2 className="text-lg font-medium text-ink">Detector reliability</h2>
+                <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-soft">
+                  Learned from your false-positive / confirmed feedback on findings. A noisy detector has its confidence
+                  bounded-down-weighted on future scans — dampened, never silenced, and never inflated. Clear the feedback and it returns to full trust.
+                </p>
+                <ul className="mt-4 space-y-2">
+                  {data.detectorReliability.map((d) => (
+                    <li key={d.category} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
+                      <span className="mono text-xs text-ink">{d.category}</span>
+                      <span className="mono text-[10px] text-ink-faint">{d.confirmed} confirmed · {d.falsePositive} false-positive</span>
+                      <span className={`mono ml-auto text-xs ${d.factor < 1 ? "text-risk-medium" : "text-signal"}`}>×{d.factor.toFixed(2)} confidence</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
           </>
         )}

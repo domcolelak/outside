@@ -146,7 +146,7 @@ export function Summary({
         </div>
         <div className="space-y-2">
           {result.findings.map((f) => (
-            <FindingCard key={f.id} finding={f} target={result.target} onSelect={() => onSelectAsset(f.assetId)} />
+            <FindingCard key={f.id} finding={f} target={result.target} onSelect={() => onSelectAsset(f.assetId)} feedback={!result.isDemo} />
           ))}
           {result.findings.length === 0 && (
             <div className="rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-6 text-center"><div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div><div className="mt-3 text-xs font-medium text-ink">No priority review items</div><div className="mt-1 text-[10px] leading-5 text-ink-faint">Guardian will create a finding only when deterministic observations support it.</div></div>
@@ -263,9 +263,20 @@ function Stat({ label, value, tone = "ok" }: { label: string; value: number; ton
   );
 }
 
-function FindingCard({ finding, target, onSelect }: { finding: Finding; target: string; onSelect: () => void }) {
+function FindingCard({ finding, target, onSelect, feedback = false }: { finding: Finding; target: string; onSelect: () => void; feedback?: boolean }) {
   const [open, setOpen] = useState(false);
   const [explain, setExplain] = useState<{ state: "idle" | "loading" | "done"; text: string; source: string }>({ state: "idle", text: "", source: "" });
+  const [verdict, setVerdict] = useState<"false_positive" | "confirmed" | null>(null);
+  const [sending, setSending] = useState(false);
+  const sendVerdict = async (v: "false_positive" | "confirmed") => {
+    if (sending || verdict) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/evolution/incident", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ category: finding.category, verdict: v }) });
+      if (res.ok) setVerdict(v);
+    } catch { /* leave unset so the founder can retry */ }
+    setSending(false);
+  };
   const runExplain = async () => {
     setExplain((s) => ({ ...s, state: "loading" }));
     try {
@@ -319,6 +330,21 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
               View asset →
             </button>
           </div>
+          {feedback && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-2.5">
+              {verdict ? (
+                <span className="mono text-[10px] text-ink-faint">
+                  {verdict === "false_positive" ? "Marked false positive" : "Confirmed real"} · Evolution recalibrated the {finding.category} detector
+                </span>
+              ) : (
+                <>
+                  <span className="mono text-[10px] uppercase tracking-wide text-ink-faint">Teach Evolution</span>
+                  <button onClick={() => sendVerdict("confirmed")} disabled={sending} className="mono rounded-md border border-signal/40 bg-signal/10 px-2 py-1 text-[10px] text-signal hover:bg-signal/15 disabled:opacity-50">Confirm real</button>
+                  <button onClick={() => sendVerdict("false_positive")} disabled={sending} className="mono rounded-md border border-line px-2 py-1 text-[10px] text-ink-soft hover:text-ink disabled:opacity-50">False positive</button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

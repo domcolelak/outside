@@ -4,6 +4,7 @@ import { currentKevIndex } from "@/lib/analysis/kev";
 import { detectCoverageGaps, buildProposals } from "@/lib/evolution/evolution";
 import { latestEvolutionRun } from "@/lib/evolution/state";
 import { listDecisions, decidedProposalIds, productAffinity } from "@/lib/evolution/decisions";
+import { listIncidents, detectorReliability } from "@/lib/evolution/incidents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,8 +28,12 @@ export async function GET() {
   });
   const proposals = buildProposals(gaps);
 
+  // Detector reliability learned from founder incident feedback, noisiest first.
+  const incidents = await listIncidents();
+  const reliability = [...detectorReliability(incidents).values()].sort((a, b) => a.factor - b.factor);
+
   return NextResponse.json(
-    { kevSyncedAt: kev.syncedAt, kevSize: kev.size, gapCount: gaps.length, decisionsCount: decisions.length, lastScheduledRun: latestEvolutionRun(), proposals },
+    { kevSyncedAt: kev.syncedAt, kevSize: kev.size, gapCount: gaps.length, decisionsCount: decisions.length, detectorReliability: reliability, lastScheduledRun: latestEvolutionRun(), proposals },
     { headers: { "cache-control": "private, no-store" } },
   );
 }

@@ -261,7 +261,7 @@ jobs:
           restore_duration="$(( $(date +%s) - started ))"
           restored_migrations="$(docker exec "${postgres_id}" psql -U outside -d outside_restore -Atc \
             'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
-          test "${restored_migrations}" = "14"
+          test "${restored_migrations}" = "15"
           wrong_key="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
           case "${wrong_key}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
           if "${compose[@]}" run --rm -e "BACKUP_ENCRYPTION_KEY=${wrong_key}" \

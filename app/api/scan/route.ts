@@ -15,6 +15,7 @@ import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { processGuardianScan } from "@/lib/guardian/process";
 import { recordScanOperation } from "@/lib/observability/metrics";
+import { listIncidents, reliabilityFactors, applyDetectorReliability } from "@/lib/evolution/incidents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,6 +82,11 @@ export async function GET(req: NextRequest) {
             const persisted = await recordScan(store, result, orgId);
             if (persisted) await processGuardianScan(orgId, result, { notify: false, weeklyDigest: false });
           }
+          // Evolution learning: bounded-down-weight findings from detectors the
+          // founder has marked as noisy (false positives). Reversible and score-
+          // safe — the exposure score never reads confidence. Demo scans are left
+          // untouched above.
+          result.findings = applyDetectorReliability(result.findings, reliabilityFactors(await listIncidents()));
           // Aegis: build posture + investigation, then apply remembered statuses.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);

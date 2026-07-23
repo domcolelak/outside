@@ -1246,3 +1246,20 @@ model EvolutionDecision {
   @@index([product])
   @@map("evolution_decisions")
 }
+
+/**
+ * Founder incident feedback on findings (false positive / confirmed real).
+ * Evolution learns per-detector reliability from these and bounded-down-weights
+ * the confidence of noisy detectors' future findings — never silencing them, and
+ * never inflating confidence.
+ */
+model EvolutionIncidentSignal {
+  id        String   @id
+  category  String
+  verdict   String
+  actor     String
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@map("evolution_incident_signals")
+}
