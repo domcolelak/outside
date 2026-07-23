@@ -13,7 +13,7 @@ interface Proposal {
   proposedChange: string;
   evidence: { cveId: string; kevDateAdded: string; source: string };
 }
-interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; lastScheduledRun: { at: string; total: number } | null; proposals: Proposal[] }
+interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; decisionsCount: number; lastScheduledRun: { at: string; total: number } | null; proposals: Proposal[] }
 
 const PRIORITY_COLOR: Record<Proposal["priority"], string> = { high: "text-risk-high", medium: "text-risk-medium", low: "text-ink-faint" };
 
@@ -21,6 +21,7 @@ export default function EvolutionPage() {
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [data, setData] = useState<EvolutionData | null>(null);
   const [message, setMessage] = useState("");
+  const [deciding, setDeciding] = useState<Record<string, "approved" | "rejected">>({});
 
   useEffect(() => {
     fetch("/api/evolution")
@@ -31,6 +32,23 @@ export default function EvolutionPage() {
       })
       .catch(() => { setMessage("Network error."); setState("error"); });
   }, []);
+
+  async function decide(proposalId: string, decision: "approved" | "rejected") {
+    if (deciding[proposalId]) return;
+    setDeciding((d) => ({ ...d, [proposalId]: decision }));
+    try {
+      const res = await fetch("/api/evolution/decision", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ proposalId, decision }),
+      });
+      if (!res.ok) { setDeciding((d) => { const n = { ...d }; delete n[proposalId]; return n; }); return; }
+      // Decided proposals drop off the active list; Evolution has learned from this.
+      setData((prev) => prev && { ...prev, decisionsCount: prev.decisionsCount + 1, proposals: prev.proposals.filter((p) => p.id !== proposalId) });
+    } catch {
+      setDeciding((d) => { const n = { ...d }; delete n[proposalId]; return n; });
+    }
+  }
 
   return (
     <div className="min-h-screen">
@@ -47,7 +65,8 @@ export default function EvolutionPage() {
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Evolution watches the external security world and compares it against what OUTSIDE can already do. Below are
           evidence-backed proposals to close coverage gaps — actively-exploited vulnerabilities (CISA KEV) on technologies
-          OUTSIDE fingerprints but does not yet correlate.
+          OUTSIDE fingerprints but does not yet correlate. It learns from your decisions: approving or rejecting a proposal
+          removes it from the queue and reprioritizes future proposals on the same technology.
         </p>
 
         <div className="mt-4 rounded-lg border border-signal/30 bg-signal/5 px-3 py-2 text-[11px] text-signal">
@@ -62,6 +81,7 @@ export default function EvolutionPage() {
               <span><span className="text-ink">{data.proposals.length}</span> proposals awaiting review</span>
               <span><span className="text-ink">{data.kevSize}</span> KEV entries analyzed</span>
               <span>Auto-analyzed {data.lastScheduledRun ? new Date(data.lastScheduledRun.at).toLocaleDateString() : "on demand"} · monthly</span>
+              {data.decisionsCount > 0 && <span><span className="text-ink">{data.decisionsCount}</span> decision{data.decisionsCount === 1 ? "" : "s"} learned · reprioritizing</span>}
             </div>
 
             {data.proposals.length === 0 ? (
@@ -87,6 +107,23 @@ export default function EvolutionPage() {
                       <span>Evidence: {p.evidence.cveId} · {p.evidence.source}</span>
                       <span>Added {p.evidence.kevDateAdded}</span>
                       <span className="rounded-sm border border-line px-1.5 py-0.5">status: {p.status}</span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
+                      <button
+                        onClick={() => decide(p.id, "approved")}
+                        disabled={!!deciding[p.id]}
+                        className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
+                      >
+                        {deciding[p.id] === "approved" ? "Approving…" : "Approve"}
+                      </button>
+                      <button
+                        onClick={() => decide(p.id, "rejected")}
+                        disabled={!!deciding[p.id]}
+                        className="mono rounded-md border border-line px-3 py-1.5 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50"
+                      >
+                        {deciding[p.id] === "rejected" ? "Rejecting…" : "Reject"}
+                      </button>
+                      <span className="mono ml-auto text-[10px] text-ink-faint">Records intent for a human to implement · never auto-applied</span>
                     </div>
                   </li>
                 ))}

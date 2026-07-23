@@ -1228,3 +1228,21 @@ model AssetSnapshot {
   @@index([identityId])
   @@map("asset_snapshots")
 }
+
+/**
+ * Founder decisions on Evolution proposals (approve / reject). Evolution learns
+ * from these: a decided proposal drops off the active list, and the founder's
+ * net affinity per product reprioritises future proposals. Nothing here is ever
+ * applied automatically — it only shapes what gets surfaced next.
+ */
+model EvolutionDecision {
+  proposalId String   @id
+  cveId      String
+  product    String
+  decision   String
+  actor      String
+  decidedAt  DateTime @updatedAt
+
+  @@index([product])
+  @@map("evolution_decisions")
+}
