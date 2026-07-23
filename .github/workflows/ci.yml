@@ -94,7 +94,7 @@ jobs:
           docker exec "${{ job.services.postgres.id }}" createdb -U outside outside_restore
           docker exec "${{ job.services.postgres.id }}" sh -c 'PGPASSWORD=outside pg_restore -U outside -d outside_restore --no-owner --exit-on-error /tmp/outside.dump'
           applied="$(docker exec "${{ job.services.postgres.id }}" sh -c "PGPASSWORD=outside psql -U outside -d outside_restore -Atc 'SELECT count(*) FROM \"_prisma_migrations\" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL'")"
-          test "$applied" = "15"
+          test "$applied" = "16"
           docker exec "${{ job.services.postgres.id }}" sh -c "PGPASSWORD=outside psql -U outside -d outside_restore -v ON_ERROR_STOP=1 -Atc 'SELECT count(*) FROM organizations; SELECT count(*) FROM guardian_evidence_snapshots;'"
 
   browser-e2e:

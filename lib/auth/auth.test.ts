@@ -71,6 +71,14 @@ describe("accounts, organizations, RBAC", () => {
     expect(memberships[0]!.org.id).toBe(org.id);
   });
 
+  it("leaves a new password account unverified unless explicitly verified (safe default)", async () => {
+    const store = new InMemoryAuthStore();
+    const { user } = await store.createUserWithOrg({ email: "unverified@example.com", name: "U", passwordHash: "h", orgName: "U Co" });
+    expect(user.emailVerifiedAt).toBeNull();
+    const { user: verified } = await store.createUserWithOrg({ email: "verified@example.com", name: "V", passwordHash: "h", orgName: "V Co", emailVerified: true });
+    expect(verified.emailVerifiedAt).not.toBeNull();
+  });
+
   it("enforces the role hierarchy", () => {
     expect(roleAtLeast("owner", "admin")).toBe(true);
     expect(roleAtLeast("analyst", "admin")).toBe(false);
