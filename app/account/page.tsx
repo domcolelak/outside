@@ -29,6 +29,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             {ctx.memberships.some((m) => m.org.plan === "agency") && <Link href="/agency" className="mono text-xs text-signal hover:text-signal-bright">Agency Suite</Link>}
             {enterpriseOrganizations.length > 0 && <Link href={`/enterprise?orgId=${enterpriseOrganizations[0]!.membership.org.id}`} className="mono text-xs text-signal hover:text-signal-bright">Enterprise</Link>}
             <Link href="/guardian" className="mono text-xs text-signal hover:text-signal-bright">Guardian</Link>
+            <Link href="/chronos" className="mono text-xs text-ink-soft hover:text-ink">Chronos</Link>
             <Link href="/capabilities" className="mono text-xs text-ink-soft hover:text-ink">Capabilities</Link>
             <Link href="/integrations" className="mono text-xs text-ink-soft hover:text-ink">Integrations</Link>
             <Link href="/scan?target=northstar&mode=demo" className="mono text-xs text-ink-soft hover:text-ink">Run a scan</Link>
