@@ -11,6 +11,7 @@ const jobs = [
   { name: "retention", method: "GET", path: "/api/cron/retention", interval: setting("SCHEDULER_RETENTION_INTERVAL_SECONDS", 86_400, 300) },
   { name: "kev", method: "GET", path: "/api/cron/kev-sync", interval: setting("SCHEDULER_KEV_INTERVAL_SECONDS", 86_400, 300) },
   { name: "epss", method: "GET", path: "/api/cron/epss-sync", interval: setting("SCHEDULER_EPSS_INTERVAL_SECONDS", 86_400, 300) },
+  { name: "evolution", method: "GET", path: "/api/cron/evolution", interval: setting("SCHEDULER_EVOLUTION_INTERVAL_SECONDS", 2_592_000, 3_600) },
 ].map((job) => ({ ...job, nextAt: Date.now() + 5_000, startedAt: 0, running: false, successes: 0, failures: 0, lastSuccess: 0, lastDuration: 0 }));
 
 function setting(name, fallback, minimum) {
