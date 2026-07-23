@@ -36,6 +36,8 @@ export interface KevRecord {
 
 export interface KevIndex {
   get(cveId: string): KevRecord | undefined;
+  /** Every catalogued record (for coverage/gap analysis). */
+  all(): KevRecord[];
   readonly size: number;
   readonly syncedAt: string | null;
   readonly source: string | null;
@@ -92,6 +94,7 @@ export function currentKevIndex(): KevIndex {
   const { records, syncedAt, source } = cache;
   return {
     get: (cveId) => records.get(cveId.trim().toUpperCase()),
+    all: () => [...records.values()],
     size: records.size,
     syncedAt,
     source,

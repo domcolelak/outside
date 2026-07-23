@@ -31,6 +31,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <Link href="/guardian" className="mono text-xs text-signal hover:text-signal-bright">Guardian</Link>
             <Link href="/chronos" className="mono text-xs text-ink-soft hover:text-ink">Chronos</Link>
             <Link href="/capabilities" className="mono text-xs text-ink-soft hover:text-ink">Capabilities</Link>
+            <Link href="/evolution" className="mono text-xs text-ink-soft hover:text-ink">Evolution</Link>
             <Link href="/integrations" className="mono text-xs text-ink-soft hover:text-ink">Integrations</Link>
             <Link href="/scan?target=northstar&mode=demo" className="mono text-xs text-ink-soft hover:text-ink">Run a scan</Link>
             <LogoutButton />
