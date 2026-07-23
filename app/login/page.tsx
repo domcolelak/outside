@@ -19,7 +19,14 @@ function AuthForm() {
   useEffect(() => {
     fetch("/api/auth/providers").then((r) => r.json()).then((d) => setGoogleOn(!!d.google)).catch(() => {});
     if (params.get("error")) setError("Sign-in failed. Please try again.");
-  }, [params]);
+    // Already signed in? Don't show a login form — it reads as a sign-out.
+    fetch("/api/auth/me").then((r) => r.json()).then((d) => {
+      if (d.authenticated) {
+        const next = params.get("next");
+        router.push(next && next.startsWith("/") ? next : "/account");
+      }
+    }).catch(() => {});
+  }, [params, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
