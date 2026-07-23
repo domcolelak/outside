@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
+import { isFounder } from "@/lib/auth/founder";
 import { currentKevIndex } from "@/lib/analysis/kev";
 import { resolveProposal } from "@/lib/evolution/evolution";
 import { recordDecision, type EvolutionDecisionKind } from "@/lib/evolution/decisions";
@@ -20,6 +21,7 @@ const KINDS: EvolutionDecisionKind[] = ["approved", "rejected"];
 export async function POST(req: NextRequest) {
   const ctx = await getSessionContext();
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!isFounder(ctx)) return NextResponse.json({ error: "Evolution is restricted to the product owner." }, { status: 403 });
 
   const body = (await req.json().catch(() => null)) as { proposalId?: unknown; decision?: unknown } | null;
   const proposalId = typeof body?.proposalId === "string" ? body.proposalId : "";

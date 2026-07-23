@@ -30,6 +30,7 @@ export default function EvolutionPage() {
     fetch("/api/evolution")
       .then(async (res) => {
         if (res.status === 401) { setMessage("Sign in to view the Evolution control center."); setState("error"); return; }
+        if (res.status === 403) { setMessage("Evolution is the product owner's control plane and isn't available on this account."); setState("error"); return; }
         if (!res.ok) { setMessage("Could not load."); setState("error"); return; }
         setData(await res.json()); setState("done");
       })
