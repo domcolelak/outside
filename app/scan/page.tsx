@@ -12,6 +12,7 @@ import { NodeDetail } from "@/components/panels/NodeDetail";
 import { AttackerView } from "@/components/AttackerView";
 import { VerifyPanel } from "@/components/VerifyPanel";
 import { Wordmark } from "@/components/Wordmark";
+import { HeroInput } from "@/components/HeroInput";
 import { PRIORITY_STYLE } from "@/lib/analysis/priority";
 import { PresentationControls } from "@/components/experience/PresentationControls";
 import { Walkthrough, type WalkthroughStep } from "@/components/experience/Walkthrough";
@@ -81,10 +82,12 @@ function ScanView() {
 
   if (!target) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-ink-soft">No target specified.</p>
-          <Link href="/" className="mono mt-3 inline-block text-sm text-signal hover:underline">← Back to start</Link>
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="w-full max-w-xl text-center">
+          <Link href="/"><Wordmark className="mx-auto h-6" /></Link>
+          <h1 className="mt-6 text-2xl font-semibold text-ink">Start a scan</h1>
+          <p className="mt-2 text-sm text-ink-soft">Enter a domain to map its external surface.</p>
+          <div className="mt-6 flex justify-center"><HeroInput /></div>
         </div>
       </div>
     );

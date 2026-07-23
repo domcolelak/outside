@@ -3,6 +3,7 @@ import { HeroInput } from "@/components/HeroInput";
 import { HeroBackdrop } from "@/components/HeroBackdrop";
 import { Wordmark } from "@/components/Wordmark";
 import { LandingDemo } from "@/components/experience/LandingDemo";
+import { NavAuthLink } from "@/components/NavAuthLink";
 
 export default function Landing() {
   return (
@@ -20,9 +21,7 @@ export default function Landing() {
             <a href="#pricing" className="hover:text-ink">Pricing</a>
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/login" className="mono hidden px-3 py-1.5 text-xs text-ink-soft hover:text-ink sm:block">
-              Sign in
-            </Link>
+            <NavAuthLink />
             <Link href="/scan?target=northstar&mode=demo" className="mono rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-base-700">
               Watch demo
             </Link>
