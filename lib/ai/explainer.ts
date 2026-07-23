@@ -11,13 +11,13 @@
 
 import type { Finding, ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
-import { isTransientHttp, retryTransient, Semaphore } from "./resilience";
+import { executeModelCall } from "./gateway";
 import { executiveSummaryPrompt, findingExplanationPrompt } from "./constitution";
 import { ConstitutionViolation, findConstitutionViolations } from "./guardrails";
 import { operationalLog } from "@/lib/observability/log";
 
-// Bounds concurrent hosted-AI calls across the process (agents/requests share it).
-const aiSemaphore = new Semaphore(4);
+/** Prompt identity for audit/reproducibility through the gateway. */
+const EXPLAINER_PROMPT_VERSION = "explainer-v1";
 
 export type ExplainerKind = "template" | "openai";
 
@@ -76,47 +76,27 @@ export class OpenAIExplainer implements Explainer {
   ) {}
 
   private async call(system: string, userContent: string, maxTokens = 400): Promise<string> {
-    const once = async (): Promise<string> => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15_000);
-      const res = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: maxTokens,
-          temperature: 0.3,
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: userContent },
-          ],
-        }),
-      }).finally(() => clearTimeout(timer));
-
-      if (!res.ok) {
-        // Attach the status so the retry classifier can tell transient from fatal.
-        const err = new Error(`OpenAI API ${res.status}`) as Error & { status?: number };
-        err.status = res.status;
-        throw err;
-      }
-      const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      const text = data.choices?.[0]?.message?.content?.trim();
-      if (!text) throw new Error("Empty AI response");
-      // Deterministic enforcement of the Aegis Constitution. A violation is not
-      // transient, so it never retries — it propagates to the template fallback.
-      const violations = findConstitutionViolations(text, userContent);
-      if (violations.length) {
-        operationalLog("error", "aegis.constitution_violation", { violations, model: this.model });
-        throw new ConstitutionViolation(violations);
-      }
-      return text;
-    };
-    // Bounded concurrency + transient-only retries with full-jitter backoff.
-    return aiSemaphore.run(() => retryTransient(once, isTransientHttp, { maxAttempts: 4, baseDelay: 500, maxDelay: 8000 }));
+    // Every hosted-model call goes through the governed LLM Gateway (redaction,
+    // budget, cost accounting, concurrency, retries, audit).
+    const { text } = await executeModelCall({
+      taskType: "scan_explanation",
+      promptVersion: EXPLAINER_PROMPT_VERSION,
+      system,
+      user: userContent,
+      maxTokens,
+      temperature: 0.3,
+      maxCostUsd: 0.05,
+      apiKey: this.apiKey,
+      model: this.model,
+    });
+    // Deterministic enforcement of the Aegis Constitution on the output. A
+    // violation is fatal here — it propagates to the template fallback.
+    const violations = findConstitutionViolations(text, userContent);
+    if (violations.length) {
+      operationalLog("error", "aegis.constitution_violation", { violations, model: this.model });
+      throw new ConstitutionViolation(violations);
+    }
+    return text;
   }
 
   async executiveSummary(result: ScanResult): Promise<string> {
