@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { currentKevIndex } from "@/lib/analysis/kev";
 import { detectCoverageGaps, buildProposals } from "@/lib/evolution/evolution";
+import { latestEvolutionRun } from "@/lib/evolution/state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function GET() {
   const proposals = buildProposals(gaps);
 
   return NextResponse.json(
-    { kevSyncedAt: kev.syncedAt, kevSize: kev.size, gapCount: gaps.length, proposals },
+    { kevSyncedAt: kev.syncedAt, kevSize: kev.size, gapCount: gaps.length, lastScheduledRun: latestEvolutionRun(), proposals },
     { headers: { "cache-control": "private, no-store" } },
   );
 }

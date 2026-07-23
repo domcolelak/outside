@@ -13,7 +13,7 @@ interface Proposal {
   proposedChange: string;
   evidence: { cveId: string; kevDateAdded: string; source: string };
 }
-interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; proposals: Proposal[] }
+interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount: number; lastScheduledRun: { at: string; total: number } | null; proposals: Proposal[] }
 
 const PRIORITY_COLOR: Record<Proposal["priority"], string> = { high: "text-risk-high", medium: "text-risk-medium", low: "text-ink-faint" };
 
@@ -61,7 +61,7 @@ export default function EvolutionPage() {
             <div className="mono mt-6 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-faint">
               <span><span className="text-ink">{data.proposals.length}</span> proposals awaiting review</span>
               <span><span className="text-ink">{data.kevSize}</span> KEV entries analyzed</span>
-              <span>KEV synced {data.kevSyncedAt ? new Date(data.kevSyncedAt).toLocaleDateString() : "—"}</span>
+              <span>Auto-analyzed {data.lastScheduledRun ? new Date(data.lastScheduledRun.at).toLocaleDateString() : "on demand"} · monthly</span>
             </div>
 
             {data.proposals.length === 0 ? (
