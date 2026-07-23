@@ -14,6 +14,7 @@ export default function Landing() {
           <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex">
             <a href="#how" className="hover:text-ink">How it works</a>
             <a href="#features" className="hover:text-ink">Features</a>
+            <a href="#intelligence" className="hover:text-ink">Intelligence</a>
             <a href="#guardian" className="hover:text-ink">Guardian</a>
             <a href="#security" className="hover:text-ink">Responsible use</a>
             <a href="#pricing" className="hover:text-ink">Pricing</a>
@@ -43,7 +44,7 @@ export default function Landing() {
               See what the internet knows <span className="text-gradient">about your company.</span>
             </h1>
             <p className="mt-7 max-w-xl text-lg leading-8 text-ink-soft">
-              OUTSIDE turns public infrastructure evidence into a living map—then Guardian correlates meaningful change after every scheduled observation.
+              From a single domain: everything the internet exposes about you — mapped, correlated against actively-exploited vulnerabilities, remembered through time, and traced to what depends on what. Evidence for every claim; Guardian watches it after every scan.
             </p>
             <div className="mt-9"><HeroInput /></div>
             <div className="mt-8 grid max-w-xl grid-cols-3 gap-4 border-t border-line pt-5">{[["Passive", "by default"], ["Traceable", "evidence"], ["Continuous", "Guardian"]].map(([value, label]) => <div key={value}><div className="text-sm font-medium text-ink">{value}</div><div className="mono mt-1 text-[8px] uppercase tracking-wider text-ink-faint">{label}</div></div>)}</div>
@@ -91,7 +92,7 @@ export default function Landing() {
         <SectionTitle kicker="How it works" title="Enter a domain. Watch the footprint reveal itself." />
         <div className="mt-12 grid gap-4 md:grid-cols-4">
           {[
-            { s: "Discover", d: "Passive sources — certificate transparency, DNS, public web signals — surface hostnames and services." },
+            { s: "Discover", d: "Passive sources — certificate transparency, DNS, public web signals, and optional commercial passive-DNS — surface hostnames and services." },
             { s: "Correlate", d: "Assets are normalized and entity-resolved into a single graph with relationship confidence." },
             { s: "Classify", d: "Weak signals combine into shadow-asset, non-production, and authentication classifications." },
             { s: "Explain", d: "A transparent exposure score and evidence-backed findings tell you what to review and why." },
@@ -115,6 +116,26 @@ export default function Landing() {
             <Feature className="md:col-span-2" title="Change detection" body="Repeated scans diff your external surface: new hostnames, returning services, and technology shifts, so nothing appears unnoticed." />
             <Feature className="md:col-span-4" title="Explainable exposure score" body="A deterministic 0–100 posture score. Open “Why is my score 37?” to see every penalty and mitigation. It measures how contained your surface is — not a probability of being hacked." />
           </div>
+        </div>
+      </section>
+
+      {/* Intelligence layers */}
+      <section id="intelligence" className="mx-auto max-w-6xl px-6 py-20">
+        <SectionTitle kicker="Intelligence layers" title="Not just what's exposed — what it means, and how it moves." />
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {[
+            { t: "Exploited-vulnerability correlation", d: "Disclosed technology versions are matched against a curated CVE set and enriched with live CISA KEV (exploited in the wild, ransomware links, federal deadlines) and FIRST.org EPSS probability. A version banner is an item to confirm — never a confirmed exploit." },
+            { t: "Threat & telemetry enrichment", d: "Bring your keys and OUTSIDE reaches further on verified targets: passive-DNS (SecurityTrails, Shodan) and Censys service discovery expand the surface; AbuseIPDB, GreyNoise, VirusTotal and HaveIBeenPwned add reputation, classification and breach exposure." },
+            { t: "Chronos · security time machine", d: "Reconstruct your external surface as it was on any day, diff any two moments, and replay how exposure evolved — grounded only in observations that were actually recorded." },
+            { t: "Digital Twin · dependency & blast radius", d: "Read the surface as a dependency graph: what relies on what, and exactly which assets break if a shared CDN, nameserver, address or technology fails or is compromised." },
+            { t: "Capability registry · radical transparency", d: "A code-backed inventory of exactly what OUTSIDE detects — passive or active, always-on or operator-keyed — kept honest by a test that fails if the registry ever drifts from what a real scan produces." },
+            { t: "Evolution · learns what to build next", d: "OUTSIDE watches which vulnerabilities are being exploited and drafts evidence-backed proposals for coverage it doesn't yet have. It proposes and prepares; you approve. It never changes itself." },
+          ].map((x) => (
+            <div key={x.t} className="panel p-5">
+              <div className="text-ink">{x.t}</div>
+              <p className="mt-2 text-sm leading-relaxed text-ink-soft">{x.d}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -142,8 +163,8 @@ export default function Landing() {
           <SectionTitle kicker="Pricing" title="Start free. Monitor when it matters." />
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             <Plan name="Snapshot" price="Free" cadence="one-off" features={["Single external snapshot", "Interactive asset graph", "Attacker View replay", "Top findings"]} />
-            <Plan name="Professional" price="$79" cadence="/mo" highlight features={["OUTSIDE Guardian", "Up to 5 monitored domains", "Daily correlation & Exposure Drift", "Living checklist & remediation", "Weekly executive digest"]} />
-            <Plan name="Agency" price="$249" cadence="/mo" features={["Guardian across 30 client domains", "Team roles & workspaces", "Slack, Teams, Jira & issue workflows", "Executive reporting", "API access"]} />
+            <Plan name="Professional" price="$79" cadence="/mo" highlight features={["OUTSIDE Guardian", "Up to 5 monitored domains", "Vulnerability correlation (KEV + EPSS)", "Chronos time machine & Digital Twin", "Living checklist & remediation", "Weekly executive digest"]} />
+            <Plan name="Agency" price="$249" cadence="/mo" features={["Guardian across 30 client domains", "Team roles & workspaces", "White-label client reporting", "Slack, Teams, Jira & issue workflows", "API access"]} />
           </div>
           <p className="mono mt-6 text-center text-xs text-ink-faint">
             Pricing reflects scanning, provider, and AI-explanation costs per monitored domain and frequency.
