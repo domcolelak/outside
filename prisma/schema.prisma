@@ -188,7 +188,7 @@ model User {
   passwordHash      String
   // Default verifies legacy rows during additive migration; all new password
   // signups explicitly write null until the signed verification link is used.
-  emailVerifiedAt   DateTime?          @default(now())
+  emailVerifiedAt   DateTime?
   sessionVersion    Int                @default(0)
   createdAt         DateTime           @default(now())
   memberships       Membership[]
