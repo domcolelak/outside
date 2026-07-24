@@ -21,12 +21,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20.20.0
+          node-version: 24.18.0
           cache: npm
       - run: npm ci
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/outside_ci
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run db:validate
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20.20.0
+          node-version: 24.18.0
           cache: npm
       - run: npm ci
       - run: npm run db:migrate
@@ -94,7 +94,8 @@ jobs:
           docker exec "${{ job.services.postgres.id }}" createdb -U outside outside_restore
           docker exec "${{ job.services.postgres.id }}" sh -c 'PGPASSWORD=outside pg_restore -U outside -d outside_restore --no-owner --exit-on-error /tmp/outside.dump'
           applied="$(docker exec "${{ job.services.postgres.id }}" sh -c "PGPASSWORD=outside psql -U outside -d outside_restore -Atc 'SELECT count(*) FROM \"_prisma_migrations\" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL'")"
-          test "$applied" = "16"
+          expected="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')"
+          test "$applied" = "$expected"
           docker exec "${{ job.services.postgres.id }}" sh -c "PGPASSWORD=outside psql -U outside -d outside_restore -v ON_ERROR_STOP=1 -Atc 'SELECT count(*) FROM organizations; SELECT count(*) FROM guardian_evidence_snapshots;'"
 
   browser-e2e:
@@ -128,7 +129,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20.20.0
+          node-version: 24.18.0
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium

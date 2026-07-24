@@ -9,6 +9,7 @@ describe("security headers", () => {
     expect(headers.get("Content-Security-Policy")).toContain("default-src 'self'");
     expect(headers.get("Content-Security-Policy")).toContain("object-src 'none'");
     expect(headers.get("Content-Security-Policy")).toContain("frame-ancestors 'none'");
+    expect(headers.get("Content-Security-Policy")).toContain("img-src 'self' https: data: blob:");
     expect(headers.get("Content-Security-Policy")).toContain("'unsafe-eval'");
     expect(headers.has("Strict-Transport-Security")).toBe(false);
   });

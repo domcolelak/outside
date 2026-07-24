@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import type Stripe from "stripe";
 import { getAuthStore } from "@/lib/auth";
 import { getStripe, isBillingEnabled } from "@/lib/billing/stripe";
-import { planForPriceId } from "@/lib/billing/plans";
+import { planForPriceId, subscriptionPlan } from "@/lib/billing/plans";
 import { processWebhookOnce } from "@/lib/billing/idempotency";
 import { operationalLog } from "@/lib/observability/log";
 import { billingEventRank } from "@/lib/billing/order";
@@ -29,9 +29,12 @@ async function processDurable(tx: Prisma.TransactionClient, event: Stripe.Event)
   } else if (event.type === "customer.subscription.updated") {
     const subscription = event.data.object as Stripe.Subscription;
     const orgId = await orgIdFor(tx, subscription.metadata?.orgId, subscription.customer as string);
-    const plan = planForPriceId(subscription.items.data[0]?.price.id) ?? "professional";
-    const active = subscription.status === "active" || subscription.status === "trialing";
-    if (orgId) await tx.$executeRaw`UPDATE organizations SET plan=CAST(${active ? plan : "free"} AS "Plan"),"stripeSubscriptionId"=${subscription.id},"subscriptionStatus"=${subscription.status},"stripeEventCreated"=${event.created},"stripeEventRank"=${rank},"stripeEventId"=${event.id} WHERE id=${orgId} AND ${eligible}`;
+    const priceId = subscription.items.data[0]?.price.id;
+    const plan = subscriptionPlan(priceId, subscription.status);
+    if (!planForPriceId(priceId) && (subscription.status === "active" || subscription.status === "trialing")) {
+      operationalLog("error", "billing.unknown_subscription_price", { eventType: event.type, priceId: priceId ?? "missing" });
+    }
+    if (orgId) await tx.$executeRaw`UPDATE organizations SET plan=CAST(${plan} AS "Plan"),"stripeSubscriptionId"=${subscription.id},"subscriptionStatus"=${subscription.status},"stripeEventCreated"=${event.created},"stripeEventRank"=${rank},"stripeEventId"=${event.id} WHERE id=${orgId} AND ${eligible}`;
   } else if (event.type === "customer.subscription.deleted") {
     const subscription = event.data.object as Stripe.Subscription;
     const orgId = await orgIdFor(tx, subscription.metadata?.orgId, subscription.customer as string);
@@ -56,9 +59,12 @@ async function processMemory(event: Stripe.Event): Promise<void> {
     await auth.setSubscription(orgId, { plan: metadata.plan, stripeCustomerId: customer, stripeSubscriptionId: session.subscription as string, status: "active" });
   } else if (event.type === "customer.subscription.updated") {
     const subscription = event.data.object as Stripe.Subscription;
-    const plan = planForPriceId(subscription.items.data[0]?.price.id) ?? "professional";
-    const active = subscription.status === "active" || subscription.status === "trialing";
-    await auth.setSubscription(orgId, { plan: active ? plan : "free", stripeSubscriptionId: subscription.id, status: subscription.status });
+    const priceId = subscription.items.data[0]?.price.id;
+    const plan = subscriptionPlan(priceId, subscription.status);
+    if (!planForPriceId(priceId) && (subscription.status === "active" || subscription.status === "trialing")) {
+      operationalLog("error", "billing.unknown_subscription_price", { eventType: event.type, priceId: priceId ?? "missing" });
+    }
+    await auth.setSubscription(orgId, { plan, stripeSubscriptionId: subscription.id, status: subscription.status });
   } else if (event.type === "customer.subscription.deleted") {
     await auth.setSubscription(orgId, { plan: "free", stripeSubscriptionId: null, status: "canceled" });
   } else if (event.type === "invoice.payment_failed") {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { trackFunnel } from "@/lib/analytics/client";
+import { useDialogFocus } from "@/components/useDialogFocus";
 
 interface StartInfo {
   recordType: string;
@@ -25,6 +26,7 @@ export function VerifyPanel({
   const [status, setStatus] = useState<"loading" | "pending" | "verified" | "checking" | "error">("loading");
   const [hint, setHint] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const dialogRef = useDialogFocus();
 
   useEffect(() => {
     trackFunnel("verification_started");
@@ -91,7 +93,7 @@ export function VerifyPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-base-950/80 backdrop-blur-xs px-4" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="verify-title" className="panel w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="verify-title" tabIndex={-1} className="panel w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             <div className="mono text-[11px] uppercase tracking-wider text-signal">Verify organization</div>

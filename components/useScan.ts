@@ -114,8 +114,11 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
   }, [target, mode]);
 
   useEffect(() => {
-    start();
-    return () => esRef.current?.close();
+    const frame = window.requestAnimationFrame(start);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      esRef.current?.close();
+    };
   }, [start]);
 
   return { ...state, restart: start };

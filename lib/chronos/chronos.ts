@@ -5,7 +5,7 @@
  * already records for every paid-organization scan. It runs no second scanner
  * and stores nothing new: each snapshot is a full inventory at a point in time,
  * so Chronos can reconstruct the external surface as it was at any moment, diff
- * any two moments, and replay how exposure evolved. Every answer is grounded in
+ * any two moments, and replay how protection posture evolved. Every answer is grounded in
  * recorded evidence — Chronos never invents a state that was not observed.
  */
 
@@ -113,7 +113,7 @@ export function diffSnapshots(a: GuardianSnapshot | null, b: GuardianSnapshot): 
   const removed = changes.filter((c) => c.change === "removed").length;
   const modified = changes.filter((c) => c.change === "modified").length;
   const summary = a
-    ? `${added} appeared, ${removed} disappeared, ${modified} changed; exposure ${scoreDelta > 0 ? "+" : ""}${scoreDelta}.`
+    ? `${added} appeared, ${removed} disappeared, ${modified} changed; protection posture ${scoreDelta > 0 ? "+" : ""}${scoreDelta}.`
     : `Initial observation: ${b.inventory.length} asset(s).`;
 
   return {

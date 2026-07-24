@@ -8,6 +8,7 @@ import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { getStore } from "@/lib/persistence";
 import { recordFunnelEvent } from "@/lib/observability/metrics";
+import { isValidEmail } from "@/lib/auth/validation";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "cache-control": "no-store" } });
@@ -33,6 +34,11 @@ export async function PATCH(req: NextRequest) {
   let body: Record<string, unknown>; try { body = await readLimitedJson(req, 30_000) as Record<string, unknown>; } catch (error) { return json({ error: (error as Error).message }, error instanceof RequestBodyError ? error.status : 400); }
   const branding = body.branding && typeof body.branding === "object" ? body.branding as Record<string, unknown> : {};
   const customDomain = branding.customDomain === undefined ? undefined : cleanText(branding.customDomain, 253).toLowerCase() || null;
+  const rawLogoUrl = branding.logoUrl === undefined ? undefined : cleanText(branding.logoUrl, 500);
+  const logoUrl = rawLogoUrl === undefined ? undefined : optionalHttpsUrl(rawLogoUrl);
+  if (rawLogoUrl && !logoUrl) return json({ error: "Logo URL must be a valid HTTPS URL without embedded credentials" }, 422);
+  const rawSupportEmail = branding.supportEmail === undefined ? undefined : cleanText(branding.supportEmail, 200).toLowerCase();
+  if (rawSupportEmail && !isValidEmail(rawSupportEmail)) return json({ error: "Support email must be a valid email address" }, 422);
   if (customDomain) { const verification = await (await getStore()).getVerification(customDomain, access.workspace.ownerOrgId); if (verification?.status !== "verified") return json({ error: "Verify the custom domain in the owner organization before enabling it" }, 403); }
   let resellerParentId: string | null | undefined;
   if (body.resellerParentId !== undefined) {
@@ -40,6 +46,6 @@ export async function PATCH(req: NextRequest) {
     if (access.role !== "owner" || !access.session) return json({ error: "Only the agency owner can change reseller hierarchy" }, 403);
     if (resellerParentId) { const store = await getAgencyStore(); const [parent, membership] = await Promise.all([store.workspace(resellerParentId), store.membershipForUser(resellerParentId, access.session.user.id)]); if (!parent || !membership || !["owner", "admin"].includes(membership.role) || parent.id === access.workspace.id || parent.resellerParentId === access.workspace.id) return json({ error: "Invalid or unauthorized reseller parent" }, 403); }
   }
-  const patch = { name: body.name === undefined ? undefined : cleanText(body.name, 100), consultantMode: typeof body.consultantMode === "boolean" ? body.consultantMode : undefined, resellerParentId, branding: { whiteLabel: typeof branding.whiteLabel === "boolean" ? branding.whiteLabel : undefined, logoUrl: branding.logoUrl === undefined ? undefined : optionalHttpsUrl(branding.logoUrl), primaryColor: branding.primaryColor === undefined ? undefined : validColor(branding.primaryColor, access.workspace.branding.primaryColor), accentColor: branding.accentColor === undefined ? undefined : validColor(branding.accentColor, access.workspace.branding.accentColor), supportEmail: branding.supportEmail === undefined ? undefined : cleanText(branding.supportEmail, 200) || null, customDomain, emailFromName: branding.emailFromName === undefined ? undefined : cleanText(branding.emailFromName, 100) || null, emailFooter: branding.emailFooter === undefined ? undefined : cleanText(branding.emailFooter, 500) || null } };
+  const patch = { name: body.name === undefined ? undefined : cleanText(body.name, 100), consultantMode: typeof body.consultantMode === "boolean" ? body.consultantMode : undefined, resellerParentId, branding: { whiteLabel: typeof branding.whiteLabel === "boolean" ? branding.whiteLabel : undefined, logoUrl, primaryColor: branding.primaryColor === undefined ? undefined : validColor(branding.primaryColor, access.workspace.branding.primaryColor), accentColor: branding.accentColor === undefined ? undefined : validColor(branding.accentColor, access.workspace.branding.accentColor), supportEmail: rawSupportEmail === undefined ? undefined : rawSupportEmail || null, customDomain, emailFromName: branding.emailFromName === undefined ? undefined : cleanText(branding.emailFromName, 100) || null, emailFooter: branding.emailFooter === undefined ? undefined : cleanText(branding.emailFooter, 500) || null } };
   const workspace = await (await getAgencyStore()).updateWorkspace(access.workspace.id, patch); return json({ workspace });
 }

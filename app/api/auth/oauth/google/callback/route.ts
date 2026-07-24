@@ -5,6 +5,7 @@ import { SESSION_MAX_AGE, sessionCookie, signSession } from "@/lib/auth/session"
 import { exchangeGoogleCode, googleConfigured, OAUTH_STATE_COOKIE, verifyState } from "@/lib/auth/oauth";
 import { randomBytes } from "node:crypto";
 import { APP_URL } from "@/lib/config/runtime";
+import { enterpriseSsoRequirement } from "@/lib/enterprise/login-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,13 @@ export async function GET(req: NextRequest) {
       emailVerified: true,
     });
     user = created.user;
+  }
+
+  const sso = await enterpriseSsoRequirement(user, { authStore: store });
+  if (sso) {
+    const res = NextResponse.redirect(new URL(sso.ssoUrl, APP_URL));
+    res.headers.append("Set-Cookie", `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+    return res;
   }
 
   const res = NextResponse.redirect(new URL("/account", APP_URL));

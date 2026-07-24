@@ -31,7 +31,7 @@ export function ShareButton({ result }: { result: ScanResult }) {
   if (state === "done") {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-line bg-base-850 p-1.5">
-        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="mono min-w-0 flex-1 bg-transparent px-2 text-[11px] text-ink-soft outline-none" />
+        <input aria-label="Shareable report URL" readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="mono min-w-0 flex-1 bg-transparent px-2 text-[11px] text-ink-soft outline-none" />
         <button onClick={() => copy(url)} className="mono flex-none rounded-md bg-signal px-3 py-1.5 text-[11px] font-semibold text-base-950">{copied ? "Copied" : "Copy"}</button>
       </div>
     );

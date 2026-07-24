@@ -5,7 +5,7 @@ This file records the remaining product boundary. It is not a claim that planned
 ## Implemented
 
 - Passive CT/DNS discovery, verified-target HTTPS/TLS observation, typed SSE progress, deterministic evidence, findings, score, and recommendations.
-- Deterministic known-vulnerability correlation of disclosed technology versions (Server / X-Powered-By) against a curated CVE / CISA-KEV / end-of-life set, feeding prioritized findings and the exposure score with explicit backporting caveats.
+- Deterministic known-vulnerability correlation of disclosed technology versions (Server / X-Powered-By) against a curated CVE / CISA-KEV / end-of-life set, feeding prioritized findings and the protection-posture score with explicit backporting caveats.
 - PostgreSQL persistence for tenant-scoped targets, scans, temporal asset snapshots, changes, recommendation status, audit events, AI analyses, monitors, rate limits, webhook events, and email outbox state.
 - Email/password accounts, Google OAuth when configured, email verification, organizations, RBAC, hashed/expiring invites, DNS and well-known-file domain verification.
 - Atomic scheduled-monitor claims, retry backoff, alerts, PDF reports, Stripe subscriptions, and optional read-only OpenAI explanations.

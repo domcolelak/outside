@@ -63,11 +63,11 @@ export function SharedReport({ snapshot }: { snapshot: ShareSnapshot | null }) {
           <div className="panel flex items-center gap-5 p-5">
             <div className="text-right">
               <div className="text-5xl font-semibold tracking-tight text-ink" style={{ fontVariantNumeric: "tabular-nums" }}>{s.score.value}</div>
-              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">/ 100</div>
+              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">/ 100 · higher is better</div>
             </div>
             <div className="h-10 w-px bg-line" />
             <div>
-              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">Posture</div>
+              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">Protection posture</div>
               <div className={`text-lg font-semibold ${BAND_COLOR[s.score.band] ?? "text-ink"}`}>{BAND_LABEL[s.score.band] ?? s.score.band}</div>
             </div>
           </div>

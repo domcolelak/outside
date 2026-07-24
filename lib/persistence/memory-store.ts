@@ -62,10 +62,12 @@ export class InMemoryScanStore implements ScanStore {
     return out;
   }
 
-  async saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{ previousScanId: string | null }> {
+  async saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{ previousScanId: string | null; previousSnapshots: AssetSnapshot[]; seenBefore: Set<string> }> {
     const state = this.byId.get(target.id);
     if (!state) throw new Error(`Unknown target ${target.id}`);
-    const previousScanId = state.scans.length ? state.scans[state.scans.length - 1]!.id : null;
+    const previous = state.scans.length ? state.scans[state.scans.length - 1]! : null;
+    const previousSnapshots = previous ? structuredClone(state.snapshotsByScan.get(previous.id) ?? []) : [];
+    const seenBefore = new Set(state.identities.keys());
     const now = result.finishedAt;
 
     // Upsert identities and bind snapshots to them.
@@ -75,8 +77,11 @@ export class InMemoryScanStore implements ScanStore {
         identity = { id: this.id("aid"), targetId: target.id, canonical: snap.canonical, label: snap.label, firstSeenAt: now, lastSeenAt: now };
         state.identities.set(snap.canonical, identity);
       } else {
-        identity.lastSeenAt = now;
-        identity.label = snap.label;
+        if (Date.parse(now) < Date.parse(identity.firstSeenAt)) identity.firstSeenAt = now;
+        if (Date.parse(now) >= Date.parse(identity.lastSeenAt)) {
+          identity.lastSeenAt = now;
+          identity.label = snap.label;
+        }
       }
       snap.identityId = identity.id;
     }
@@ -92,7 +97,7 @@ export class InMemoryScanStore implements ScanStore {
     };
     state.scans.push(record);
     state.snapshotsByScan.set(result.scanId, snapshots);
-    return { previousScanId };
+    return { previousScanId: previous?.id ?? null, previousSnapshots, seenBefore };
   }
 
   async recentScans(targetId: string, limit: number): Promise<ScanRecord[]> {

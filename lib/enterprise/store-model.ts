@@ -36,13 +36,26 @@ export interface EnterpriseStore {
   authenticateScimToken(hash: string): Promise<EnterpriseIdentityProvider | null>;
   rotateScimToken(workspaceId: string, id: string, hash: string, prefix: string): Promise<EnterpriseIdentityProvider | null>;
   rotateScimTokenAudited(workspaceId: string, id: string, hash: string, prefix: string, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<EnterpriseIdentityProvider | null>;
-  provisionScimUserAtomic?(input: { workspaceId: string; orgId: string; providerId: string; email: string; name: string; passwordHash: string; externalId: string | null; active: boolean }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<EnterpriseDirectoryUser>;
+  provisionScimUserAtomic?(input: {
+    workspaceId: string;
+    orgId: string;
+    providerId: string;
+    directoryUserId?: string | null;
+    feature: "scim" | "sso";
+    email: string;
+    name: string;
+    passwordHash: string;
+    externalId: string | null;
+    active: boolean;
+    attributes?: Record<string, unknown>;
+  }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<EnterpriseDirectoryUser>;
   updateScimUserAtomic?(input: { workspaceId: string; orgId: string; providerId: string; id: string; patch: Partial<EnterpriseDirectoryUser> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<EnterpriseDirectoryUser | null>;
   deleteScimUserAtomic?(input: { workspaceId: string; orgId: string; providerId: string; id: string }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<{ removed: boolean; groups: number; bindings: number }>;
   deleteScimGroupAtomic?(input: { workspaceId: string; providerId: string; id: string }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<{ removed: boolean; bindings: number }>;
   enqueueDelivery(input: { workspaceId: string; integrationId: string; idempotencyKey: string; eventId: string; payload: Record<string, unknown> }): Promise<EnterpriseDelivery>;
   enqueueEventAudited(input: { workspaceId: string; integrations: Array<{ id: string; idempotencyKey: string }>; eventId: string; payload: Record<string, unknown> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<number>;
   claimDeliveries(now: Date, limit: number, leaseMs: number): Promise<EnterpriseDelivery[]>;
+  renewDeliveryLease(workspaceId: string, id: string, leaseId: string, now: Date, leaseMs: number): Promise<boolean>;
   finishDelivery(workspaceId: string, id: string, leaseId: string, result: { delivered: boolean; error?: string }): Promise<boolean>;
   updateTicketInbound(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>): Promise<import("./types").EnterpriseTicketLink | null>;
   updateTicketInboundAudited(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">): Promise<import("./types").EnterpriseTicketLink | null>;

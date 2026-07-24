@@ -40,7 +40,8 @@ function ChronosView() {
 
   useEffect(() => {
     const t = params.get("target");
-    if (t) load(t);
+    const frame = t ? window.requestAnimationFrame(() => void load(t)) : 0;
+    return () => window.cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -58,7 +59,8 @@ function ChronosView() {
         <h1 className="mt-2 text-3xl font-semibold text-ink">How this surface changed over time</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Point-in-time reconstruction and replay across a verified target&apos;s recorded history — what appeared, what
-          disappeared, what changed, and how exposure moved. Grounded only in observations that were actually recorded.
+          disappeared, what changed, and how protection posture moved. Higher scores indicate stronger protection, and
+          every change is grounded in observations that were actually recorded.
         </p>
 
         <form onSubmit={(e) => { e.preventDefault(); load(target); }} className="mt-6 flex gap-2">
@@ -74,13 +76,13 @@ function ChronosView() {
           <ol className="mt-8 space-y-4">
             {[...steps].reverse().map((s) => (
               <li key={s.scanId} className="relative border-l border-line pl-6">
-                <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full" style={{ background: s.diff.exposureScoreDelta > 0 ? "#ff8a5b" : s.diff.exposureScoreDelta < 0 ? "#38e1c3" : "#6b7793" }} />
+                <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full" style={{ background: s.diff.exposureScoreDelta > 0 ? "#38e1c3" : s.diff.exposureScoreDelta < 0 ? "#ff8a5b" : "#6b7793" }} />
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="mono text-sm text-ink">{new Date(s.observedAt).toLocaleString()}</span>
                   <span className="mono text-xs text-ink-faint">
-                    exposure <span className="text-ink">{s.exposureScore}</span>
+                    protection posture <span className="text-ink">{s.exposureScore}/100</span>
                     {s.diff.from && s.diff.exposureScoreDelta !== 0 && (
-                      <span className={s.diff.exposureScoreDelta > 0 ? "text-risk-high" : "text-signal"}> ({s.diff.exposureScoreDelta > 0 ? "+" : ""}{s.diff.exposureScoreDelta})</span>
+                      <span className={s.diff.exposureScoreDelta > 0 ? "text-signal" : "text-risk-high"}> ({s.diff.exposureScoreDelta > 0 ? "+" : ""}{s.diff.exposureScoreDelta})</span>
                     )}
                   </span>
                 </div>

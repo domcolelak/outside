@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-const CLASS = "mono hidden px-3 py-1.5 text-xs text-ink-soft hover:text-ink sm:block";
+const CLASS = "mono rounded-md px-2 py-1.5 text-xs text-ink-soft hover:bg-base-700 hover:text-ink sm:px-3";
 
 /**
  * Landing-page auth link. The landing stays static/cacheable; this small client

@@ -1,5 +1,5 @@
 /**
- * Exposure score.
+ * Protection-posture score.
  *
  * Deterministic and fully explainable: the value is 100 minus weighted penalties
  * plus bounded mitigations, clamped to [0,100]. It measures how well-managed and

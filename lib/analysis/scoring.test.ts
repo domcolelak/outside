@@ -53,7 +53,7 @@ describe("signal classification (Northstar demo)", () => {
   });
 });
 
-describe("exposure score", () => {
+describe("protection-posture score", () => {
   const assets = classify();
   const findings = generateFindings(assets, [], new Date().toISOString());
   const score = computeExposureScore(assets, findings);

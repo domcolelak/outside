@@ -3,13 +3,15 @@ import type { NextRequest } from "next/server";
 import { getAuthStore } from "@/lib/auth";
 import { hashPassword } from "@/lib/auth/password";
 import { secretHash } from "./crypto";
+import { featureEnabled } from "./permissions";
+import { workspaceInRegion } from "./residency";
 import { getEnterpriseStore } from "./store";
 import type { AppendEnterpriseAuditInput } from "./store-model";
 import type { EnterpriseDirectoryGroup, EnterpriseDirectoryUser, EnterpriseIdentityProvider, EnterpriseWorkspace } from "./types";
 
 export const SCIM_USER_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:User", SCIM_GROUP_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Group";
 export interface ScimAccess { provider: EnterpriseIdentityProvider; workspace: EnterpriseWorkspace; }
-export async function scimAccess(req: NextRequest): Promise<ScimAccess | null> { const auth = req.headers.get("authorization") ?? ""; if (!auth.startsWith("Bearer out_scim_")) return null; const provider = await (await getEnterpriseStore()).authenticateScimToken(secretHash(auth.slice(7))); if (!provider) return null; const workspace = await (await getEnterpriseStore()).workspace(provider.workspaceId); return workspace ? { provider, workspace } : null; }
+export async function scimAccess(req: NextRequest): Promise<ScimAccess | null> { const auth = req.headers.get("authorization") ?? ""; if (!auth.startsWith("Bearer out_scim_")) return null; const store = await getEnterpriseStore(); const provider = await store.authenticateScimToken(secretHash(auth.slice(7))); if (!provider) return null; const workspace = await store.workspace(provider.workspaceId); return workspace && workspaceInRegion(workspace) && featureEnabled(workspace, "scim") ? { provider, workspace } : null; }
 export function scimError(status: number, detail: string) { return { status, body: { schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"], status: String(status), detail } }; }
 export function scimFilter(value: string | null): { field: "userName" | "externalId" | "displayName"; value: string } | null { if (!value) return null; const match = /^(userName|externalId|displayName)\s+eq\s+"([^"\\]{1,320})"$/i.exec(value.trim()); if (!match) throw new Error("Only exact userName, externalId or displayName filters are supported."); return { field: match[1] as "userName" | "externalId" | "displayName", value: match[2]! }; }
 export function scimUser(item: EnterpriseDirectoryUser, baseUrl: string) { return { schemas: [SCIM_USER_SCHEMA], id: item.id, externalId: item.externalId ?? undefined, userName: item.userName, displayName: item.displayName, active: item.active, emails: [{ value: item.userName, primary: true, type: "work" }], ...(item.departmentId ? { "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": { department: item.departmentId } } : {}), meta: { resourceType: "User", location: `${baseUrl}/Users/${item.id}`, lastModified: item.updatedAt, created: item.createdAt } }; }
@@ -25,7 +27,7 @@ export async function provisionScimUser(access: ScimAccess, body: Record<string,
   if (active && directory.filter((item) => item.active).length >= access.workspace.licensedSeats) throw new Error("Enterprise licensed seat limit reached.");
   const passwordHash = await hashPassword(randomBytes(48).toString("base64url"));
   const externalId = typeof body.externalId === "string" ? body.externalId.slice(0, 320) : null;
-  if (store.provisionScimUserAtomic) return store.provisionScimUserAtomic({ workspaceId: access.workspace.id, orgId: access.workspace.orgId, providerId: access.provider.id, email: userName, name: displayName, passwordHash, externalId, active }, audit);
+  if (store.provisionScimUserAtomic) return store.provisionScimUserAtomic({ workspaceId: access.workspace.id, orgId: access.workspace.orgId, providerId: access.provider.id, feature: "scim", email: userName, name: displayName, passwordHash, externalId, active }, audit);
   const provisioned = await (await getAuthStore()).provisionMembership({ email: userName, name: displayName, passwordHash, orgId: access.workspace.orgId, role: "viewer", provisionedBy: access.provider.id, active });
   return store.createAudited<EnterpriseDirectoryUser>(access.workspace.id, "directoryUsers", { identityProviderId: access.provider.id, userId: provisioned.user.id, externalId, userName, displayName, active, departmentId: null, attributes: {}, lastSyncedAt: new Date().toISOString() }, audit);
 }

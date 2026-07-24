@@ -772,7 +772,7 @@ model AgencyBulkJob {
   agencyId       String
   type           String
   status         AgencyJobStatus @default(queued)
-  idempotencyKey String          @unique
+  idempotencyKey String
   clientOrgIds   String[]
   payload        Json            @default("{}")
   result         Json?
@@ -781,6 +781,7 @@ model AgencyBulkJob {
   startedAt      DateTime?
   completedAt    DateTime?
 
+  @@unique([agencyId, idempotencyKey])
   @@index([agencyId, status, createdAt])
   @@map("agency_bulk_jobs")
 }

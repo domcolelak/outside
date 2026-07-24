@@ -10,7 +10,7 @@ export default function Landing() {
     <div className="relative">
       {/* Nav */}
       <header className="sticky top-0 z-40 border-b border-line/60 bg-base-950/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Wordmark className="h-6" />
           <nav className="hidden items-center gap-7 text-sm text-ink-soft md:flex">
             <a href="#how" className="hover:text-ink">How it works</a>
@@ -22,7 +22,7 @@ export default function Landing() {
           </nav>
           <div className="flex items-center gap-2">
             <NavAuthLink />
-            <Link href="/scan?target=northstar&mode=demo" className="mono rounded-lg border border-line px-3 py-1.5 text-xs text-ink hover:bg-base-700">
+            <Link href="/scan?target=northstar&mode=demo" className="mono rounded-lg border border-line px-2.5 py-1.5 text-xs text-ink hover:bg-base-700 sm:px-3">
               Watch demo
             </Link>
           </div>
@@ -94,7 +94,7 @@ export default function Landing() {
             { s: "Discover", d: "Passive sources — certificate transparency, DNS, public web signals, and optional commercial passive-DNS — surface hostnames and services." },
             { s: "Correlate", d: "Assets are normalized and entity-resolved into a single graph with relationship confidence." },
             { s: "Classify", d: "Weak signals combine into shadow-asset, non-production, and authentication classifications." },
-            { s: "Explain", d: "A transparent exposure score and evidence-backed findings tell you what to review and why." },
+            { s: "Explain", d: "A transparent protection posture and evidence-backed findings tell you what to review and why." },
           ].map((x, i) => (
             <div key={x.s} className="panel p-5">
               <div className="mono text-signal">{String(i + 1).padStart(2, "0")}</div>
@@ -113,7 +113,7 @@ export default function Landing() {
             <Feature className="md:col-span-4" title="Attacker View" body="A cinematic replay of how public information gradually reveals your infrastructure — starting from a single domain. Ideal for demos and board conversations. Depicts discovery, never exploitation." tone="signal" />
             <Feature className="md:col-span-2" title="Shadow asset detection" body="Correlated signals — legacy naming, graph isolation, dated technology, absence from your primary site — flag possibly forgotten assets, with the reasoning shown." />
             <Feature className="md:col-span-2" title="Change detection" body="Repeated scans diff your external surface: new hostnames, returning services, and technology shifts, so nothing appears unnoticed." />
-            <Feature className="md:col-span-4" title="Explainable exposure score" body="A deterministic 0–100 posture score. Open “Why is my score 37?” to see every penalty and mitigation. It measures how contained your surface is — not a probability of being hacked." />
+            <Feature className="md:col-span-4" title="Explainable protection posture" body="A deterministic 0–100 protection posture. Open “Why is my posture 37/100?” to see every penalty and mitigation. It measures how contained your surface is — not a probability of being hacked." />
           </div>
         </div>
       </section>

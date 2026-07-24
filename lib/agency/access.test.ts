@@ -55,6 +55,7 @@ describe("agencyAccess — API key path", () => {
     const raw = await issueKey(["clients:read"]);
     const access = await agencyAccess(bearer(raw), "clients:read", workspaceId);
     expect(access?.via).toBe("api_key");
+    expect(access?.role).toBe("viewer");
     expect(access?.workspace.id).toBe(workspaceId);
   });
 

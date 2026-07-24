@@ -10,7 +10,7 @@ interface ScanPoint {
   mode: string;
 }
 
-/** Exposure-score timeline for a target (real persisted scans only). */
+/** Protection-posture timeline for a target (real persisted scans only). */
 export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boolean }) {
   const [scans, setScans] = useState<ScanPoint[]>([]);
   const [durable, setDurable] = useState(false);
@@ -31,7 +31,7 @@ export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boole
   return (
     <div>
       <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
-        <span>Exposure history</span>
+        <span>Protection posture history</span>
         <span>{scans.length} scans{durable ? "" : " · session"}</span>
       </div>
       <div className="panel p-3">
@@ -50,6 +50,11 @@ export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boole
           <span>{new Date(ordered[0]!.finishedAt).toLocaleDateString()}</span>
           <span>latest {ordered[ordered.length - 1]!.score}/100</span>
         </div>
+        <table className="sr-only">
+          <caption>Protection posture history for {target}</caption>
+          <thead><tr><th>Date</th><th>Posture</th><th>Assets</th></tr></thead>
+          <tbody>{ordered.map((scan) => <tr key={scan.id}><td>{new Date(scan.finishedAt).toLocaleString()}</td><td>{scan.score} out of 100</td><td>{scan.assets}</td></tr>)}</tbody>
+        </table>
       </div>
     </div>
   );

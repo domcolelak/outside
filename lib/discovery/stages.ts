@@ -9,7 +9,7 @@ export const SCAN_STAGES: ReadonlyArray<{ stage: ScanStage; label: string }> = [
   { stage: "normalize", label: "Normalizing discovered assets" },
   { stage: "graph", label: "Building organization graph" },
   { stage: "classify", label: "Classifying exposure signals" },
-  { stage: "score", label: "Calculating exposure score" },
+  { stage: "score", label: "Calculating protection posture" },
   { stage: "done", label: "Preparing external view" },
 ];
 

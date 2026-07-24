@@ -15,6 +15,7 @@ import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { processGuardianScan } from "@/lib/guardian/process";
 import { recordScanOperation } from "@/lib/observability/metrics";
+import { issueShareProof } from "@/lib/share/proof";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest) {
           // Aegis: derive the protection posture + correlate findings into incidents.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
+          result.shareProof = issueShareProof(result);
           emit({ type: "result", result });
           outcome = "success";
         } else {
@@ -85,6 +87,7 @@ export async function GET(req: NextRequest) {
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
           if (orgId) await applyStoredRecommendationStatus(orgId, result.target, result.posture);
+          result.shareProof = issueShareProof(result);
           emit({ type: "result", result });
           outcome = "success";
         }

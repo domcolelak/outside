@@ -8,7 +8,7 @@
  *   Asset / Edge    -> normalized, entity-resolved graph
  *   Signal          -> an inference derived from evidence (may be wrong)
  *   Finding         -> a reviewable concern built from signals + evidence
- *   ScoreComponent  -> a transparent contribution to the exposure score
+ *   ScoreComponent  -> a transparent contribution to the protection-posture score
  *
  * Every inference carries a confidence and cites the evidence it rests on.
  */
@@ -169,6 +169,8 @@ export interface ScanResult {
   timeline: AttackerBeat[];
   providerRuns: ProviderRun[];
   stats: ScanStats;
+  /** Short-lived server proof required to create an authentic public share. */
+  shareProof?: string;
   /** Discovery completeness — whether any provider failed and, if so, whether the failure was in a discovery stage (making the asset surface potentially incomplete). Optional for reconstructed/synthetic results. */
   coverage?: ScanCoverage;
   /** Diff against the target's previous scan, present once history exists. */

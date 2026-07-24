@@ -59,6 +59,7 @@ export class InMemoryAgencyStore implements AgencyStore {
   async updateMembership(agencyId: string, userId: string, patch: { role?: AgencyMembership["role"]; active?: boolean; seatLabel?: string | null }) { const row = this.members.find((item) => item.agencyId === agencyId && item.userId === userId); if (!row) return null; if (patch.role !== undefined) row.role = patch.role; if (patch.active !== undefined) row.active = patch.active; if (patch.seatLabel !== undefined) row.seatLabel = patch.seatLabel; return row; }
   async clients(agencyId: string) { return this.clientRows.filter((item) => item.agencyId === agencyId && item.status !== "offboarded"); }
   async addClient(input: { agencyId: string; orgId: string; organizationName: string; organizationSlug: string; groupId?: string | null; externalRef?: string | null }) {
+    if (input.groupId && !this.groupRows.some((item) => item.agencyId === input.agencyId && item.id === input.groupId)) return null;
     if (this.clientRows.some((item) => item.agencyId === input.agencyId && item.orgId === input.orgId)) return null;
     const row: AgencyClient = { id: id("client"), agencyId: input.agencyId, orgId: input.orgId, organizationName: input.organizationName, organizationSlug: input.organizationSlug, groupId: input.groupId ?? null, status: "onboarding", portalMode: "readonly", externalRef: input.externalRef ?? null, serviceTier: "standard", slaResponseMinutes: 480, notificationRouting: {}, billingMode: "agency", monthlyPriceCents: null, currency: "EUR", addedAt: now(), offboardedAt: null };
     this.clientRows.push(row); return row;
@@ -66,12 +67,14 @@ export class InMemoryAgencyStore implements AgencyStore {
   async updateClient(agencyId: string, clientId: string, patch: Partial<AgencyClient>) {
     const row = this.clientRows.find((item) => item.agencyId === agencyId && item.id === clientId);
     if (!row) return null;
-    Object.assign(row, patch);
+    if (patch.groupId && !this.groupRows.some((item) => item.agencyId === agencyId && item.id === patch.groupId)) return null;
+    Object.assign(row, Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)));
     row.slaResponseMinutes = Math.max(15, Math.min(43_200, row.slaResponseMinutes));
     row.offboardedAt = row.status === "offboarded" ? row.offboardedAt ?? now() : null;
     return row;
   }
   async groups(agencyId: string) { return this.groupRows.filter((item) => item.agencyId === agencyId); }
+  async group(agencyId: string, groupId: string) { return this.groupRows.find((item) => item.agencyId === agencyId && item.id === groupId) ?? null; }
   async createGroup(input: { agencyId: string; name: string; color: string; description?: string | null }) {
     if (this.groupRows.some((item) => item.agencyId === input.agencyId && item.name.toLowerCase() === input.name.toLowerCase())) return null;
     const row = { id: id("group"), agencyId: input.agencyId, name: input.name, color: input.color, description: input.description ?? null, createdAt: now() };
@@ -90,7 +93,7 @@ export class InMemoryAgencyStore implements AgencyStore {
   }
   async findingShares(agencyId: string, clientId: string) { return this.shares.filter((item) => item.agencyId === agencyId && item.clientId === clientId); }
   async createJob(input: { agencyId: string; type: AgencyBulkJob["type"]; idempotencyKey: string; clientOrgIds: string[]; payload: Record<string, unknown>; createdBy: string }) {
-    const existing = this.jobRows.find((item) => item.idempotencyKey === input.idempotencyKey);
+    const existing = this.jobRows.find((item) => item.agencyId === input.agencyId && item.idempotencyKey === input.idempotencyKey);
     if (existing) return existing;
     const row: AgencyBulkJob = { id: id("job"), ...input, status: "queued", result: null, createdAt: now() };
     this.jobRows.push(row); return row;

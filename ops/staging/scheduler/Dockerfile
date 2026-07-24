@@ -1,4 +1,4 @@
-FROM node:20.20.0-alpine
+FROM node:24.18.0-alpine
 WORKDIR /opt/outside
 ENV NODE_ENV=production
 COPY scheduler.mjs alert-sink.mjs ./

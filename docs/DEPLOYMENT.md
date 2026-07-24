@@ -2,7 +2,7 @@
 
 ## Required baseline
 
-- Node.js 20.20 or a later supported Node 20 release.
+- Node.js 24.18 or a later supported Node 24 LTS release.
 - PostgreSQL 16 with TLS, automated backups, connection pooling, and a dedicated least-privilege application role.
 - `OUTSIDE_STORAGE_MODE=database`, `DATABASE_URL`, `AUTH_SECRET`, `OUTSIDE_VERIFY_SECRET`, and `CRON_SECRET`.
 - `APP_URL` set to the canonical HTTPS origin. Terminate TLS at a trusted proxy that removes caller-supplied forwarding headers.

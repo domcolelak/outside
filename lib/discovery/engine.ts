@@ -162,7 +162,7 @@ export async function runDemoScan(org: DemoOrg, scanId: string, emit: Emit): Pro
     await sleep(200);
   });
   await stage(emit, "score", async () => {
-    await emit({ type: "log", level: "info", message: `Exposure score: ${result.score.value}/100` });
+    await emit({ type: "log", level: "info", message: `Protection posture: ${result.score.value}/100` });
     await sleep(160);
   });
   if (org.changeSummary) result.changeSummary = org.changeSummary;
@@ -466,7 +466,7 @@ export async function runPassiveScan(
     await emit({ type: "log", level: "signal", message: `${result.stats.shadowAssets} possible shadow asset signal(s), ${result.stats.nonProdSignals} non-production signal(s)` });
   });
   await stage(emit, "score", async () => {
-    await emit({ type: "log", level: "info", message: `Exposure score: ${result.score.value}/100` });
+    await emit({ type: "log", level: "info", message: `Protection posture: ${result.score.value}/100` });
   });
   // Terminal `result` event is emitted by the caller after persistence.
   return result;

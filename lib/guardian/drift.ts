@@ -43,7 +43,7 @@ export function calculateDrift(history: GuardianSnapshot[], current: GuardianSna
     neutralDimension("cloudAssets", "Cloud-hosted assets", current.metrics.cloudAssets, baseline.metrics.cloudAssets),
     neutralDimension("cdnFrontedAssets", "CDN-fronted assets", current.metrics.cdnFrontedAssets, baseline.metrics.cdnFrontedAssets),
     dimension("checklistPassed", "Passing checklist controls", current.metrics.checklistPassed, baseline.metrics.checklistPassed, false),
-    dimension("exposureScore", "Exposure score", current.exposureScore, baseline.exposureScore, false),
+    dimension("exposureScore", "Protection posture", current.exposureScore, baseline.exposureScore, false),
   ];
   const worsening = dimensions.filter((item) => item.direction === "worsening").length;
   const improving = dimensions.filter((item) => item.direction === "improving").length;

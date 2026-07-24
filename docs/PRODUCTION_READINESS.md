@@ -44,7 +44,7 @@ Independent penetration testing, managed PostgreSQL PITR evidence, production ke
 
 ## Production requirements
 
-- Node 20.20+, PostgreSQL 16 with TLS, least privilege, pooling, encrypted PITR backups, and a tested restore process.
+- Node 24.18 LTS+, PostgreSQL 16 with TLS, least privilege, pooling, encrypted PITR backups, and a tested restore process.
 - `OUTSIDE_STORAGE_MODE=database`, `DATABASE_URL`, canonical HTTPS `APP_URL`, and independent high-entropy auth, verification, cron, email, Guardian, and Enterprise secrets as applicable.
 - Run `prisma migrate deploy` once from the controlled migration image before new instances; never use `db push` in production.
 - Configure authenticated scan, Agency, Enterprise, and retention schedulers; continue bounded cursor work to completion.
