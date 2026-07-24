@@ -182,15 +182,15 @@ model EmailOutbox {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  email             String             @unique
+  id                String               @id @default(cuid())
+  email             String               @unique
   name              String
   passwordHash      String
   // Default verifies legacy rows during additive migration; all new password
   // signups explicitly write null until the signed verification link is used.
   emailVerifiedAt   DateTime?
-  sessionVersion    Int                @default(0)
-  createdAt         DateTime           @default(now())
+  sessionVersion    Int                  @default(0)
+  createdAt         DateTime             @default(now())
   memberships       Membership[]
   agencyMemberships AgencyMembership[]
   passwordResets    PasswordResetToken[]
@@ -1192,7 +1192,6 @@ model ProcessedEvent {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
-
   @@map("processed_events")
 }
 
@@ -1263,4 +1262,24 @@ model EvolutionIncidentSignal {
 
   @@index([category])
   @@map("evolution_incident_signals")
+}
+
+/**
+ * A customer-supplied provider credential (e.g. a Cloudflare API token),
+ * encrypted at rest with the same AES-256-GCM helper as Guardian channels.
+ * One connection per organization per provider. The token is never returned to
+ * the browser — only a summary (account hint + the zones it can act on).
+ */
+model IntegrationConnection {
+  orgId          String
+  provider       String
+  encryptedToken String
+  accountHint    String
+  zones          Json     @default("[]")
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@id([orgId, provider])
+  @@map("integration_connections")
 }

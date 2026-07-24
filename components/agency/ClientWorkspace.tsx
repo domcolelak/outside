@@ -109,8 +109,10 @@ export function ClientWorkspace({
     setGroups(groupData.groups ?? []);
   }, [agencyId, clientId]);
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => void load());
-    return () => window.cancelAnimationFrame(frame);
+    // A timeout, not requestAnimationFrame: rAF never fires in a background tab,
+    // which would leave this workspace loading forever.
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
   async function post(
     url: string,
