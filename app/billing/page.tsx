@@ -28,7 +28,7 @@ export default async function BillingPage() {
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="flex items-end justify-between">
           <div>
-            <div className="mono text-[11px] uppercase tracking-widest text-signal">Billing</div>
+            <div className="mono text-[12px] uppercase tracking-widest text-signal">Billing</div>
             <h1 className="mt-2 text-3xl font-semibold text-ink">Plans & subscription</h1>
             {org && <p className="mt-1 text-sm text-ink-soft">{org.name} · current plan: <span className="text-ink">{PLANS[org.plan].name}</span>{org.subscriptionStatus && org.subscriptionStatus !== "active" ? ` · ${org.subscriptionStatus}` : ""}</p>}
           </div>

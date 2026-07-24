@@ -96,7 +96,7 @@ export function VerifyPanel({
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="verify-title" tabIndex={-1} className="panel w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
-            <div className="mono text-[11px] uppercase tracking-wider text-signal">Verify organization</div>
+            <div className="mono text-[12px] uppercase tracking-wider text-signal">Verify organization</div>
             <h3 id="verify-title" className="mt-1 text-lg text-ink">Prove you own <span className="mono">{domain}</span></h3>
           </div>
           <button onClick={onClose} className="rounded-md border border-line px-2 py-1 text-xs text-ink-soft hover:bg-base-700">Close</button>
@@ -123,7 +123,7 @@ export function VerifyPanel({
               <Field label="Record type" value={info?.recordType ?? "TXT"} />
               <Field label="Name / host" value={info?.recordName ?? domain} />
               <div>
-                <div className="mono mb-1 text-[10px] uppercase tracking-wide text-ink-faint">Value</div>
+                <div className="mono mb-1 text-[11px] uppercase tracking-wide text-ink-faint">Value</div>
                 <div className="flex items-center gap-2">
                   <code className="mono flex-1 overflow-x-auto rounded-md border border-line bg-base-950 px-3 py-2 text-[12px] text-signal">
                     {info?.recordValue ?? "…"}
@@ -137,7 +137,7 @@ export function VerifyPanel({
 
             {info?.filePath && (
               <div className="mt-3 rounded-md border border-line bg-base-850 px-3 py-2">
-                <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Alternative — host a file</div>
+                <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Alternative — host a file</div>
                 <p className="mt-1 text-xs text-ink-soft">
                   Serve the same value at <code className="mono text-signal">{info.filePath}</code>. Either method verifies ownership.
                 </p>
@@ -147,7 +147,7 @@ export function VerifyPanel({
             {hint && <p role="status" className="mono mt-3 text-xs text-risk-medium">{hint}</p>}
 
             <div className="mt-5 flex items-center justify-between">
-              <span className="mono text-[11px] text-ink-faint">Passive external view works without verification.</span>
+              <span className="mono text-[12px] text-ink-faint">Passive external view works without verification.</span>
               <button
                 onClick={check}
                 disabled={!info || status === "checking"}
@@ -166,7 +166,7 @@ export function VerifyPanel({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-line bg-base-850 px-3 py-2">
-      <span className="mono text-[10px] uppercase tracking-wide text-ink-faint">{label}</span>
+      <span className="mono text-[11px] uppercase tracking-wide text-ink-faint">{label}</span>
       <span className="mono text-[12px] text-ink">{value}</span>
     </div>
   );

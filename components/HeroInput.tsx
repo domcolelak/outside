@@ -69,7 +69,7 @@ export function HeroInput() {
           </button>
         ))}
       </div>
-      <p id="external-scan-help" className="mono mt-3 max-w-full text-[11px] leading-5 text-ink-faint">
+      <p id="external-scan-help" className="mono mt-3 max-w-full text-[12px] leading-5 text-ink-faint">
         Passive, public sources only · No login required for an external snapshot
       </p>
     </div>

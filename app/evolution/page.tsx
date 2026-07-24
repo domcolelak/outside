@@ -111,7 +111,7 @@ export default function EvolutionPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="mono text-[11px] uppercase tracking-widest text-signal">Evolution · control center</div>
+        <div className="mono text-[12px] uppercase tracking-widest text-signal">Evolution · control center</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">What OUTSIDE should learn next</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Evolution watches the external security world and compares it against what OUTSIDE can already do. Below are
@@ -120,7 +120,7 @@ export default function EvolutionPage() {
           removes it from the queue and reprioritizes future proposals on the same technology.
         </p>
 
-        <div className="mt-4 rounded-lg border border-signal/30 bg-signal/5 px-3 py-2 text-[11px] text-signal">
+        <div className="mt-4 rounded-lg border border-signal/30 bg-signal/5 px-3 py-2 text-[12px] text-signal">
           Every proposal is a <span className="font-medium">draft awaiting founder approval</span>. Evolution proposes and prepares — it never applies, merges, or deploys anything on its own.
         </div>
 
@@ -148,43 +148,43 @@ export default function EvolutionPage() {
                   <li key={p.id} className="panel p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="text-ink">{p.title}</div>
-                      <span className={`mono shrink-0 text-[10px] uppercase tracking-wide ${PRIORITY_COLOR[p.priority]}`}>{p.priority}</span>
+                      <span className={`mono shrink-0 text-[11px] uppercase tracking-wide ${PRIORITY_COLOR[p.priority]}`}>{p.priority}</span>
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-ink-soft">{p.summary}</p>
                     <div className="mt-2 rounded-lg border border-line bg-base-950/60 px-3 py-2">
-                      <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Proposed change</div>
+                      <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Proposed change</div>
                       <p className="mt-1 text-xs leading-relaxed text-ink-soft">{p.proposedChange}</p>
                     </div>
-                    <div className="mono mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-ink-faint">
+                    <div className="mono mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-faint">
                       <span>Evidence: {p.evidence.cveId} · {p.evidence.source}</span>
                       <span>Added {p.evidence.kevDateAdded}</span>
                       <span className="rounded-sm border border-line px-1.5 py-0.5">status: {p.status}</span>
                     </div>
                     {drafts[p.id] ? (
                       <div className="mt-3 border-t border-line pt-3">
-                        <div className="mono flex items-center gap-2 text-[10px] uppercase tracking-wide text-signal">✓ Approved · draft change prepared</div>
-                        <div className="mono mt-2 text-[10px] text-ink-faint">Add to <span className="text-ink-soft">{drafts[p.id]!.file}</span></div>
-                        <pre className="mono mt-1 overflow-x-auto rounded-lg border border-line bg-base-950 px-3 py-2 text-[11px] leading-relaxed text-ink-soft">{drafts[p.id]!.entry}</pre>
+                        <div className="mono flex items-center gap-2 text-[11px] uppercase tracking-wide text-signal">✓ Approved · draft change prepared</div>
+                        <div className="mono mt-2 text-[11px] text-ink-faint">Add to <span className="text-ink-soft">{drafts[p.id]!.file}</span></div>
+                        <pre className="mono mt-1 overflow-x-auto rounded-lg border border-line bg-base-950 px-3 py-2 text-[12px] leading-relaxed text-ink-soft">{drafts[p.id]!.entry}</pre>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <button
                             onClick={() => navigator.clipboard?.writeText(drafts[p.id]!.entry)}
-                            className="mono rounded-md border border-line px-2.5 py-1 text-[10px] text-ink-soft hover:text-ink"
+                            className="mono rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:text-ink"
                           >
                             Copy draft
                           </button>
-                          <span className="mono text-[10px] text-ink-faint">Needs you: {drafts[p.id]!.requiresHumanInput[0]}</span>
+                          <span className="mono text-[11px] text-ink-faint">Needs you: {drafts[p.id]!.requiresHumanInput[0]}</span>
                         </div>
-                        <div className="mt-2 rounded-lg border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[10px] leading-relaxed text-risk-medium">
+                        <div className="mt-2 rounded-lg border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[11px] leading-relaxed text-risk-medium">
                           {drafts[p.id]!.note}
                         </div>
                       </div>
                     ) : approved[p.id] ? (
                       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                        <span className="mono text-[10px] uppercase tracking-wide text-signal">✓ Approved · awaiting draft</span>
+                        <span className="mono text-[11px] uppercase tracking-wide text-signal">✓ Approved · awaiting draft</span>
                         <button
                           onClick={() => void retryDraft(p.id)}
                           disabled={!!deciding[p.id]}
-                          className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
+                          className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[12px] text-signal hover:bg-signal/15 disabled:opacity-50"
                         >
                           {deciding[p.id] ? "Preparing draft…" : "Retry draft"}
                         </button>
@@ -194,21 +194,21 @@ export default function EvolutionPage() {
                         <button
                           onClick={() => decide(p.id, "approved")}
                           disabled={!!deciding[p.id]}
-                          className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
+                          className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[12px] text-signal hover:bg-signal/15 disabled:opacity-50"
                         >
                           {deciding[p.id] === "approved" ? "Preparing draft…" : "Approve"}
                         </button>
                         <button
                           onClick={() => decide(p.id, "rejected")}
                           disabled={!!deciding[p.id]}
-                          className="mono rounded-md border border-line px-3 py-1.5 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50"
+                          className="mono rounded-md border border-line px-3 py-1.5 text-[12px] text-ink-soft hover:text-ink disabled:opacity-50"
                         >
                           {deciding[p.id] === "rejected" ? "Rejecting…" : "Reject"}
                         </button>
-                        <span className="mono ml-auto text-[10px] text-ink-faint">Approve → prepares a reviewable draft · never auto-applied</span>
+                        <span className="mono ml-auto text-[11px] text-ink-faint">Approve → prepares a reviewable draft · never auto-applied</span>
                       </div>
                     )}
-                    {actionErrors[p.id] && <p role="alert" className="mono mt-2 text-[11px] text-risk-high">{actionErrors[p.id]}</p>}
+                    {actionErrors[p.id] && <p role="alert" className="mono mt-2 text-[12px] text-risk-high">{actionErrors[p.id]}</p>}
                   </li>
                 ))}
               </ol>
@@ -225,7 +225,7 @@ export default function EvolutionPage() {
                   {data.detectorReliability.map((d) => (
                     <li key={d.category} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
                       <span className="mono text-xs text-ink">{d.category}</span>
-                      <span className="mono text-[10px] text-ink-faint">{d.confirmed} confirmed · {d.falsePositive} false-positive</span>
+                      <span className="mono text-[11px] text-ink-faint">{d.confirmed} confirmed · {d.falsePositive} false-positive</span>
                       <span className={`mono ml-auto text-xs ${d.factor < 1 ? "text-risk-medium" : "text-signal"}`}>×{d.factor.toFixed(2)} confidence</span>
                     </li>
                   ))}

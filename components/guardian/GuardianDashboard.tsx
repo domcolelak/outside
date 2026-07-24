@@ -49,7 +49,7 @@ function Metric({
 }) {
   return (
     <div className="group rounded-xl border border-line bg-base-900/70 p-4 transition hover:border-line-strong hover:bg-base-800/60">
-      <div className="mono text-[10px] uppercase tracking-[.16em] text-ink-faint">
+      <div className="mono text-[11px] uppercase tracking-[.16em] text-ink-faint">
         {label}
       </div>
       <div
@@ -74,7 +74,7 @@ function PostureRing({ score }: { score: number }) {
       <div className="absolute inset-[9px] rounded-full border border-line bg-base-900" />
       <div className="relative text-center">
         <div className="text-4xl font-semibold text-ink">{score}</div>
-        <div className="mono mt-1 text-[9px] uppercase tracking-[.2em] text-ink-faint">
+        <div className="mono mt-1 text-[11px] uppercase tracking-[.2em] text-ink-faint">
           posture
         </div>
       </div>
@@ -133,7 +133,7 @@ function DriftChart({ target }: { target: GuardianTargetView }) {
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <div className="mono absolute bottom-1 left-0 text-[9px] text-ink-faint">
+      <div className="mono absolute bottom-1 left-0 text-[11px] text-ink-faint">
         {new Date(
           (
             target.history.at(-16) ??
@@ -142,7 +142,7 @@ function DriftChart({ target }: { target: GuardianTargetView }) {
           ).observedAt,
         ).toLocaleDateString()}
       </div>
-      <div className="mono absolute bottom-1 right-0 text-[9px] text-ink-faint">
+      <div className="mono absolute bottom-1 right-0 text-[11px] text-ink-faint">
         now
       </div>
     </div>
@@ -164,7 +164,7 @@ function ChecklistCard({ item }: { item: GuardianChecklistItem }) {
           </div>
         </div>
         <span
-          className={`mono rounded-full border px-2 py-1 text-[9px] uppercase tracking-wider ${stateColor[item.state]}`}
+          className={`mono rounded-full border px-2 py-1 text-[11px] uppercase tracking-wider ${stateColor[item.state]}`}
         >
           {item.state}
         </span>
@@ -179,7 +179,7 @@ function ChecklistCard({ item }: { item: GuardianChecklistItem }) {
             <span className="text-ink-soft">Recommended action</span>
             <p className="text-ink-faint">{item.recommendedAction}</p>
           </div>
-          <div className="mono rounded-lg bg-base-950 p-3 text-[10px] text-ink-faint">
+          <div className="mono rounded-lg bg-base-950 p-3 text-[11px] text-ink-faint">
             {item.evidence[0]?.observation ??
               "Not enough deterministic evidence yet — Guardian will not guess."}
           </div>
@@ -198,14 +198,14 @@ function TimelineEvent({ event }: { event: GuardianEvent }) {
       <div className="pb-7">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className={`mono rounded-sm border px-1.5 py-0.5 text-[9px] uppercase ${riskColor[event.severity]}`}
+            className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase ${riskColor[event.severity]}`}
           >
             {event.severity}
           </span>
-          <span className="mono text-[10px] text-ink-faint">
+          <span className="mono text-[11px] text-ink-faint">
             {formatDate(event.observedAt)}
           </span>
-          <span className="mono text-[9px] uppercase text-ink-faint">
+          <span className="mono text-[11px] uppercase text-ink-faint">
             {event.category}
           </span>
         </div>
@@ -216,7 +216,7 @@ function TimelineEvent({ event }: { event: GuardianEvent }) {
           {event.why}
         </p>
         {event.affectedAssets.length > 0 && (
-          <div className="mono mt-2 truncate text-[10px] text-accent">
+          <div className="mono mt-2 truncate text-[11px] text-accent">
             {event.affectedAssets.join(" · ")}
           </div>
         )}
@@ -254,11 +254,11 @@ function RecommendationCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span
-              className={`mono rounded-sm border px-1.5 py-0.5 text-[9px] uppercase ${riskColor[recommendation.priority]}`}
+              className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase ${riskColor[recommendation.priority]}`}
             >
               {recommendation.priority}
             </span>
-            <span className="mono text-[9px] uppercase text-ink-faint">
+            <span className="mono text-[11px] uppercase text-ink-faint">
               {Math.round(recommendation.confidence * 100)}% confidence
             </span>
           </div>
@@ -277,7 +277,7 @@ function RecommendationCard({
               {recommendation.affectedAssets.slice(0, 8).map((asset) => (
                 <span
                   key={asset}
-                  className="mono rounded-sm border border-line bg-base-950/60 px-2 py-1 text-[9px] text-accent"
+                  className="mono rounded-sm border border-line bg-base-950/60 px-2 py-1 text-[11px] text-accent"
                 >
                   {asset}
                 </span>
@@ -291,7 +291,7 @@ function RecommendationCard({
           onChange={(event) =>
             void update(event.target.value as GuardianRecommendationStatus)
           }
-          className="mono rounded-lg border border-line bg-base-950 px-2 py-2 text-[10px] text-ink-soft"
+          className="mono rounded-lg border border-line bg-base-950 px-2 py-2 text-[11px] text-ink-soft"
         >
           <option value="open">Open</option>
           <option value="acknowledged">Acknowledged</option>
@@ -302,7 +302,7 @@ function RecommendationCard({
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-lg bg-base-950/70 p-3">
-          <div className="mono text-[9px] uppercase tracking-wider text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
             Business impact
           </div>
           <p className="mt-1 text-xs leading-5 text-ink-soft">
@@ -310,7 +310,7 @@ function RecommendationCard({
           </p>
         </div>
         <div className="rounded-lg bg-base-950/70 p-3">
-          <div className="mono text-[9px] uppercase tracking-wider text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
             Suggested review
           </div>
           <p className="mt-1 text-xs leading-5 text-ink-soft">
@@ -320,14 +320,14 @@ function RecommendationCard({
       </div>
       {recommendation.evidence.length > 0 && (
         <div className="mt-3 rounded-lg border border-line bg-base-950/55 p-3">
-          <div className="mono text-[9px] uppercase tracking-wider text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
             Deterministic evidence · {recommendation.evidence.length}
           </div>
           <div className="mt-2 space-y-2">
             {recommendation.evidence.slice(0, 3).map((entry, index) => (
               <div
                 key={`${entry.scanId}-${index}`}
-                className="text-[11px] leading-5 text-ink-faint"
+                className="text-[12px] leading-5 text-ink-faint"
               >
                 <span className="text-ink-soft">{entry.source}</span>
                 {entry.asset ? ` · ${entry.asset}` : ""}
@@ -344,7 +344,7 @@ function RecommendationCard({
       />
       <button
         onClick={() => setOpen((value) => !value)}
-        className="mono mt-4 text-[10px] uppercase tracking-wider text-signal"
+        className="mono mt-4 text-[11px] uppercase tracking-wider text-signal"
       >
         {open
           ? "Hide remediation"
@@ -358,7 +358,7 @@ function RecommendationCard({
                 key={item.platform}
                 onClick={() => setGuide(index)}
                 aria-pressed={index === guide}
-                className={`mono rounded-full border px-2.5 py-1 text-[9px] ${index === guide ? "border-signal/30 bg-signal/10 text-signal" : "border-line text-ink-faint"}`}
+                className={`mono rounded-full border px-2.5 py-1 text-[11px] ${index === guide ? "border-signal/30 bg-signal/10 text-signal" : "border-line text-ink-faint"}`}
               >
                 {item.platform}
               </button>
@@ -373,7 +373,7 @@ function RecommendationCard({
                 key={step}
                 className="flex gap-3 text-xs leading-5 text-ink-soft"
               >
-                <span className="mono grid h-5 w-5 shrink-0 place-items-center rounded-full bg-signal/10 text-[9px] text-signal">
+                <span className="mono grid h-5 w-5 shrink-0 place-items-center rounded-full bg-signal/10 text-[11px] text-signal">
                   {index + 1}
                 </span>
                 {step}
@@ -381,7 +381,7 @@ function RecommendationCard({
             ))}
           </ol>
           <div className="mt-4 rounded-lg border border-signal/15 bg-signal/5 p-3 text-xs text-ink-soft">
-            <span className="mono mr-2 text-[9px] uppercase text-signal">
+            <span className="mono mr-2 text-[11px] uppercase text-signal">
               Verify
             </span>
             {selected.verification}
@@ -506,14 +506,14 @@ export function GuardianDashboard({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal opacity-30" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-signal" />
               </span>
-              <span className="mono text-[10px] uppercase tracking-[.2em] text-signal">
+              <span className="mono text-[11px] uppercase tracking-[.2em] text-signal">
                 Guardian active
               </span>
               <select
                 aria-label="Guardian target"
                 value={target.target}
                 onChange={(event) => setSelectedTarget(event.target.value)}
-                className="mono rounded-md border border-line bg-base-950/80 px-2 py-1 text-[10px] text-ink-soft"
+                className="mono rounded-md border border-line bg-base-950/80 px-2 py-1 text-[11px] text-ink-soft"
               >
                 {overview.targets.map((item) => (
                   <option key={item.target}>{item.target}</option>
@@ -532,7 +532,7 @@ export function GuardianDashboard({
             <p className="mt-3 max-w-xl text-sm leading-6 text-ink-soft">
               {target.drift.narrative}
             </p>
-            <div className="mono mt-5 text-[10px] text-ink-faint">
+            <div className="mono mt-5 text-[11px] text-ink-faint">
               Last analyzed {formatDate(latest.observedAt)} · scan{" "}
               {latest.scanId.slice(0, 16)} ·{" "}
               {overview.durable ? "durable history" : "development memory"}
@@ -576,14 +576,14 @@ export function GuardianDashboard({
         <div className="panel p-5 md:p-6">
           <div className="flex items-start justify-between">
             <div>
-              <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+              <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
                 Exposure Drift
               </div>
               <h2 className={`mt-2 text-xl font-medium ${driftTone}`}>
                 {target.drift.headline}
               </h2>
             </div>
-            <span className="mono rounded-full border border-line px-2 py-1 text-[9px] uppercase text-ink-faint">
+            <span className="mono rounded-full border border-line px-2 py-1 text-[11px] uppercase text-ink-faint">
               {target.history.length} observations
             </span>
           </div>
@@ -597,7 +597,7 @@ export function GuardianDashboard({
                   key={item.code}
                   className="rounded-lg border border-line bg-base-950/60 p-3"
                 >
-                  <div className="mono text-[9px] text-ink-faint">
+                  <div className="mono text-[11px] text-ink-faint">
                     {item.label}
                   </div>
                   <div
@@ -611,7 +611,7 @@ export function GuardianDashboard({
           </div>
         </div>
         <div className="panel p-5 md:p-6">
-          <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
             Renewal horizon
           </div>
           <h2 className="mt-2 text-xl font-medium text-ink">
@@ -625,10 +625,10 @@ export function GuardianDashboard({
                   className="flex items-center justify-between gap-4 rounded-lg border border-line bg-base-950/50 p-3"
                 >
                   <div className="min-w-0">
-                    <div className="mono truncate text-[11px] text-ink-soft">
+                    <div className="mono truncate text-[12px] text-ink-soft">
                       {item.canonical}
                     </div>
-                    <div className="mono mt-1 text-[9px] text-ink-faint">
+                    <div className="mono mt-1 text-[11px] text-ink-faint">
                       {item.certNotAfter
                         ? new Date(item.certNotAfter).toLocaleDateString()
                         : "date unavailable"}
@@ -652,12 +652,12 @@ export function GuardianDashboard({
 
       <section className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]">
         <div className="panel max-h-[760px] overflow-hidden p-5 md:p-6">
-          <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
             Change intelligence
           </div>
           <div className="mt-2 flex items-baseline justify-between">
             <h2 className="text-xl font-medium text-ink">Guardian timeline</h2>
-            <span className="mono text-[9px] text-ink-faint">
+            <span className="mono text-[11px] text-ink-faint">
               {target.events.length} correlated
             </span>
           </div>
@@ -677,14 +677,14 @@ export function GuardianDashboard({
         <div className="space-y-3">
           <div className="flex items-end justify-between">
             <div>
-              <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+              <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
                 Analyst queue
               </div>
               <h2 className="mt-2 text-xl font-medium text-ink">
                 Guardian recommendations
               </h2>
             </div>
-            <span className="mono text-[9px] text-ink-faint">
+            <span className="mono text-[11px] text-ink-faint">
               deterministic evidence only
             </span>
           </div>
@@ -717,14 +717,14 @@ export function GuardianDashboard({
       <section>
         <div className="flex items-end justify-between">
           <div>
-            <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+            <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
               Living controls
             </div>
             <h2 className="mt-2 text-xl font-medium text-ink">
               Security checklist
             </h2>
           </div>
-          <span className="mono text-[9px] text-ink-faint">
+          <span className="mono text-[11px] text-ink-faint">
             click any control for evidence
           </span>
         </div>
@@ -742,7 +742,7 @@ export function GuardianDashboard({
           canAdmin={canAdmin}
         />
         <div className="panel p-5 md:p-6">
-          <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
             Guardian operations
           </div>
           <h2 className="mt-2 text-xl font-medium text-ink">
@@ -754,7 +754,7 @@ export function GuardianDashboard({
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
                 <div>
                   <div className="text-xs text-ink-soft">{item.message}</div>
-                  <div className="mono mt-1 text-[9px] text-ink-faint">
+                  <div className="mono mt-1 text-[11px] text-ink-faint">
                     {formatDate(item.createdAt)}
                   </div>
                 </div>
@@ -768,7 +768,7 @@ export function GuardianDashboard({
           </div>
           {overview.deliveries.length > 0 && (
             <div className="mt-6 border-t border-line pt-5">
-              <div className="mono mb-3 text-[9px] uppercase tracking-wider text-ink-faint">
+              <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">
                 Recent deliveries
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -778,16 +778,16 @@ export function GuardianDashboard({
                     className="flex items-center justify-between rounded-lg bg-base-950/60 p-3"
                   >
                     <div>
-                      <div className="mono text-[10px] text-ink-soft">
+                      <div className="mono text-[11px] text-ink-soft">
                         {delivery.channelType.replace("_", " ")}
                       </div>
-                      <div className="mono mt-1 text-[9px] text-ink-faint">
+                      <div className="mono mt-1 text-[11px] text-ink-faint">
                         {delivery.itemCount} items · {delivery.attempts}{" "}
                         attempt(s)
                       </div>
                     </div>
                     <span
-                      className={`mono text-[9px] uppercase ${delivery.status === "sent" ? "text-signal" : delivery.status === "failed" ? "text-risk-high" : "text-risk-medium"}`}
+                      className={`mono text-[11px] uppercase ${delivery.status === "sent" ? "text-signal" : delivery.status === "failed" ? "text-risk-high" : "text-risk-medium"}`}
                     >
                       {delivery.status}
                     </span>

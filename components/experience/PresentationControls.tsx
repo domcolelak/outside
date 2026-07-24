@@ -87,10 +87,10 @@ export function PresentationControls({ name = "outside", onPresent, className = 
     <Action label={state === "capturing" ? "Capturing" : "Capture"} title="Capture the selected browser surface as PNG" onClick={() => void capture()} icon="⌁" disabled={state !== "idle"}/>
     <Action label={state === "recording" ? "Stop" : state === "saving" ? "Saving" : "Record"} title="Record a polished browser-surface walkthrough" onClick={() => void toggleRecording()} icon={state === "recording" ? "■" : "●"} active={state === "recording"} toggle disabled={state === "capturing" || state === "saving"}/>
     {presenting && <Action label="Exit" title="Exit presenter mode" onClick={() => void exitPresentation()} icon="×"/>}
-    {state === "error" && <button onClick={() => setState("idle")} className="mono px-2 text-[9px] text-risk-high">Capture failed</button>}
+    {state === "error" && <button onClick={() => setState("idle")} className="mono px-2 text-[11px] text-risk-high">Capture failed</button>}
   </div>;
 }
 
 function Action({ label, title, icon, onClick, active = false, toggle = false, disabled = false }: { label: string; title: string; icon: string; onClick: () => void; active?: boolean; toggle?: boolean; disabled?: boolean }) {
-  return <button type="button" aria-label={label} aria-pressed={toggle ? active : undefined} title={title} onClick={onClick} disabled={disabled} className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[10px] transition disabled:opacity-40 ${active ? "bg-signal/12 text-signal" : "text-ink-faint hover:bg-base-800 hover:text-ink"}`}><span aria-hidden="true" className={`mono ${active ? "animate-pulse" : ""}`}>{icon}</span><span className="hidden xl:inline">{label}</span></button>;
+  return <button type="button" aria-label={label} aria-pressed={toggle ? active : undefined} title={title} onClick={onClick} disabled={disabled} className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[11px] transition disabled:opacity-40 ${active ? "bg-signal/12 text-signal" : "text-ink-faint hover:bg-base-800 hover:text-ink"}`}><span aria-hidden="true" className={`mono ${active ? "animate-pulse" : ""}`}>{icon}</span><span className="hidden xl:inline">{label}</span></button>;
 }

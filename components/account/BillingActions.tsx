@@ -26,7 +26,7 @@ export function CheckoutButton({ orgId, plan, current, label }: { orgId: string;
       <button onClick={go} disabled={busy} className="w-full rounded-lg bg-signal py-2 text-sm font-semibold text-base-950 hover:bg-signal-bright disabled:opacity-60">
         {busy ? "Redirecting…" : label}
       </button>
-      {error && <p className="mono mt-1 text-[11px] text-risk-high">{error}</p>}
+      {error && <p className="mono mt-1 text-[12px] text-risk-high">{error}</p>}
     </div>
   );
 }
@@ -52,7 +52,7 @@ export function ManageBillingButton({ orgId }: { orgId: string }) {
       <button onClick={go} disabled={busy} className="mono rounded-md border border-line px-3 py-1.5 text-xs text-ink-soft hover:bg-base-700 disabled:opacity-60">
         {busy ? "Opening…" : "Manage billing"}
       </button>
-      {error && <p className="mono mt-1 text-[11px] text-risk-high">{error}</p>}
+      {error && <p className="mono mt-1 text-[12px] text-risk-high">{error}</p>}
     </div>
   );
 }

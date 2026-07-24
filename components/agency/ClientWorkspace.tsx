@@ -35,7 +35,7 @@ function SlaQueue({
     <section className="panel p-5">
       <div className="flex items-end justify-between">
         <div>
-          <div className="mono text-[10px] uppercase text-ink-faint">
+          <div className="mono text-[11px] uppercase text-ink-faint">
             Service-level workflow
           </div>
           <h2 className="mt-1 text-lg font-medium">SLA queue</h2>
@@ -56,7 +56,7 @@ function SlaQueue({
                   (candidate) => candidate.id === item.findingId,
                 )?.title ?? item.findingId}
               </div>
-              <div className="mono mt-1 text-[9px] uppercase text-ink-faint">
+              <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
                 {item.priority} · due {new Date(item.dueAt).toLocaleString()} ·{" "}
                 {item.status}
               </div>
@@ -65,14 +65,14 @@ function SlaQueue({
               {item.status === "open" && (
                 <button
                   onClick={() => onAction(item.id, "acknowledge")}
-                  className="rounded-sm border border-line px-3 py-1 text-[10px]"
+                  className="rounded-sm border border-line px-3 py-1 text-[11px]"
                 >
                   Acknowledge
                 </button>
               )}
               <button
                 onClick={() => onAction(item.id, "resolve")}
-                className="rounded-sm border border-signal/30 px-3 py-1 text-[10px] text-signal"
+                className="rounded-sm border border-signal/30 px-3 py-1 text-[11px] text-signal"
               >
                 Resolve
               </button>
@@ -144,7 +144,7 @@ export function ClientWorkspace({
         <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-signal/10 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="mono text-[10px] uppercase tracking-[.2em] text-signal">
+            <div className="mono text-[11px] uppercase tracking-[.2em] text-signal">
               {data.workspace.consultantMode
                 ? "Consultant engagement"
                 : "Managed service client"}
@@ -158,7 +158,7 @@ export function ClientWorkspace({
               {data.client.slaResponseMinutes} minute SLA
             </p>
           </div>
-          <div className="mono text-[10px] text-ink-faint">
+          <div className="mono text-[11px] text-ink-faint">
             Portal: {data.client.portalMode} · Billing:{" "}
             {data.client.billingMode}
           </div>
@@ -303,7 +303,7 @@ export function ClientWorkspace({
             )}
           </div>
           <div className="mt-4 border-t border-line pt-4">
-            <div className="mono text-[10px] uppercase text-ink-faint">
+            <div className="mono text-[11px] uppercase text-ink-faint">
               Client-specific notification routing
             </div>
             <label className="mt-3 block text-xs text-ink-soft">
@@ -402,7 +402,7 @@ export function ClientWorkspace({
                   <div className="text-xs leading-5 text-ink-soft">
                     {note.body}
                   </div>
-                  <div className="mono mt-2 text-[9px] uppercase text-ink-faint">
+                  <div className="mono mt-2 text-[11px] uppercase text-ink-faint">
                     {note.visibility} ·{" "}
                     {new Date(note.createdAt).toLocaleString()}
                   </div>
@@ -477,7 +477,7 @@ export function ClientWorkspace({
       <section className="panel p-5">
         <div className="flex items-end justify-between">
           <div>
-            <div className="mono text-[10px] uppercase text-ink-faint">
+            <div className="mono text-[11px] uppercase text-ink-faint">
               Shared findings workflow
             </div>
             <h2 className="mt-1 text-lg font-medium">
@@ -498,7 +498,7 @@ export function ClientWorkspace({
               >
                 <div className="flex justify-between gap-3">
                   <h3 className="text-sm">{recommendation.title}</h3>
-                  <span className="mono text-[9px] uppercase text-risk-high">
+                  <span className="mono text-[11px] uppercase text-risk-high">
                     {recommendation.priority}
                   </span>
                 </div>
@@ -506,12 +506,12 @@ export function ClientWorkspace({
                   {recommendation.why}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="text-[10px] text-ink-faint">
+                  <span className="text-[11px] text-ink-faint">
                     {recommendation.affectedAssets.length} affected assets ·{" "}
                     {Math.round(recommendation.confidence * 100)}% confidence
                   </span>
                   {shared.has(recommendation.id) ? (
-                    <span className="mono text-[9px] uppercase text-signal">
+                    <span className="mono text-[11px] uppercase text-signal">
                       Shared
                     </span>
                   ) : (
@@ -523,7 +523,7 @@ export function ClientWorkspace({
                           clientMessage: recommendation.suggestedReview,
                         })
                       }
-                      className="rounded-sm border border-signal/30 px-3 py-1.5 text-[10px] text-signal"
+                      className="rounded-sm border border-signal/30 px-3 py-1.5 text-[11px] text-signal"
                     >
                       Share with client
                     </button>

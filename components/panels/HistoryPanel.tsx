@@ -30,7 +30,7 @@ export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boole
 
   return (
     <div>
-      <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+      <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
         <span>Protection posture history</span>
         <span>{scans.length} scans{durable ? "" : " · session"}</span>
       </div>
@@ -46,7 +46,7 @@ export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boole
             );
           })}
         </div>
-        <div className="mono mt-2 flex justify-between text-[10px] text-ink-faint">
+        <div className="mono mt-2 flex justify-between text-[11px] text-ink-faint">
           <span>{new Date(ordered[0]!.finishedAt).toLocaleDateString()}</span>
           <span>latest {ordered[ordered.length - 1]!.score}/100</span>
         </div>

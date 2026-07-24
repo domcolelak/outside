@@ -72,7 +72,7 @@ export function TeamPanel({
   return (
     <section className="space-y-6">
       <div>
-        <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">Notifications</div>
+        <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">Notifications</div>
         <button
           onClick={() => void toggleNotify()}
           role="switch"
@@ -82,7 +82,7 @@ export function TeamPanel({
         >
           <div>
             <div className="text-sm text-ink">Change alerts</div>
-            <div className="mono mt-0.5 text-[11px] text-ink-faint">Email me when this organization&apos;s monitored surface changes.</div>
+            <div className="mono mt-0.5 text-[12px] text-ink-faint">Email me when this organization&apos;s monitored surface changes.</div>
           </div>
           <span className={`relative h-5 w-9 rounded-full transition ${notify ? "bg-signal" : "bg-base-600"}`}>
             <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-base-950 transition ${notify ? "left-4" : "left-0.5"}`} />
@@ -93,7 +93,7 @@ export function TeamPanel({
 
       {canInvite && (
         <div>
-          <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">Team</div>
+          <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">Team</div>
           <form onSubmit={invite} className="panel mb-3 flex flex-wrap items-center gap-2 p-2">
             <input
               aria-label="Teammate email"
@@ -118,7 +118,7 @@ export function TeamPanel({
             {invites.map((i) => (
               <div key={i.id} className="panel flex items-center justify-between p-3">
                 <span className="mono text-sm text-ink">{i.email}</span>
-                <span className="mono rounded-md border border-line px-2 py-0.5 text-[11px] text-ink-soft">{i.role} · pending</span>
+                <span className="mono rounded-md border border-line px-2 py-0.5 text-[12px] text-ink-soft">{i.role} · pending</span>
               </div>
             ))}
           </div>

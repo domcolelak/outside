@@ -43,21 +43,21 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <VerifyEmailBanner verified={!!ctx.user.emailVerifiedAt} email={ctx.user.email} notice={notice === "complete" || notice === "invalid" ? notice : undefined} />
 
         <div>
-          <div className="mono text-[11px] uppercase tracking-widest text-signal">Workspace</div>
+          <div className="mono text-[12px] uppercase tracking-widest text-signal">Workspace</div>
           <h1 className="mt-2 text-3xl font-semibold text-ink">Welcome, {ctx.user.name.split(" ")[0]}</h1>
           <p className="mt-1 text-sm text-ink-soft">{ctx.user.email}</p>
         </div>
 
         <section>
-          <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">Organizations</div>
+          <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">Organizations</div>
           <div className="grid gap-3 md:grid-cols-2">
             {ctx.memberships.map((m) => (
               <div key={m.org.id} className="panel flex items-center justify-between p-4">
                 <div>
                   <div className="text-ink">{m.org.name}</div>
-                  <div className="mono mt-1 text-[11px] text-ink-faint">{PLAN_LABEL[m.org.plan] ?? m.org.plan} · {m.role}</div>
+                  <div className="mono mt-1 text-[12px] text-ink-faint">{PLAN_LABEL[m.org.plan] ?? m.org.plan} · {m.role}</div>
                 </div>
-                <Link href="/billing" className="mono rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:bg-base-700">Billing</Link>
+                <Link href="/billing" className="mono rounded-md border border-line px-2.5 py-1 text-[12px] text-ink-soft hover:bg-base-700">Billing</Link>
               </div>
             ))}
           </div>

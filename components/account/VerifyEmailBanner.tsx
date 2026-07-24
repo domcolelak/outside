@@ -45,7 +45,7 @@ export function VerifyEmailBanner({ verified, email, notice }: { verified: boole
     <div className="panel border-risk-medium/40 bg-risk-medium/[0.06] p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full border border-risk-medium text-[11px] text-risk-medium">!</span>
+          <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full border border-risk-medium text-[12px] text-risk-medium">!</span>
           <div>
             <p className="text-sm font-medium text-ink">Verify your email to unlock scanning, monitoring, and reports</p>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
@@ -64,7 +64,7 @@ export function VerifyEmailBanner({ verified, email, notice }: { verified: boole
         </button>
       </div>
       {message && state !== "idle" && (
-        <p className={`mono mt-3 text-[11px] ${state === "sent" ? "text-signal" : state === "error" || state === "limited" ? "text-risk-high" : "text-ink-faint"}`}>{message}</p>
+        <p className={`mono mt-3 text-[12px] ${state === "sent" ? "text-signal" : state === "error" || state === "limited" ? "text-risk-high" : "text-ink-faint"}`}>{message}</p>
       )}
     </div>
   );

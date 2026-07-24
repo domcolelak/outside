@@ -21,7 +21,7 @@ export function TwinPanel({ graph }: { graph: AssetGraph }) {
 
   return (
     <div>
-      <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+      <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
         <span>Digital Twin · dependency &amp; blast radius</span>
         <span>{hubs.length}</span>
       </div>
@@ -35,16 +35,16 @@ export function TwinPanel({ graph }: { graph: AssetGraph }) {
                 <span className={`mono text-sm font-semibold ${tone}`}>{h.dependentCount}</span>
                 <div className="min-w-0 flex-1">
                   <div className="mono truncate text-[12px] text-ink">{h.node.label}</div>
-                  <div className="mono mt-0.5 text-[10px] uppercase tracking-wide text-ink-faint">{h.node.kind} · blast radius</div>
+                  <div className="mono mt-0.5 text-[11px] uppercase tracking-wide text-ink-faint">{h.node.kind} · blast radius</div>
                 </div>
-                <span className="mono text-[10px] text-ink-faint">{isOpen ? "−" : "+"}</span>
+                <span className="mono text-[11px] text-ink-faint">{isOpen ? "−" : "+"}</span>
               </button>
               {isOpen && (
                 <div className="border-t border-line px-3 py-2.5">
-                  <div className="mono mb-1.5 text-[10px] uppercase tracking-wide text-ink-faint">Impacted if this fails or is compromised</div>
+                  <div className="mono mb-1.5 text-[11px] uppercase tracking-wide text-ink-faint">Impacted if this fails or is compromised</div>
                   <div className="flex flex-wrap gap-1.5">
                     {h.impacted.map((a) => (
-                      <span key={a.id} className="mono rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-ink-soft">{a.label}</span>
+                      <span key={a.id} className="mono rounded-sm border border-line px-1.5 py-0.5 text-[11px] text-ink-soft">{a.label}</span>
                     ))}
                   </div>
                 </div>

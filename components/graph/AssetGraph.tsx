@@ -504,7 +504,7 @@ export function AssetGraph({
         onPointerLeave={() => { hoveredIdRef.current = null; setHoverInfo(null); wakeRef.current(); }}
         onWheel={onWheel}
       />
-      {hoverInfo && <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[10px] text-ink">{hoverInfo.asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[8px] uppercase text-ink-faint"><span>{hoverInfo.asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(hoverInfo.asset) }}>{hoverInfo.asset.priority}</span></div><div className="mt-1 text-[9px] text-ink-faint">Click to inspect evidence</div></div>}
+      {hoverInfo && <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[11px] text-ink">{hoverInfo.asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[10px] uppercase text-ink-faint"><span>{hoverInfo.asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(hoverInfo.asset) }}>{hoverInfo.asset.priority}</span></div><div className="mt-1 text-[11px] text-ink-faint">Click to inspect evidence</div></div>}
       {controls && (
         <div data-capture-hide className="absolute right-3 top-3 flex flex-col gap-1">
           <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
@@ -515,12 +515,12 @@ export function AssetGraph({
       )}
       {controls && selectionEnabled && assets.length > 0 && (
         <div data-capture-hide className="absolute bottom-3 right-14 max-w-[min(58%,20rem)] rounded-lg border border-line bg-base-900/85 px-2.5 py-2 backdrop-blur-sm">
-          <label htmlFor={assetSelectId} className="mono block text-[8px] uppercase tracking-wide text-ink-faint">Inspect graph asset</label>
+          <label htmlFor={assetSelectId} className="mono block text-[10px] uppercase tracking-wide text-ink-faint">Inspect graph asset</label>
           <select
             id={assetSelectId}
             value={selectedId ?? ""}
             onChange={(event) => onSelect(event.target.value || null)}
-            className="mono mt-1 w-full bg-transparent text-[10px] text-ink outline-none"
+            className="mono mt-1 w-full bg-transparent text-[11px] text-ink outline-none"
           >
             <option value="" className="bg-base-900">Choose an asset…</option>
             {assets.map((asset) => <option key={asset.id} value={asset.id} className="bg-base-900">{asset.label} · {asset.kind.replaceAll("_", " ")} · {asset.priority}</option>)}

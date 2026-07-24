@@ -94,7 +94,7 @@ export function AgencyAnalytics({
               Portfolio operations over the last 30 days.
             </p>
           </div>
-          <div className="mono text-[9px] text-ink-faint">
+          <div className="mono text-[11px] text-ink-faint">
             {data.utilization.apiCalls} API calls · {data.utilization.reports}{" "}
             reports
           </div>
@@ -120,15 +120,15 @@ export function AgencyAnalytics({
             <b>
               {data.utilization.activeClients}/{data.utilization.totalClients}
             </b>
-            <div className="text-[9px] text-ink-faint">active clients</div>
+            <div className="text-[11px] text-ink-faint">active clients</div>
           </div>
           <div className="rounded-sm border border-line p-3">
             <b>{data.utilization.activeSeats}</b>
-            <div className="text-[9px] text-ink-faint">active seats</div>
+            <div className="text-[11px] text-ink-faint">active seats</div>
           </div>
           <div className="rounded-sm border border-line p-3">
             <b>{data.utilization.pendingJobs}</b>
-            <div className="text-[9px] text-ink-faint">queued jobs</div>
+            <div className="text-[11px] text-ink-faint">queued jobs</div>
           </div>
         </div>
       </div>

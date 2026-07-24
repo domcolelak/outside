@@ -19,7 +19,7 @@ export function Chip({ children, tone = "neutral" }: { children: React.ReactNode
     warn: "border-risk-high/40 text-risk-high",
   };
   return (
-    <span className={`mono inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] ${tones[tone]}`}>
+    <span className={`mono inline-flex items-center rounded-md border px-2 py-0.5 text-[12px] ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -33,14 +33,14 @@ const ASSURANCE_LABEL: Record<Assurance, { label: string; tone: string }> = {
 
 export function AssuranceTag({ assurance }: { assurance: Assurance }) {
   const a = ASSURANCE_LABEL[assurance];
-  return <span className={`mono rounded-sm border px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${a.tone}`}>{a.label}</span>;
+  return <span className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase tracking-wider ${a.tone}`}>{a.label}</span>;
 }
 
 export function Confidence({ value }: { value: number }) {
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
   const explanation = `${pct}% deterministic confidence. This expresses evidence strength, not exploitability or proof of compromise.`;
   return (
-    <span className="mono inline-flex items-center gap-1.5 text-[11px] text-ink-soft" title={explanation} aria-label={explanation}>
+    <span className="mono inline-flex items-center gap-1.5 text-[12px] text-ink-soft" title={explanation} aria-label={explanation}>
       <span className="relative inline-block h-1.5 w-12 overflow-hidden rounded-full bg-base-700">
         <span className="absolute inset-y-0 left-0 rounded-full bg-signal" style={{ width: `${pct}%` }} />
       </span>
