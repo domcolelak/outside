@@ -192,8 +192,16 @@ export default function Landing() {
               <a href="#security" className="hover:text-ink">Responsible use</a>
               <Link href="/login" className="hover:text-ink">Sign in</Link>
             </nav>
+            <nav className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-ink-soft">
+              <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+              <Link href="/terms" className="hover:text-ink">Terms</Link>
+              <Link href="/security" className="hover:text-ink">Security</Link>
+              <a href="mailto:security@outsideguardian.eu" className="hover:text-ink">Report a vulnerability</a>
+            </nav>
           </div>
-          <div className="mono mt-8 border-t border-line/40 pt-6 text-[12px] text-ink-faint">© {new Date().getFullYear()} OUTSIDE · External exposure intelligence</div>
+          <div className="mono mt-8 border-t border-line/40 pt-6 text-[12px] leading-5 text-ink-faint">
+            © {new Date().getFullYear()} VeDomEll s. r. o. · Alžbetina 55, 040 01 Košice, Slovakia · IČO 52498751
+          </div>
         </div>
       </footer>
     </div>
