@@ -36,7 +36,7 @@ function Metric({
       >
         {value}
       </div>
-      <div className="mono mt-1 text-[9px] uppercase tracking-[.15em] text-ink-faint">
+      <div className="mono mt-1 text-[11px] uppercase tracking-[.15em] text-ink-faint">
         {label}
       </div>
     </div>
@@ -60,7 +60,7 @@ function Section({
 }) {
   return (
     <section className="panel p-5 md:p-6">
-      <div className="mono text-[9px] uppercase tracking-[.18em] text-signal">
+      <div className="mono text-[11px] uppercase tracking-[.18em] text-signal">
         {eyebrow}
       </div>
       <h2 className="mt-2 text-xl font-medium text-ink">{title}</h2>
@@ -118,7 +118,7 @@ export function EnterpriseConsole({
         <div className="pointer-events-none absolute inset-0 grid-backdrop opacity-30" />
         <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <div className="mono text-[10px] uppercase tracking-[.22em] text-signal">
+            <div className="mono text-[11px] uppercase tracking-[.22em] text-signal">
               OUTSIDE Enterprise
             </div>
             <h1 className="mt-3 text-3xl font-semibold text-gradient md:text-4xl">
@@ -131,7 +131,7 @@ export function EnterpriseConsole({
           </div>
           <div className="grid grid-cols-2 gap-2 text-right">
             <div className="rounded-lg border border-line bg-base-950/50 px-3 py-2">
-              <div className="mono text-[9px] uppercase text-ink-faint">
+              <div className="mono text-[11px] uppercase text-ink-faint">
                 License
               </div>
               <div className="mt-1 text-sm capitalize text-signal">
@@ -139,7 +139,7 @@ export function EnterpriseConsole({
               </div>
             </div>
             <div className="rounded-lg border border-line bg-base-950/50 px-3 py-2">
-              <div className="mono text-[9px] uppercase text-ink-faint">
+              <div className="mono text-[11px] uppercase text-ink-faint">
                 Residency
               </div>
               <div className="mt-1 text-sm uppercase text-ink">
@@ -178,13 +178,13 @@ export function EnterpriseConsole({
             <div className="mt-5 rounded-xl border border-line p-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-ink">Audit chain head</span>
-                <span className="mono text-[10px] text-signal">
+                <span className="mono text-[11px] text-signal">
                   {overview.auditHead
                     ? `#${overview.auditHead.sequence}`
                     : "GENESIS"}
                 </span>
               </div>
-              <div className="mono mt-2 truncate text-[10px] text-ink-faint">
+              <div className="mono mt-2 truncate text-[11px] text-ink-faint">
                 {overview.auditHead?.hash ??
                   "No enterprise mutations recorded yet"}
               </div>
@@ -277,12 +277,12 @@ function IdentityPanel({
                 <div className="flex justify-between">
                   <span className="text-sm text-ink">{item.name}</span>
                   <span
-                    className={`mono text-[9px] uppercase ${item.enabled ? "text-signal" : "text-ink-faint"}`}
+                    className={`mono text-[11px] uppercase ${item.enabled ? "text-signal" : "text-ink-faint"}`}
                   >
                     {item.protocol} · {item.enabled ? "enforced" : "staged"}
                   </span>
                 </div>
-                <div className="mono mt-2 text-[10px] text-ink-faint">
+                <div className="mono mt-2 text-[11px] text-ink-faint">
                   {item.domains.join(", ")} · SCIM{" "}
                   {item.scimTokenPrefix ? "configured" : "not issued"}
                 </div>
@@ -315,7 +315,7 @@ function IdentityPanel({
           {field("clientId", "Client ID")}
           {field("clientSecret", "Client secret", true)}
         </div>
-        <p className="mt-3 text-[11px] leading-5 text-ink-faint">
+        <p className="mt-3 text-[12px] leading-5 text-ink-faint">
           SAML uses a hardened SAML-to-OIDC broker boundary. OUTSIDE never
           accepts unsigned or ad-hoc XML assertions.
         </p>
@@ -382,7 +382,7 @@ function GovernancePanel({
           {overview.pendingApprovals.slice(0, 5).map((item) => (
             <div key={item.id} className="rounded-lg border border-line p-3">
               <div className="text-sm">{item.workflow}</div>
-              <div className="mono mt-1 text-[9px] text-ink-faint">
+              <div className="mono mt-1 text-[11px] text-ink-faint">
                 {item.subjectType}:{item.subjectId} · requested by{" "}
                 {item.requestedBy}
               </div>
@@ -405,7 +405,7 @@ function GovernancePanel({
           value={document}
           onChange={(event) => setDocument(event.target.value)}
           rows={8}
-          className="mono mt-2 w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-[11px] leading-5"
+          className="mono mt-2 w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-[12px] leading-5"
         />
         <button
           disabled={busy}
@@ -465,12 +465,12 @@ function IntegrationPanel({
               >
                 <div>
                   <div className="text-sm text-ink">{item.name}</div>
-                  <div className="mono mt-1 text-[9px] uppercase text-ink-faint">
+                  <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
                     {item.category} · {item.provider}
                   </div>
                 </div>
                 <div
-                  className={`mono text-[9px] uppercase ${item.status === "healthy" ? "text-signal" : item.status === "degraded" ? "text-risk-high" : "text-ink-faint"}`}
+                  className={`mono text-[11px] uppercase ${item.status === "healthy" ? "text-signal" : item.status === "degraded" ? "text-risk-high" : "text-ink-faint"}`}
                 >
                   {item.status}
                 </div>
@@ -550,7 +550,7 @@ function DataPanel({
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
             Executive PDF
-            <div className="mono mt-1 text-[9px] text-ink-faint">
+            <div className="mono mt-1 text-[11px] text-ink-faint">
               Leadership-ready posture
             </div>
           </a>
@@ -559,7 +559,7 @@ function DataPanel({
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
             Compliance CSV
-            <div className="mono mt-1 text-[9px] text-ink-faint">
+            <div className="mono mt-1 text-[11px] text-ink-faint">
               SOC 2 · ISO · NIS2 · DORA
             </div>
           </a>
@@ -568,7 +568,7 @@ function DataPanel({
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
             Audit NDJSON
-            <div className="mono mt-1 text-[9px] text-ink-faint">
+            <div className="mono mt-1 text-[11px] text-ink-faint">
               Verified hash-chain export
             </div>
           </a>
@@ -577,7 +577,7 @@ function DataPanel({
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
             GraphQL schema
-            <div className="mono mt-1 text-[9px] text-ink-faint">
+            <div className="mono mt-1 text-[11px] text-ink-faint">
               Persisted operations API
             </div>
           </a>
@@ -590,7 +590,7 @@ function DataPanel({
           onChange={(event) => setTokenName(event.target.value)}
           className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
         />
-        <p className="mt-3 text-[11px] leading-5 text-ink-faint">
+        <p className="mt-3 text-[12px] leading-5 text-ink-faint">
           The secret is displayed once. Only permissions held by the creator can
           be delegated.
         </p>
@@ -612,7 +612,7 @@ function DataPanel({
           Issue read-only token
         </button>
         <div className="mt-5 border-t border-line pt-4">
-          <div className="mono text-[9px] uppercase text-ink-faint">
+          <div className="mono text-[11px] uppercase text-ink-faint">
             Retention controls
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -625,7 +625,7 @@ function DataPanel({
               label="Ticket days"
             />
           </div>
-          <p className="mt-3 text-[10px] leading-4 text-ink-faint">
+          <p className="mt-3 text-[11px] leading-4 text-ink-faint">
             Audit events remain append-only. Operational delivery and ticket
             metadata follow the configured lifecycle.
           </p>

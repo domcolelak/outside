@@ -100,18 +100,18 @@ function ScanView() {
           <Link href="/"><Wordmark className="h-5" /></Link>
           <div className="hidden items-center gap-2 md:flex">
             <span className="mono rounded-md border border-line px-2 py-1 text-xs text-ink">{scan.result?.target ?? target}</span>
-            <span className="mono rounded-md border border-line px-2 py-1 text-[11px] uppercase tracking-wider text-ink-faint">
+            <span className="mono rounded-md border border-line px-2 py-1 text-[12px] uppercase tracking-wider text-ink-faint">
               {mode === "demo" || scan.result?.isDemo ? "Demo" : "Passive external view"}
             </span>
             {scan.result && !scan.result.isDemo && (
               verifyStatus === "verified" ? (
-                <span className="mono rounded-md border border-signal/40 bg-signal/10 px-2 py-1 text-[11px] uppercase tracking-wider text-signal">
+                <span className="mono rounded-md border border-signal/40 bg-signal/10 px-2 py-1 text-[12px] uppercase tracking-wider text-signal">
                   ✓ Verified organization
                 </span>
               ) : (
                 <button
                   onClick={() => setVerifyOpen(true)}
-                  className="mono rounded-md border border-risk-medium/30 px-2 py-1 text-[11px] uppercase tracking-wider text-risk-medium transition hover:bg-risk-medium/10"
+                  className="mono rounded-md border border-risk-medium/30 px-2 py-1 text-[12px] uppercase tracking-wider text-risk-medium transition hover:bg-risk-medium/10"
                 >
                   Unverified — verify ownership
                 </button>
@@ -120,9 +120,9 @@ function ScanView() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {scan.status === "done" && <button onClick={() => setWalkthrough(true)} className="mono hidden rounded-lg border border-line px-3 py-2 text-[9px] uppercase text-ink-faint transition hover:border-signal/30 hover:text-signal md:block">Guided tour</button>}
+          {scan.status === "done" && <button onClick={() => setWalkthrough(true)} className="mono hidden rounded-lg border border-line px-3 py-2 text-[11px] uppercase text-ink-faint transition hover:border-signal/30 hover:text-signal md:block">Guided tour</button>}
           {scan.status === "done" && (
-            <button data-tour="attacker" onClick={() => setAttacker(true)} className="mono rounded-lg border border-signal/30 bg-signal/10 px-3 py-2 text-[9px] uppercase tracking-wider text-signal hover:bg-signal/20">
+            <button data-tour="attacker" onClick={() => setAttacker(true)} className="mono rounded-lg border border-signal/30 bg-signal/10 px-3 py-2 text-[11px] uppercase tracking-wider text-signal hover:bg-signal/20">
               ▶ Attacker View
             </button>
           )}
@@ -207,7 +207,7 @@ function CinematicScanStatus({ stages, assetCount, latest }: { stages: StageStat
   const activeIndex = Math.max(0, stages.findIndex((stage) => stage.status === "active"));
   const active = stages[activeIndex] ?? stages[0];
   const progress = Math.max(4, ((stages.filter((stage) => stage.status === "done").length + .45) / Math.max(stages.length, 1)) * 100);
-  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/6"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[9px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[9px] uppercase tracking-[.18em] text-signal">Discovery in progress</div><div className="mono text-[8px] text-ink-faint">{assetCount} entities</div></div><div className="mt-1 text-sm font-medium text-ink">{active?.label ?? "Establishing external viewpoint"}</div><div className="mono mt-1 truncate text-[9px] text-ink-faint">{latest ?? "Opening deterministic provider sequence…"}</div></div></div><div role="progressbar" aria-label="Discovery progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${active?.label ?? "Discovery"} — ${Math.round(progress)}%`} className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${stage.label}`}/>)}</div><span className="sr-only" role="status" aria-live="polite">{active?.label ?? "Discovery in progress"}. {latest ?? ""}</span></div></div>;
+  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/6"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[11px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[11px] uppercase tracking-[.18em] text-signal">Discovery in progress</div><div className="mono text-[10px] text-ink-faint">{assetCount} entities</div></div><div className="mt-1 text-sm font-medium text-ink">{active?.label ?? "Establishing external viewpoint"}</div><div className="mono mt-1 truncate text-[11px] text-ink-faint">{latest ?? "Opening deterministic provider sequence…"}</div></div></div><div role="progressbar" aria-label="Discovery progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${active?.label ?? "Discovery"} — ${Math.round(progress)}%`} className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${stage.label}`}/>)}</div><span className="sr-only" role="status" aria-live="polite">{active?.label ?? "Discovery in progress"}. {latest ?? ""}</span></div></div>;
 }
 
 function IntelligenceEmpty({ scanning }: { scanning: boolean }) {
@@ -260,7 +260,7 @@ function GraphControls({
               key={p.key}
               onClick={() => toggle(p.key)}
               aria-pressed={active}
-              className={`mono flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] backdrop-blur-sm transition ${active ? "border-signal/40 bg-signal/10 text-ink" : "border-line bg-base-900/70 text-ink-soft hover:text-ink"}`}
+              className={`mono flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[12px] backdrop-blur-sm transition ${active ? "border-signal/40 bg-signal/10 text-ink" : "border-line bg-base-900/70 text-ink-soft hover:text-ink"}`}
             >
               <span className="h-2 w-2 rounded-full" style={{ background: p.color, boxShadow: `0 0 8px ${p.color}88` }} />
               {p.label}
@@ -284,7 +284,7 @@ function GraphLegend() {
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-base-900/70 px-3 py-2 backdrop-blur-sm">
       {items.map((i) => (
-        <span key={i.l} className="mono flex items-center gap-1.5 text-[10px] text-ink-soft">
+        <span key={i.l} className="mono flex items-center gap-1.5 text-[11px] text-ink-soft">
           <span className="h-2 w-2 rounded-full" style={{ background: i.c, boxShadow: `0 0 8px ${i.c}88` }} />
           {i.l}
         </span>

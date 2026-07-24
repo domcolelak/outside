@@ -49,25 +49,25 @@ export function SharedReport({ snapshot }: { snapshot: ShareSnapshot | null }) {
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <Link href="/"><Wordmark className="h-6" /></Link>
-          <span className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">Shared exposure report</span>
+          <span className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">Shared exposure report</span>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl space-y-8 px-6 py-10">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="mono text-[11px] uppercase tracking-widest text-signal">External exposure</div>
+            <div className="mono text-[12px] uppercase tracking-widest text-signal">External exposure</div>
             <h1 className="mt-2 break-all text-3xl font-semibold text-ink">{s.target}</h1>
-            {s.isDemo && <p className="mono mt-1 text-[11px] text-ink-faint">Demo dataset — synthetic organization</p>}
+            {s.isDemo && <p className="mono mt-1 text-[12px] text-ink-faint">Demo dataset — synthetic organization</p>}
           </div>
           <div className="panel flex items-center gap-5 p-5">
             <div className="text-right">
               <div className="text-5xl font-semibold tracking-tight text-ink" style={{ fontVariantNumeric: "tabular-nums" }}>{s.score.value}</div>
-              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">/ 100 · higher is better</div>
+              <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">/ 100 · higher is better</div>
             </div>
             <div className="h-10 w-px bg-line" />
             <div>
-              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">Protection posture</div>
+              <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Protection posture</div>
               <div className={`text-lg font-semibold ${BAND_COLOR[s.score.band] ?? "text-ink"}`}>{BAND_LABEL[s.score.band] ?? s.score.band}</div>
             </div>
           </div>
@@ -77,20 +77,20 @@ export function SharedReport({ snapshot }: { snapshot: ShareSnapshot | null }) {
           {stat.map(([label, value]) => (
             <div key={label} className="panel p-4">
               <div className="text-2xl font-semibold text-ink" style={{ fontVariantNumeric: "tabular-nums" }}>{value}</div>
-              <div className="mono mt-1 text-[10px] uppercase tracking-wider text-ink-faint">{label}</div>
+              <div className="mono mt-1 text-[11px] uppercase tracking-wider text-ink-faint">{label}</div>
             </div>
           ))}
         </section>
 
         {s.findings.length > 0 && (
           <section>
-            <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">Findings ({s.findings.length})</div>
+            <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">Findings ({s.findings.length})</div>
             <div className="space-y-2">
               {s.findings.map((f, i) => (
                 <div key={i} className="panel p-4">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-ink">{f.title}</span>
-                    <span className={`mono text-[10px] uppercase tracking-wider ${PRIORITY_COLOR[f.priority] ?? "text-ink-faint"}`}>{f.priority} · {Math.round(f.confidence * 100)}%</span>
+                    <span className={`mono text-[11px] uppercase tracking-wider ${PRIORITY_COLOR[f.priority] ?? "text-ink-faint"}`}>{f.priority} · {Math.round(f.confidence * 100)}%</span>
                   </div>
                   <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">{f.observation} {f.concern}</p>
                 </div>
@@ -99,7 +99,7 @@ export function SharedReport({ snapshot }: { snapshot: ShareSnapshot | null }) {
           </section>
         )}
 
-        <p className="mono text-[11px] leading-relaxed text-ink-faint">
+        <p className="mono text-[12px] leading-relaxed text-ink-faint">
           Generated from passive, public sources only (Certificate Transparency, DNS). Findings separate observed facts from inference and are prioritized items to review, never confirmed exploitation.
         </p>
 

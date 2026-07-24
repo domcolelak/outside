@@ -58,13 +58,13 @@ function ReportDelivery({
         required
         aria-label="Report recipient"
         placeholder="client@example.com"
-        className="min-w-0 flex-1 rounded-sm border border-line bg-base-950 px-2 py-1 text-[10px]"
+        className="min-w-0 flex-1 rounded-sm border border-line bg-base-950 px-2 py-1 text-[11px]"
       />
-      <button className="rounded-sm border border-line px-2 text-[10px]">
+      <button className="rounded-sm border border-line px-2 text-[11px]">
         Send
       </button>
       {status && (
-        <span className="self-center text-[9px] text-ink-faint">{status}</span>
+        <span className="self-center text-[11px] text-ink-faint">{status}</span>
       )}
     </form>
   );
@@ -182,7 +182,7 @@ function SeatRoleEditor({
               {member.role === "owner" && <option>owner</option>}
             </select>
             <span
-              className={`mono text-[9px] uppercase ${member.active ? "text-signal" : "text-ink-faint"}`}
+              className={`mono text-[11px] uppercase ${member.active ? "text-signal" : "text-ink-faint"}`}
             >
               {member.active ? "active" : "inactive"}
             </span>
@@ -274,7 +274,7 @@ export function AgencyAdmin({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="mono text-[10px] uppercase tracking-[.2em] text-signal">
+          <div className="mono text-[11px] uppercase tracking-[.2em] text-signal">
             Agency Operations Center
           </div>
           <h1 className="mt-2 text-3xl font-semibold text-gradient">
@@ -284,7 +284,7 @@ export function AgencyAdmin({
             Clients, service delivery, brand, seats, reports and API access.
           </p>
         </div>
-        <div className="mono text-[10px] text-ink-faint">
+        <div className="mono text-[11px] text-ink-faint">
           {role} · {(mrr / 100).toLocaleString()}{" "}
           {data.clients[0]?.currency ?? "EUR"} managed MRR
         </div>
@@ -465,7 +465,7 @@ export function AgencyAdmin({
                   style={{ background: group.color }}
                 />
                 <span className="text-sm">{group.name}</span>
-                <div className="mt-1 text-[10px] text-ink-faint">
+                <div className="mt-1 text-[11px] text-ink-faint">
                   {
                     data.clients.filter((client) => client.groupId === group.id)
                       .length
@@ -497,12 +497,12 @@ export function AgencyAdmin({
               className="rounded-xl border border-line p-4 hover:border-signal/30"
             >
               <div className="font-medium">{client.organizationName}</div>
-              <div className="mono mt-1 text-[9px] uppercase text-ink-faint">
+              <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
                 {data.groups.find((group) => group.id === client.groupId)
                   ?.name ?? "Ungrouped"}{" "}
                 · {client.serviceTier}
               </div>
-              <div className="mt-4 flex justify-between text-[10px] text-ink-soft">
+              <div className="mt-4 flex justify-between text-[11px] text-ink-soft">
                 <span>{client.portalMode} portal</span>
                 <span>{client.slaResponseMinutes}m SLA</span>
                 <span>{client.billingMode}</span>
@@ -556,7 +556,7 @@ export function AgencyAdmin({
               >
                 <div>
                   <div className="mono text-xs">{member.userId}</div>
-                  <div className="text-[10px] text-ink-faint">
+                  <div className="text-[11px] text-ink-faint">
                     {member.role} · {member.active ? "active" : "inactive"}
                   </div>
                 </div>
@@ -568,7 +568,7 @@ export function AgencyAdmin({
                         active: !member.active,
                       })
                     }
-                    className="rounded-sm border border-line px-2 py-1 text-[10px]"
+                    className="rounded-sm border border-line px-2 py-1 text-[11px]"
                   >
                     {member.active ? "Deactivate" : "Activate"}
                   </button>
@@ -576,7 +576,7 @@ export function AgencyAdmin({
               </div>
             ))}
           </div>
-          <div className="mt-4 text-[10px] text-ink-faint">
+          <div className="mt-4 text-[11px] text-ink-faint">
             {data.invites.filter((invite) => !invite.acceptedAt).length} pending
             invitations
           </div>
@@ -613,7 +613,7 @@ export function AgencyAdmin({
           </form>
           {secret && (
             <div className="mt-3 rounded-lg border border-risk-medium/30 bg-risk-medium/5 p-3">
-              <div className="text-[10px] text-risk-medium">
+              <div className="text-[11px] text-risk-medium">
                 Copy now — shown once
               </div>
               <code className="mt-2 block break-all text-xs">{secret}</code>
@@ -655,7 +655,7 @@ export function AgencyAdmin({
           {data.reports.map((report) => (
             <div key={report.id} className="rounded-xl border border-line p-4">
               <div className="text-sm">{report.title}</div>
-              <div className="mono mt-1 text-[9px] uppercase text-ink-faint">
+              <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
                 {report.kind} ·{" "}
                 {new Date(report.createdAt).toLocaleDateString()}
               </div>

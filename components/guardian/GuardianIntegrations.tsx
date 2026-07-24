@@ -117,7 +117,7 @@ export function GuardianIntegrations({
     <div className="panel p-5 md:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="mono text-[10px] uppercase tracking-[.18em] text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
             Notification fabric
           </div>
           <h2 className="mt-2 text-xl font-medium text-ink">
@@ -132,7 +132,7 @@ export function GuardianIntegrations({
         {canAdmin && (
           <button
             onClick={() => setAdding((value) => !value)}
-            className="mono shrink-0 rounded-lg border border-signal/20 bg-signal/5 px-3 py-2 text-[10px] uppercase text-signal"
+            className="mono shrink-0 rounded-lg border border-signal/20 bg-signal/5 px-3 py-2 text-[11px] uppercase text-signal"
           >
             {adding ? "Close" : "Connect"}
           </button>
@@ -192,10 +192,10 @@ export function GuardianIntegrations({
             ))}
           </div>
           {error && (
-            <p role="alert" className="mono mt-3 text-[10px] text-risk-high">{error}</p>
+            <p role="alert" className="mono mt-3 text-[11px] text-risk-high">{error}</p>
           )}
           <div className="mt-4 flex items-center justify-between gap-3">
-            <span className="mono text-[9px] text-ink-faint">
+            <span className="mono text-[11px] text-ink-faint">
               Secrets encrypted at rest · HTTPS + IP pinning
             </span>
             <button className="rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950">
@@ -220,7 +220,7 @@ export function GuardianIntegrations({
                 <div className="truncate text-xs font-medium text-ink">
                   {channel.name}
                 </div>
-                <div className="mono mt-1 truncate text-[9px] text-ink-faint">
+                <div className="mono mt-1 truncate text-[11px] text-ink-faint">
                   {labels[channel.type]} · {channel.destinationHint}
                 </div>
               </div>
@@ -230,13 +230,13 @@ export function GuardianIntegrations({
                 <button
                   onClick={() => void toggle(channel)}
                   aria-pressed={channel.enabled}
-                  className={`mono rounded-md border px-2 py-1 text-[9px] ${channel.enabled ? "border-signal/20 text-signal" : "border-line text-ink-faint"}`}
+                  className={`mono rounded-md border px-2 py-1 text-[11px] ${channel.enabled ? "border-signal/20 text-signal" : "border-line text-ink-faint"}`}
                 >
                   {channel.enabled ? "Active" : "Paused"}
                 </button>
                 <button
                   onClick={() => void remove(channel)}
-                  className="mono rounded-md border border-line px-2 py-1 text-[9px] text-ink-faint hover:text-risk-high"
+                  className="mono rounded-md border border-line px-2 py-1 text-[11px] text-ink-faint hover:text-risk-high"
                 >
                   Remove
                 </button>
@@ -249,7 +249,7 @@ export function GuardianIntegrations({
             <p className="text-xs text-ink-faint">
               Email is enabled through workspace notification preferences.
             </p>
-            <p className="mono mt-1 text-[9px] text-ink-faint">
+            <p className="mono mt-1 text-[11px] text-ink-faint">
               Connect an operational workflow for grouped Guardian intelligence.
             </p>
           </div>

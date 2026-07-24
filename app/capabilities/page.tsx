@@ -49,7 +49,7 @@ export default function CapabilitiesPage() {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mono text-[11px] uppercase tracking-widest text-signal">Capability registry</div>
+        <div className="mono text-[12px] uppercase tracking-widest text-signal">Capability registry</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">What OUTSIDE can detect</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           The authoritative, code-backed inventory of every discovery collector, enrichment provider and detector in the
@@ -67,13 +67,13 @@ export default function CapabilitiesPage() {
         <div className="mt-8 space-y-8">
           {order.filter((t) => groups[t]?.length).map((type) => (
             <section key={type}>
-              <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">{TYPE_LABEL[type]}</div>
+              <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">{TYPE_LABEL[type]}</div>
               <div className="grid gap-3 md:grid-cols-2">
                 {groups[type]!.map((c) => (
                   <div key={c.id} className="panel flex flex-col p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="text-ink">{c.name}</div>
-                      <span className={`mono shrink-0 rounded-md border px-2 py-0.5 text-[10px] uppercase tracking-wide ${c.passive ? "border-signal/30 bg-signal/10 text-signal" : "border-risk-medium/30 bg-risk-medium/10 text-risk-medium"}`}>
+                      <span className={`mono shrink-0 rounded-md border px-2 py-0.5 text-[11px] uppercase tracking-wide ${c.passive ? "border-signal/30 bg-signal/10 text-signal" : "border-risk-medium/30 bg-risk-medium/10 text-risk-medium"}`}>
                         {c.passive ? "Passive" : "Active"}
                       </span>
                     </div>
@@ -81,11 +81,11 @@ export default function CapabilitiesPage() {
                     {c.detects.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {c.detects.map((cat) => (
-                          <span key={cat} className="mono rounded-sm border border-line px-1.5 py-0.5 text-[10px] text-ink-faint">{CATEGORY_LABEL[cat] ?? cat}</span>
+                          <span key={cat} className="mono rounded-sm border border-line px-1.5 py-0.5 text-[11px] text-ink-faint">{CATEGORY_LABEL[cat] ?? cat}</span>
                         ))}
                       </div>
                     )}
-                    <div className="mono mt-3 flex items-center justify-between text-[10px] text-ink-faint">
+                    <div className="mono mt-3 flex items-center justify-between text-[11px] text-ink-faint">
                       <span>{c.requiresProviderKey ? `Needs ${c.requiresProviderKey}` : "Always on"}</span>
                       <span className="truncate pl-2">{c.source}</span>
                     </div>

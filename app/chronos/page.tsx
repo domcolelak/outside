@@ -55,7 +55,7 @@ function ChronosView() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="mono text-[11px] uppercase tracking-widest text-signal">Chronos · security time machine</div>
+        <div className="mono text-[12px] uppercase tracking-widest text-signal">Chronos · security time machine</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">How this surface changed over time</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Point-in-time reconstruction and replay across a verified target&apos;s recorded history — what appeared, what

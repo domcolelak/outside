@@ -74,7 +74,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
         <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-signal/10 blur-3xl" />
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
           <div>
-            <div className="mono text-[10px] uppercase tracking-[.22em] text-signal">
+            <div className="mono text-[11px] uppercase tracking-[.22em] text-signal">
               Portfolio Guardian · live
             </div>
             <h1 className="mt-3 text-3xl font-semibold text-gradient md:text-5xl">
@@ -110,7 +110,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
         ].map(([v, l]) => (
           <div key={l} className="panel p-4">
             <div className="text-2xl font-semibold text-ink">{v}</div>
-            <div className="mono mt-2 text-[9px] uppercase tracking-wider text-ink-faint">
+            <div className="mono mt-2 text-[11px] uppercase tracking-wider text-ink-faint">
               {l}
             </div>
           </div>
@@ -120,7 +120,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
         <div className="panel p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">
+              <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
                 Portfolio posture heatmap
               </div>
               <h2 className="mt-1 text-lg font-medium">Customer posture</h2>
@@ -129,20 +129,20 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
               <button
                 disabled={!selected.length || !!busy}
                 onClick={() => operation("scan")}
-                className="rounded-md border border-line px-3 py-2 mono text-[10px] text-ink-soft disabled:opacity-40"
+                className="rounded-md border border-line px-3 py-2 mono text-[11px] text-ink-soft disabled:opacity-40"
               >
                 {busy === "scan" ? "Scheduling…" : "Bulk scan"}
               </button>
               <button
                 disabled={!selected.length || !!busy}
                 onClick={() => operation("report")}
-                className="rounded-md bg-signal px-3 py-2 mono text-[10px] font-semibold text-base-950 disabled:opacity-40"
+                className="rounded-md bg-signal px-3 py-2 mono text-[11px] font-semibold text-base-950 disabled:opacity-40"
               >
                 {busy === "report" ? "Generating…" : "Bulk reports"}
               </button>
             </div>
           </div>
-          {operationError && <p role="alert" className="mono mt-3 text-[10px] text-risk-high">{operationError}</p>}
+          {operationError && <p role="alert" className="mono mt-3 text-[11px] text-risk-high">{operationError}</p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.clients.map((item) => (
               <label
@@ -164,7 +164,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
                 <div className="pr-6 font-medium">
                   {item.client.organizationName}
                 </div>
-                <div className="mono mt-1 text-[9px] uppercase opacity-70">
+                <div className="mono mt-1 text-[11px] uppercase opacity-70">
                   {groups.get(item.client.groupId ?? "")?.name ??
                     item.client.serviceTier}
                 </div>
@@ -174,16 +174,16 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
                       {item.exposureScore ?? "—"}
                     </span>
                     {item.exposureScore !== null && (
-                      <span className="mono ml-1 text-[9px] uppercase opacity-70">
+                      <span className="mono ml-1 text-[11px] uppercase opacity-70">
                         /100 posture
                       </span>
                     )}
                   </span>
-                  <span className="mono text-[9px] uppercase">
+                  <span className="mono text-[11px] uppercase">
                     {item.health.replace("_", " ")}
                   </span>
                 </div>
-                <div className="mt-3 flex gap-3 text-[10px] opacity-80">
+                <div className="mt-3 flex gap-3 text-[11px] opacity-80">
                   <span>{item.assets} assets</span>
                   <span>{item.openRecommendations} open</span>
                   <span>{item.slaBreaches} SLA</span>
@@ -198,7 +198,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
           )}
         </div>
         <aside className="panel p-5">
-          <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
             Cross-customer search
           </div>
           <input
@@ -216,11 +216,11 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
               >
                 <div className="flex justify-between gap-2">
                   <span className="text-xs text-ink">{r.label}</span>
-                  <span className="mono text-[8px] uppercase text-signal">
+                  <span className="mono text-[10px] uppercase text-signal">
                     {r.type}
                   </span>
                 </div>
-                <div className="mt-1 text-[10px] text-ink-faint">
+                <div className="mt-1 text-[11px] text-ink-faint">
                   {r.clientName} · {r.detail}
                 </div>
               </div>
@@ -235,7 +235,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
       </section>
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="panel p-5">
-          <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
             Cross-customer change feed
           </div>
           <div className="mt-4 space-y-3">
@@ -247,7 +247,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
                 <span className="mt-1.5 h-2 w-2 rounded-full bg-signal" />
                 <div>
                   <div className="text-xs text-ink">{e.title}</div>
-                  <div className="mt-1 text-[10px] text-ink-faint">
+                  <div className="mt-1 text-[11px] text-ink-faint">
                     {e.clientName} · {e.summary}
                   </div>
                 </div>
@@ -256,7 +256,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
           </div>
         </div>
         <div className="panel p-5">
-          <div className="mono text-[10px] uppercase tracking-wider text-ink-faint">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
             Analyst priority queue
           </div>
           <div className="mt-4 space-y-3">
@@ -267,11 +267,11 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-xs text-ink">{r.title}</div>
-                  <span className="mono text-[9px] uppercase text-risk-high">
+                  <span className="mono text-[11px] uppercase text-risk-high">
                     {r.priority}
                   </span>
                 </div>
-                <div className="mt-1 text-[10px] text-ink-faint">
+                <div className="mt-1 text-[11px] text-ink-faint">
                   {r.clientName} · {r.why}
                 </div>
               </div>

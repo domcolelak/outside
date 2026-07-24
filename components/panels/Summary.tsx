@@ -42,7 +42,7 @@ function ScoreRing({ value, color }: { value: number; color: string }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-semibold text-ink">{value}</span>
-        <span className="mono text-[10px] uppercase tracking-wider text-ink-faint">/ 100</span>
+        <span className="mono text-[11px] uppercase tracking-wider text-ink-faint">/ 100</span>
       </div>
     </div>
   );
@@ -64,13 +64,13 @@ export function Summary({
   return (
     <div className="scroll-thin h-full space-y-4 overflow-y-auto px-4 py-4">
       {result.isDemo && (
-        <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-[11px] text-accent">
+        <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-[12px] text-accent">
           Demo dataset — synthetic organization. Findings are illustrative, not a real scan.
         </div>
       )}
 
       {result.coverage && !result.coverage.complete && (
-        <div className={`rounded-lg border px-3 py-2 text-[11px] ${result.coverage.discoveryComplete ? "border-risk-medium/30 bg-risk-medium/5 text-risk-medium" : "border-risk-high/40 bg-risk-high/5 text-risk-high"}`}>
+        <div className={`rounded-lg border px-3 py-2 text-[12px] ${result.coverage.discoveryComplete ? "border-risk-medium/30 bg-risk-medium/5 text-risk-medium" : "border-risk-high/40 bg-risk-high/5 text-risk-high"}`}>
           <span className="font-medium">
             {result.coverage.discoveryComplete ? "Enrichment incomplete." : "Discovery incomplete — this surface may be missing assets."}
           </span>{" "}
@@ -83,10 +83,10 @@ export function Summary({
       <div className="panel flex items-center gap-4 p-4">
         <ScoreRing value={result.score.value} color={band.color} />
         <div>
-          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Protection posture</div>
+          <div className="mono text-[12px] uppercase tracking-wider text-ink-faint">Protection posture</div>
           <div className="mt-1 text-lg font-medium" style={{ color: band.color }}>{band.label}</div>
-          <div className="mono mt-1 text-[10px] text-ink-faint">Higher is better — how contained your surface is, not a hack probability.</div>
-          <button onClick={() => setShowScore((v) => !v)} className="mono mt-2 text-[11px] text-signal hover:underline">
+          <div className="mono mt-1 text-[11px] text-ink-faint">Higher is better — how contained your surface is, not a hack probability.</div>
+          <button onClick={() => setShowScore((v) => !v)} className="mono mt-2 text-[12px] text-signal hover:underline">
             {showScore ? "Hide breakdown" : `Why is my posture ${result.score.value}/100?`}
           </button>
         </div>
@@ -120,7 +120,7 @@ export function Summary({
         onClick={onOpenAttacker}
         className="scan-sweep relative w-full overflow-hidden rounded-xl border border-signal/30 bg-signal/5 px-4 py-3 text-left transition hover:bg-signal/10"
       >
-        <div className="mono text-[11px] uppercase tracking-wider text-signal">Attacker View</div>
+        <div className="mono text-[12px] uppercase tracking-wider text-signal">Attacker View</div>
         <div className="mt-0.5 text-sm text-ink">Replay how the surface was revealed →</div>
       </button>
 
@@ -141,7 +141,7 @@ export function Summary({
       )}
 
       <div>
-        <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+        <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
           <span>Findings</span>
           <span>{result.findings.length}</span>
         </div>
@@ -150,7 +150,7 @@ export function Summary({
             <FindingCard key={f.id} finding={f} target={result.target} onSelect={() => onSelectAsset(f.assetId)} />
           ))}
           {result.findings.length === 0 && (
-            <div className="rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-6 text-center"><div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div><div className="mt-3 text-xs font-medium text-ink">No priority review items</div><div className="mt-1 text-[10px] leading-5 text-ink-faint">Guardian will create a finding only when deterministic observations support it.</div></div>
+            <div className="rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-6 text-center"><div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div><div className="mt-3 text-xs font-medium text-ink">No priority review items</div><div className="mt-1 text-[11px] leading-5 text-ink-faint">Guardian will create a finding only when deterministic observations support it.</div></div>
           )}
         </div>
       </div>
@@ -188,7 +188,7 @@ function AiSummary({ result }: { result: ScanResult }) {
   }
   return (
     <div className="panel p-4">
-      <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+      <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
         <span>Executive summary</span>
         <span className={source === "openai" ? "text-signal" : "text-ink-faint"}>
           {source === "openai" ? "AI-generated" : "Deterministic"}
@@ -220,7 +220,7 @@ function Changes({
   const c = summary.counts;
   return (
     <div>
-      <div className="mono mb-2 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+      <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
         <span>Since last scan</span>
         <span className="flex gap-2">
           {c.appeared > 0 && <span className="text-signal">+{c.appeared} new</span>}
@@ -241,12 +241,12 @@ function Changes({
               <span className="mono mt-0.5 w-3 shrink-0 text-center" style={{ color: meta.color }}>{meta.mark}</span>
               <div className="min-w-0 flex-1">
                 <div className="mono truncate text-[12px] text-ink">{e.label}</div>
-                <div className="mt-0.5 text-[11px] leading-snug text-ink-soft">{e.detail}</div>
+                <div className="mt-0.5 text-[12px] leading-snug text-ink-soft">{e.detail}</div>
                 {e.from && e.to && (
-                  <div className="mono mt-0.5 text-[10px] text-ink-faint">{e.from} → {e.to}</div>
+                  <div className="mono mt-0.5 text-[11px] text-ink-faint">{e.from} → {e.to}</div>
                 )}
               </div>
-              <span className="mono shrink-0 text-[9px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
+              <span className="mono shrink-0 text-[11px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
             </button>
           );
         })}
@@ -259,7 +259,7 @@ function Stat({ label, value, tone = "ok" }: { label: string; value: number; ton
   return (
     <div className="panel motion-card px-3 py-2.5">
       <div className={`text-2xl font-semibold ${tone === "warn" && value > 0 ? "text-risk-high" : "text-ink"}`}>{value}</div>
-      <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">{label}</div>
+      <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{label}</div>
     </div>
   );
 }
@@ -283,9 +283,9 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
         <PriorityDot priority={finding.priority} />
         <div className="min-w-0 flex-1">
           <div className="text-[13px] text-ink">{finding.title}</div>
-          <div className="mono mt-0.5 truncate text-[11px] text-ink-faint">{finding.category}</div>
+          <div className="mono mt-0.5 truncate text-[12px] text-ink-faint">{finding.category}</div>
         </div>
-        <span className="mono text-[10px] text-ink-faint">{Math.round(finding.confidence * 100)}%</span>
+        <span className="mono text-[11px] text-ink-faint">{Math.round(finding.confidence * 100)}%</span>
       </button>
       {open && (
         <div className="space-y-2.5 border-t border-line px-3 py-3 text-xs">
@@ -293,30 +293,30 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
           {finding.inference && <Row label="Inferred" tag="inferred" text={finding.inference} />}
           <Row label="Possible concern" tag="possible" text={finding.concern} />
           <div>
-            <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Reasoning</div>
+            <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Reasoning</div>
             <p className="mt-0.5 leading-relaxed text-ink-soft">{finding.reasoning}</p>
           </div>
           <div>
-            <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Recommended review</div>
+            <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Recommended review</div>
             <p className="mt-0.5 leading-relaxed text-ink">{finding.recommendation}</p>
           </div>
           <EvidenceIntelligencePanel orgId="" target={target} findingId={finding.id} />
           {explain.state === "done" ? (
             <div className="rounded-lg border border-line bg-base-850 p-2.5">
-              <div className="mono mb-1 flex items-center justify-between text-[10px] uppercase tracking-wide text-ink-faint">
+              <div className="mono mb-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-ink-faint">
                 <span>Plain-English</span>
                 <span className={explain.source === "openai" ? "text-signal" : "text-ink-faint"}>{explain.source === "openai" ? "AI" : "Deterministic"}</span>
               </div>
               <p className="leading-relaxed text-ink-soft">{explain.text}</p>
             </div>
           ) : (
-            <button onClick={runExplain} disabled={explain.state === "loading"} className="mono text-[11px] text-signal hover:underline disabled:opacity-60">
+            <button onClick={runExplain} disabled={explain.state === "loading"} className="mono text-[12px] text-signal hover:underline disabled:opacity-60">
               {explain.state === "loading" ? "Explaining…" : "✦ Explain in plain English"}
             </button>
           )}
           <div className="flex items-center justify-between pt-1">
             <Confidence value={finding.confidence} />
-            <button onClick={onSelect} className="mono text-[11px] text-signal hover:underline">
+            <button onClick={onSelect} className="mono text-[12px] text-signal hover:underline">
               View asset →
             </button>
           </div>
@@ -330,7 +330,7 @@ function Row({ label, tag, text }: { label: string; tag: "observed" | "inferred"
   return (
     <div>
       <div className="mb-0.5 flex items-center gap-2">
-        <span className="mono text-[10px] uppercase tracking-wide text-ink-faint">{label}</span>
+        <span className="mono text-[11px] uppercase tracking-wide text-ink-faint">{label}</span>
         <AssuranceTag assurance={tag} />
       </div>
       <p className="leading-relaxed text-ink-soft">{text}</p>

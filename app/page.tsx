@@ -36,7 +36,7 @@ export default function Landing() {
         <div className="hero-orb pointer-events-none absolute left-[18%] top-20 h-[520px] w-[520px] rounded-full" />
         <div className="relative mx-auto grid max-w-[1380px] gap-16 px-6 pb-24 pt-20 lg:grid-cols-[.9fr_1.1fr] lg:items-center lg:pt-28">
           <div className="min-w-0 animate-rise-in">
-            <span className="mono mb-7 inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/4 px-3 py-1.5 text-[10px] uppercase tracking-[.2em] text-signal">
+            <span className="mono mb-7 inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/4 px-3 py-1.5 text-[11px] uppercase tracking-[.2em] text-signal">
               <span className="relative flex h-1.5 w-1.5"><span className="absolute h-full w-full animate-ping rounded-full bg-signal opacity-30"/><span className="relative h-1.5 w-1.5 rounded-full bg-signal"/></span> External exposure intelligence
             </span>
             <h1 className="display-type max-w-3xl text-4xl font-semibold leading-[.98] tracking-[-.045em] text-ink sm:text-5xl md:text-7xl">
@@ -46,7 +46,7 @@ export default function Landing() {
               From a single domain: everything the internet exposes about you — mapped, correlated against actively-exploited vulnerabilities, remembered through time, and traced to what depends on what. Evidence for every claim; Guardian watches it after every scan.
             </p>
             <div className="mt-9"><HeroInput /></div>
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-4 border-t border-line pt-5">{[["Passive", "by default"], ["Traceable", "evidence"], ["Continuous", "Guardian"]].map(([value, label]) => <div key={value}><div className="text-sm font-medium text-ink">{value}</div><div className="mono mt-1 text-[8px] uppercase tracking-wider text-ink-faint">{label}</div></div>)}</div>
+            <div className="mt-8 grid max-w-xl grid-cols-3 gap-4 border-t border-line pt-5">{[["Passive", "by default"], ["Traceable", "evidence"], ["Continuous", "Guardian"]].map(([value, label]) => <div key={value}><div className="text-sm font-medium text-ink">{value}</div><div className="mono mt-1 text-[10px] uppercase tracking-wider text-ink-faint">{label}</div></div>)}</div>
           </div>
           <div className="min-w-0 animate-rise-in [animation-delay:180ms]"><LandingDemo /></div>
         </div>
@@ -58,19 +58,19 @@ export default function Landing() {
         <div className="grid-backdrop pointer-events-none absolute inset-0 opacity-40" />
         <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-28 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
           <div>
-            <div className="mono inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/5 px-3 py-1.5 text-[10px] uppercase tracking-[.18em] text-signal"><span className="relative flex h-2 w-2"><span className="absolute h-full w-full animate-ping rounded-full bg-signal opacity-30"/><span className="relative h-2 w-2 rounded-full bg-signal"/></span>OUTSIDE Guardian</div>
+            <div className="mono inline-flex items-center gap-2 rounded-full border border-signal/20 bg-signal/5 px-3 py-1.5 text-[11px] uppercase tracking-[.18em] text-signal"><span className="relative flex h-2 w-2"><span className="absolute h-full w-full animate-ping rounded-full bg-signal opacity-30"/><span className="relative h-2 w-2 rounded-full bg-signal"/></span>OUTSIDE Guardian</div>
             <h2 className="mt-6 text-4xl font-semibold tracking-tight text-ink">Analyst-grade context.<br/><span className="text-gradient">After every scheduled scan.</span></h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-ink-soft">Guardian correlates every verified observation into meaningful change intelligence: Exposure Drift, a living security checklist, evidence-backed recommendations, tailored remediation, grouped workflow alerts, and a weekly executive digest.</p>
-            <div className="mt-7 flex flex-wrap gap-2">{["Exposure Drift", "Security checklist", "Remediation guides", "Executive digest", "Slack · Teams · Jira"].map((item) => <span key={item} className="mono rounded-full border border-line bg-base-900/70 px-3 py-1.5 text-[10px] text-ink-soft">{item}</span>)}</div>
+            <div className="mt-7 flex flex-wrap gap-2">{["Exposure Drift", "Security checklist", "Remediation guides", "Executive digest", "Slack · Teams · Jira"].map((item) => <span key={item} className="mono rounded-full border border-line bg-base-900/70 px-3 py-1.5 text-[11px] text-ink-soft">{item}</span>)}</div>
           </div>
           <div className="premium-surface relative overflow-hidden p-5 md:p-7">
-            <div className="mono mb-4 inline-flex rounded-sm border border-accent/20 bg-accent/5 px-2 py-1 text-[8px] uppercase tracking-wider text-accent">Illustrative synthetic scenario</div>
-            <div className="absolute right-5 top-5 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-signal shadow-glow"/><span className="mono text-[9px] uppercase text-signal">watching</span></div>
-            <div className="mono text-[9px] uppercase tracking-[.18em] text-ink-faint">Exposure Drift · 30 days</div>
+            <div className="mono mb-4 inline-flex rounded-sm border border-accent/20 bg-accent/5 px-2 py-1 text-[10px] uppercase tracking-wider text-accent">Illustrative synthetic scenario</div>
+            <div className="absolute right-5 top-5 flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-signal shadow-glow"/><span className="mono text-[11px] uppercase text-signal">watching</span></div>
+            <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">Exposure Drift · 30 days</div>
             <div className="mt-3 text-2xl font-medium text-ink">External exposure is becoming <span className="text-signal">simpler.</span></div>
             <svg viewBox="0 0 400 120" className="mt-8 w-full" aria-hidden><defs><linearGradient id="landing-guardian" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#38e1c3" stopOpacity=".25"/><stop offset="1" stopColor="#38e1c3" stopOpacity="0"/></linearGradient></defs><path d="M0 90 C55 82, 80 95, 125 72 S210 68, 250 47 S335 55, 400 24 L400 120 L0 120Z" fill="url(#landing-guardian)"/><path d="M0 90 C55 82, 80 95, 125 72 S210 68, 250 47 S335 55, 400 24" fill="none" stroke="#38e1c3" strokeWidth="2"/></svg>
-            <div className="mt-4 grid grid-cols-3 gap-2">{[["+3", "new assets"], ["2", "review items"], ["8/10", "controls"]].map(([value, label]) => <div key={label} className="rounded-lg border border-line bg-base-950/70 p-3"><div className="text-lg font-semibold text-ink">{value}</div><div className="mono mt-1 text-[8px] uppercase text-ink-faint">{label}</div></div>)}</div>
-            <div className="mt-3 rounded-lg border border-risk-medium/15 bg-risk-medium/5 p-3"><div className="mono text-[8px] uppercase text-risk-medium">Review</div><div className="mt-1 text-xs text-ink-soft">A previously observed staging asset is publicly reachable again.</div></div>
+            <div className="mt-4 grid grid-cols-3 gap-2">{[["+3", "new assets"], ["2", "review items"], ["8/10", "controls"]].map(([value, label]) => <div key={label} className="rounded-lg border border-line bg-base-950/70 p-3"><div className="text-lg font-semibold text-ink">{value}</div><div className="mono mt-1 text-[10px] uppercase text-ink-faint">{label}</div></div>)}</div>
+            <div className="mt-3 rounded-lg border border-risk-medium/15 bg-risk-medium/5 p-3"><div className="mono text-[10px] uppercase text-risk-medium">Review</div><div className="mt-1 text-xs text-ink-soft">A previously observed staging asset is publicly reachable again.</div></div>
           </div>
         </div>
       </section>
@@ -193,7 +193,7 @@ export default function Landing() {
               <Link href="/login" className="hover:text-ink">Sign in</Link>
             </nav>
           </div>
-          <div className="mono mt-8 border-t border-line/40 pt-6 text-[11px] text-ink-faint">© {new Date().getFullYear()} OUTSIDE · External exposure intelligence</div>
+          <div className="mono mt-8 border-t border-line/40 pt-6 text-[12px] text-ink-faint">© {new Date().getFullYear()} OUTSIDE · External exposure intelligence</div>
         </div>
       </footer>
     </div>
@@ -203,7 +203,7 @@ export default function Landing() {
 function SectionTitle({ kicker, title }: { kicker: string; title: string }) {
   return (
     <div>
-      <div className="mono text-[11px] uppercase tracking-widest text-signal">{kicker}</div>
+      <div className="mono text-[12px] uppercase tracking-widest text-signal">{kicker}</div>
       <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-ink md:text-4xl">{title}</h2>
     </div>
   );
@@ -236,7 +236,7 @@ function Plan({ name, price, cadence, features, cta, highlight = false }: { name
     <div className={`panel flex flex-col p-6 ${highlight ? "ring-1 ring-signal/40" : ""}`}>
       <div className="flex items-center justify-between">
         <span className="text-ink">{name}</span>
-        {highlight && <span className="mono rounded-md border border-signal/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-signal">Popular</span>}
+        {highlight && <span className="mono rounded-md border border-signal/30 px-2 py-0.5 text-[11px] uppercase tracking-wider text-signal">Popular</span>}
       </div>
       <div className="mt-4 flex items-baseline gap-1">
         <span className="text-3xl font-semibold text-ink">{price}</span>

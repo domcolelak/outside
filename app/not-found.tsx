@@ -7,7 +7,7 @@ export default function NotFound() {
       <div className="grid-backdrop pointer-events-none absolute inset-0" />
       <div className="relative">
         <Link href="/"><Wordmark className="mx-auto mb-8 h-6" /></Link>
-        <div className="mono text-[11px] uppercase tracking-widest text-signal">404 · not found</div>
+        <div className="mono text-[12px] uppercase tracking-widest text-signal">404 · not found</div>
         <h1 className="mt-3 text-3xl font-semibold text-ink">This asset is outside our view.</h1>
         <p className="mx-auto mt-3 max-w-sm text-sm text-ink-soft">
           The page you were looking for doesn&apos;t exist. Head back and map an external surface instead.

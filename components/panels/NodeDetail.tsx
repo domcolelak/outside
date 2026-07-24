@@ -48,9 +48,9 @@ export function NodeDetail({ asset, onClose }: { asset: Asset; onClose: () => vo
           {asset.attrs.status ? <Chip>HTTP {String(asset.attrs.status)}</Chip> : null}
         </div>
 
-        <div className="rounded-xl border border-line bg-base-950/50 p-3"><div className="mono text-[9px] uppercase tracking-wider text-ink-faint">Asset lens</div><div className="mt-3 grid grid-cols-3 gap-2 text-center">{[[asset.evidence.length,"evidence"],[asset.signals.length,"signals"],[asset.discoveredVia.length,"paths"]].map(([value,label]) => <div key={label} className="rounded-lg bg-base-900 p-2"><div className="text-lg font-medium text-ink">{value}</div><div className="mono text-[8px] uppercase text-ink-faint">{label}</div></div>)}</div></div>
+        <div className="rounded-xl border border-line bg-base-950/50 p-3"><div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Asset lens</div><div className="mt-3 grid grid-cols-3 gap-2 text-center">{[[asset.evidence.length,"evidence"],[asset.signals.length,"signals"],[asset.discoveredVia.length,"paths"]].map(([value,label]) => <div key={label} className="rounded-lg bg-base-900 p-2"><div className="text-lg font-medium text-ink">{value}</div><div className="mono text-[10px] uppercase text-ink-faint">{label}</div></div>)}</div></div>
 
-        {(addresses.length > 0 || cnames.length > 0) && <Section title="Observed routing"><div className="space-y-2">{addresses.map((address) => <div key={address} className="mono flex items-center gap-2 rounded-lg border border-line bg-base-950/40 px-3 py-2 text-[10px] text-ink-soft"><span className="h-1.5 w-1.5 rounded-full bg-signal"/>{address}</div>)}{cnames.map((cname) => <div key={cname} className="mono flex items-center gap-2 rounded-lg border border-line bg-base-950/40 px-3 py-2 text-[10px] text-accent"><span className="text-ink-faint">CNAME →</span>{cname}</div>)}</div></Section>}
+        {(addresses.length > 0 || cnames.length > 0) && <Section title="Observed routing"><div className="space-y-2">{addresses.map((address) => <div key={address} className="mono flex items-center gap-2 rounded-lg border border-line bg-base-950/40 px-3 py-2 text-[11px] text-ink-soft"><span className="h-1.5 w-1.5 rounded-full bg-signal"/>{address}</div>)}{cnames.map((cname) => <div key={cname} className="mono flex items-center gap-2 rounded-lg border border-line bg-base-950/40 px-3 py-2 text-[11px] text-accent"><span className="text-ink-faint">CNAME →</span>{cname}</div>)}</div></Section>}
 
         <Section title="Org attribution confidence">
           <Confidence value={asset.orgConfidence} />
@@ -88,13 +88,13 @@ export function NodeDetail({ asset, onClose }: { asset: Asset; onClose: () => vo
           <div className="space-y-2">
             {asset.evidence.map((e, i) => (
               <div key={i} className="motion-card relative rounded-lg border border-line bg-base-850 p-3 pl-10">
-                <span className="mono absolute left-3 top-3 grid h-5 w-5 place-items-center rounded-full border border-signal/20 bg-signal/5 text-[8px] text-signal">{i + 1}</span>
+                <span className="mono absolute left-3 top-3 grid h-5 w-5 place-items-center rounded-full border border-signal/20 bg-signal/5 text-[10px] text-signal">{i + 1}</span>
                 <div className="flex items-center justify-between">
-                  <span className="mono text-[11px] uppercase tracking-wide text-signal">{e.provider}</span>
-                  <span className="mono text-[10px] text-ink-faint">{e.method}</span>
+                  <span className="mono text-[12px] uppercase tracking-wide text-signal">{e.provider}</span>
+                  <span className="mono text-[11px] text-ink-faint">{e.method}</span>
                 </div>
                 <p className="mt-1.5 text-xs text-ink-soft">{e.summary}</p>
-                {e.detail && <p className="mono mt-1 text-[11px] text-ink-faint">{e.detail}</p>}
+                {e.detail && <p className="mono mt-1 text-[12px] text-ink-faint">{e.detail}</p>}
               </div>
             ))}
           </div>
@@ -106,7 +106,7 @@ export function NodeDetail({ asset, onClose }: { asset: Asset; onClose: () => vo
               <span key={m} className="contents">{index > 0 && <span className="text-ink-faint">→</span>}<Chip tone="signal">{m}</Chip></span>
             ))}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-ink-faint"><div><span className="mono block text-[8px] uppercase">First observed</span>{new Date(asset.firstObservedAt).toLocaleString()}</div><div><span className="mono block text-[8px] uppercase">Last observed</span>{new Date(asset.lastObservedAt).toLocaleString()}</div></div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-ink-faint"><div><span className="mono block text-[10px] uppercase">First observed</span>{new Date(asset.firstObservedAt).toLocaleString()}</div><div><span className="mono block text-[10px] uppercase">Last observed</span>{new Date(asset.lastObservedAt).toLocaleString()}</div></div>
         </Section>
       </div>
     </div>
@@ -116,7 +116,7 @@ export function NodeDetail({ asset, onClose }: { asset: Asset; onClose: () => vo
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mono mb-2 text-[11px] uppercase tracking-wider text-ink-faint">{title}</div>
+      <div className="mono mb-2 text-[12px] uppercase tracking-wider text-ink-faint">{title}</div>
       {children}
     </div>
   );

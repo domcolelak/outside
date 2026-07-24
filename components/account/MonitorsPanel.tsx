@@ -87,7 +87,7 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
 
   return (
     <section>
-      <div className="mono mb-3 flex items-center justify-between text-[11px] uppercase tracking-wider text-ink-faint">
+      <div className="mono mb-3 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
         <span>Monitored targets</span>
         <span>{monitors.length} / {limit}</span>
       </div>
@@ -121,7 +121,7 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
           <div key={m.id} className="panel flex items-center justify-between gap-3 p-3">
             <div className="min-w-0">
               <div className="mono truncate text-sm text-ink">{m.domain}</div>
-              <div className="mono mt-0.5 text-[11px] text-ink-faint">
+              <div className="mono mt-0.5 text-[12px] text-ink-faint">
                 {m.frequency} · {m.lastScanAt ? `last scan ${new Date(m.lastScanAt).toLocaleDateString()}` : "not scanned yet"}
               </div>
             </div>
@@ -130,11 +130,11 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
                 onClick={() => void toggle(m)}
                 aria-pressed={m.enabled}
                 disabled={updatingId === m.id}
-                className={`mono rounded-md border px-2 py-1 text-[11px] ${m.enabled ? "border-signal/30 text-signal" : "border-line text-ink-faint"}`}
+                className={`mono rounded-md border px-2 py-1 text-[12px] ${m.enabled ? "border-signal/30 text-signal" : "border-line text-ink-faint"}`}
               >
                 {m.enabled ? "Enabled" : "Paused"}
               </button>
-              <button onClick={() => void remove(m)} disabled={updatingId === m.id} className="mono rounded-md border border-line px-2 py-1 text-[11px] text-ink-soft hover:border-risk-high/40 hover:text-risk-high disabled:opacity-50">Remove</button>
+              <button onClick={() => void remove(m)} disabled={updatingId === m.id} className="mono rounded-md border border-line px-2 py-1 text-[12px] text-ink-soft hover:border-risk-high/40 hover:text-risk-high disabled:opacity-50">Remove</button>
             </div>
           </div>
         ))}
