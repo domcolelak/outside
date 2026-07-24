@@ -1283,3 +1283,23 @@ model IntegrationConnection {
   @@id([orgId, provider])
   @@map("integration_connections")
 }
+
+/**
+ * A remediation OUTSIDE actually applied to a customer's provider account.
+ * Stores the rollback handle returned by the provider so the change can be
+ * reversed later, and keeps an immutable record of who applied it.
+ */
+model AppliedRemediation {
+  id           String    @id @default(cuid())
+  orgId        String
+  provider     String
+  target       String
+  action       String
+  handle       Json
+  appliedBy    String
+  appliedAt    DateTime  @default(now())
+  rolledBackAt DateTime?
+
+  @@index([orgId, provider, target])
+  @@map("applied_remediations")
+}

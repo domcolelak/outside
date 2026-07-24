@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DmarcRemediation } from "./DmarcRemediation";
 
 interface Zone {
   id: string;
@@ -105,6 +106,7 @@ export function CloudflareConnector({ orgId, orgName }: { orgId: string; orgName
         <button onClick={disconnect} disabled={busy} className="mono mt-3 rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50">
           {busy ? "Disconnecting…" : "Disconnect"}
         </button>
+        <DmarcRemediation orgId={orgId} />
       </div>
     );
   }
