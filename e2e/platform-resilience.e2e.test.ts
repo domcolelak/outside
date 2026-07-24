@@ -2,10 +2,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/prisma";
 import { PrismaMonitorStore } from "@/lib/monitoring/prisma-store";
+import { PrismaScanStore } from "@/lib/persistence/prisma-store";
+import { recordScan } from "@/lib/persistence/record";
 import { withConcurrency } from "@/lib/security/concurrency";
+import type { Asset, ScanResult } from "@/lib/types";
 
 const ORG_ID = "e2e_platform_resilience";
 const SCOPE = "e2e:platform-resilience";
+const temporalAsset = (): Asset => ({ id: "asset_temporal", kind: "web_service", label: "www.temporal.example", canonical: "www.temporal.example", firstObservedAt: "2026-01-01T00:00:00.000Z", lastObservedAt: "2026-01-01T00:00:00.000Z", discoveredVia: ["dns"], evidence: [], signals: [], priority: "low", orgConfidence: 1, attrs: { technologies: [] } });
+const temporalScan = (id: string, finishedAt: string): ScanResult => ({ scanId: id, target: "temporal.example", mode: "passive", isDemo: false, startedAt: finishedAt, finishedAt, graph: { assets: [temporalAsset()], edges: [] }, findings: [], score: { value: 90, band: "guarded", components: [], explanation: "" }, timeline: [], providerRuns: [], stats: { assets: 1, webSurfaces: 1, shadowAssets: 0, highPriorityFindings: 0, nonProdSignals: 0 } });
 
 describe.sequential("platform resilience PostgreSQL workflows", () => {
   beforeAll(async () => {
@@ -54,5 +59,20 @@ describe.sequential("platform resilience PostgreSQL workflows", () => {
         limit: 1,
       }),
     ).resolves.toBeNull();
+  });
+
+  it("serializes temporal scans per target and preserves monotonic identity bounds", async () => {
+    const store = new PrismaScanStore();
+    const scans = [
+      temporalScan("temporal-s3", "2026-01-03T00:00:00.000Z"),
+      temporalScan("temporal-s1", "2026-01-01T00:00:00.000Z"),
+      temporalScan("temporal-s2", "2026-01-02T00:00:00.000Z"),
+    ];
+    const summaries = await Promise.all(scans.map((scan) => recordScan(store, scan, ORG_ID, true)));
+    expect(summaries.filter((summary) => summary?.previousScanId === null)).toHaveLength(1);
+    const target = await prisma.target.findUniqueOrThrow({ where: { orgId_domain: { orgId: ORG_ID, domain: "temporal.example" } } });
+    const identity = await prisma.assetIdentity.findUniqueOrThrow({ where: { targetId_canonical: { targetId: target.id, canonical: "www.temporal.example" } } });
+    expect(identity.firstSeenAt.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    expect(identity.lastSeenAt.toISOString()).toBe("2026-01-03T00:00:00.000Z");
   });
 });

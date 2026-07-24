@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildShareRecord } from "./shares";
+import { issueShareProof, verifyShareProof } from "./proof";
 import type { ScanResult } from "@/lib/types";
 
 function fixture(): ScanResult {
@@ -37,5 +38,17 @@ describe("shareable scan snapshots", () => {
     const a = buildShareRecord(fixture());
     const b = buildShareRecord(fixture());
     expect(a.token).not.toBe(b.token);
+  });
+
+  it("accepts only an unmodified, unexpired server-issued result", () => {
+    const result = fixture();
+    const now = Date.parse("2026-03-01T00:00:00Z");
+    const proof = issueShareProof(result, now);
+    expect(verifyShareProof(result, proof, now + 1_000)).toBe(true);
+
+    const forged = fixture();
+    forged.score.value = 100;
+    expect(verifyShareProof(forged, proof, now + 1_000)).toBe(false);
+    expect(verifyShareProof(result, proof, now + 31 * 60_000)).toBe(false);
   });
 });

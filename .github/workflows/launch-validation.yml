@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20.20.0
+          node-version: 24.18.0
           cache: npm
 
       - name: Install browser validation dependencies
@@ -261,7 +261,8 @@ jobs:
           restore_duration="$(( $(date +%s) - started ))"
           restored_migrations="$(docker exec "${postgres_id}" psql -U outside -d outside_restore -Atc \
             'SELECT count(*) FROM "_prisma_migrations" WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL')"
-          test "${restored_migrations}" = "16"
+          expected_migrations="$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d '[:space:]')"
+          test "${restored_migrations}" = "${expected_migrations}"
           wrong_key="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
           case "${wrong_key}" in AGE-SECRET-KEY-1*) ;; *) exit 1;; esac
           if "${compose[@]}" run --rm -e "BACKUP_ENCRYPTION_KEY=${wrong_key}" \

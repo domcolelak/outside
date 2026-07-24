@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await getSessionContext();
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  if (!ctx.user.emailVerifiedAt) return NextResponse.json({ error: "Verify your email before inviting teammates.", code: "email_unverified" }, { status: 403 });
 
   let body: { orgId?: string; email?: string; role?: string };
   try {

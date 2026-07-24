@@ -23,19 +23,19 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <div className="min-h-screen">
       <header className="border-b border-line">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl flex-col items-start gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <Link href="/"><Wordmark className="h-6" /></Link>
-          <div className="flex items-center gap-3">
-            {ctx.memberships.some((m) => m.org.plan === "agency") && <Link href="/agency" className="mono text-xs text-signal hover:text-signal-bright">Agency Suite</Link>}
-            {enterpriseOrganizations.length > 0 && <Link href={`/enterprise?orgId=${enterpriseOrganizations[0]!.membership.org.id}`} className="mono text-xs text-signal hover:text-signal-bright">Enterprise</Link>}
-            <Link href="/guardian" className="mono text-xs text-signal hover:text-signal-bright">Guardian</Link>
-            <Link href="/chronos" className="mono text-xs text-ink-soft hover:text-ink">Chronos</Link>
-            <Link href="/capabilities" className="mono text-xs text-ink-soft hover:text-ink">Capabilities</Link>
-            <Link href="/evolution" className="mono text-xs text-ink-soft hover:text-ink">Evolution</Link>
-            <Link href="/integrations" className="mono text-xs text-ink-soft hover:text-ink">Integrations</Link>
-            <Link href="/scan?target=northstar&mode=demo" className="mono text-xs text-ink-soft hover:text-ink">Run a scan</Link>
+          <nav aria-label="Account navigation" className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">
+            {ctx.memberships.some((m) => m.org.plan === "agency") && <Link href="/agency" className="mono rounded-md px-2 py-2 text-xs text-signal hover:bg-base-700 hover:text-signal-bright">Agency Suite</Link>}
+            {enterpriseOrganizations.length > 0 && <Link href={`/enterprise?orgId=${enterpriseOrganizations[0]!.membership.org.id}`} className="mono rounded-md px-2 py-2 text-xs text-signal hover:bg-base-700 hover:text-signal-bright">Enterprise</Link>}
+            <Link href="/guardian" className="mono rounded-md px-2 py-2 text-xs text-signal hover:bg-base-700 hover:text-signal-bright">Guardian</Link>
+            <Link href="/chronos" className="mono rounded-md px-2 py-2 text-xs text-ink-soft hover:bg-base-700 hover:text-ink">Chronos</Link>
+            <Link href="/capabilities" className="mono rounded-md px-2 py-2 text-xs text-ink-soft hover:bg-base-700 hover:text-ink">Capabilities</Link>
+            <Link href="/evolution" className="mono rounded-md px-2 py-2 text-xs text-ink-soft hover:bg-base-700 hover:text-ink">Evolution</Link>
+            <Link href="/integrations" className="mono rounded-md px-2 py-2 text-xs text-ink-soft hover:bg-base-700 hover:text-ink">Integrations</Link>
+            <Link href="/scan?target=northstar&mode=demo" className="mono rounded-md px-2 py-2 text-xs text-ink-soft hover:bg-base-700 hover:text-ink">Run a scan</Link>
             <LogoutButton />
-          </div>
+          </nav>
         </div>
       </header>
 

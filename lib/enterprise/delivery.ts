@@ -28,5 +28,49 @@ export async function queueEnterpriseEvent(store: EnterpriseStore, workspaceId: 
 
 function ticketIdentity(provider: string, responseBody: string): { id: string; url: string | null; status: string } | null { try { const body = JSON.parse(responseBody) as Record<string, unknown>, result = body.result && typeof body.result === "object" ? body.result as Record<string, unknown> : body; const id = String(result.sys_id ?? result.id ?? result.key ?? result.incident_key ?? ""); if (!id) return null; return { id, url: typeof result.url === "string" ? result.url : null, status: String(result.status ?? "open") }; } catch { return provider === "pagerduty" ? { id: "event-accepted", url: null, status: "triggered" } : null; } }
 
-export async function deliverEnterpriseBatch(store: EnterpriseStore, limit = 25): Promise<{ delivered: number; failed: number }> { const jobs = await store.claimDeliveries(new Date(), limit, 60_000); let delivered = 0, failed = 0; for (const job of jobs) { const started = Date.now(); let integration: EnterpriseIntegration | undefined; try { integration = (await store.list<EnterpriseIntegration>(job.workspaceId, "integrations")).find((item) => item.id === job.integrationId && item.enabled); if (!integration) throw new Error("Enterprise integration is disabled or unavailable."); const event = job.payload as unknown as EnterpriseEventEnvelope, config = decryptEnterpriseSecret<Config>(integration.configEncrypted), outgoing = request(integration, config, event), response = await safeEnterpriseRequest(outgoing.url, { method: "POST", body: outgoing.body, headers: outgoing.headers, maxBodyBytes: 256_000, timeoutMs: 12_000 }); if (response.status < 200 || response.status >= 300) throw new Error(`Integration returned HTTP ${response.status}.`); await store.finishDelivery(job.workspaceId, job.id, job.leaseId!, { delivered: true }); await store.update<EnterpriseIntegration>(job.workspaceId, "integrations", integration.id, { status: "healthy", lastDeliveryAt: new Date().toISOString(), lastError: null }); if (integration.category === "ticketing") { const ticket = ticketIdentity(integration.provider, response.body); if (ticket) await upsertTicket(store, job, integration, event, ticket); } recordEnterpriseDelivery(integration.provider, integration.category, "delivered", Date.now() - started, Date.now() - new Date(job.createdAt!).getTime()); delivered += 1; } catch (error) { await store.finishDelivery(job.workspaceId, job.id, job.leaseId!, { delivered: false, error: (error as Error).message }); if (integration) { await store.update<EnterpriseIntegration>(job.workspaceId, "integrations", integration.id, { status: "degraded", lastError: (error as Error).message.slice(0, 1000) }); recordEnterpriseDelivery(integration.provider, integration.category, "failed", Date.now() - started, Date.now() - new Date(job.createdAt!).getTime()); } failed += 1; } } return { delivered, failed }; }
+const DELIVERY_LEASE_MS = 60_000;
+
+export async function deliverEnterpriseBatch(store: EnterpriseStore, limit = 25): Promise<{ delivered: number; failed: number }> {
+  const batchSize = Math.min(Math.max(Math.trunc(limit), 0), 100);
+  let delivered = 0, failed = 0;
+  for (let claimed = 0; claimed < batchSize; claimed += 1) {
+    const [job] = await store.claimDeliveries(new Date(), 1, DELIVERY_LEASE_MS);
+    if (!job?.leaseId) break;
+    const started = Date.now();
+    let integration: EnterpriseIntegration | undefined;
+    try {
+      integration = (await store.list<EnterpriseIntegration>(job.workspaceId, "integrations")).find((item) => item.id === job.integrationId && item.enabled);
+      if (!integration) throw new Error("Enterprise integration is disabled or unavailable.");
+      const event = job.payload as unknown as EnterpriseEventEnvelope;
+      const config = decryptEnterpriseSecret<Config>(integration.configEncrypted);
+      const outgoing = request(integration, config, event);
+      // Refuse the external side effect if ownership was lost while resolving
+      // configuration. The HTTP timeout is shorter than the renewed lease.
+      if (!await store.renewDeliveryLease(job.workspaceId, job.id, job.leaseId, new Date(), DELIVERY_LEASE_MS)) continue;
+      const response = await safeEnterpriseRequest(outgoing.url, { method: "POST", body: outgoing.body, headers: outgoing.headers, maxBodyBytes: 256_000, timeoutMs: 12_000 });
+      if (response.status < 200 || response.status >= 300) throw new Error(`Integration returned HTTP ${response.status}.`);
+      if (!await store.finishDelivery(job.workspaceId, job.id, job.leaseId, { delivered: true })) continue;
+
+      delivered += 1;
+      try {
+        await store.update<EnterpriseIntegration>(job.workspaceId, "integrations", integration.id, { status: "healthy", lastDeliveryAt: new Date().toISOString(), lastError: null });
+        if (integration.category === "ticketing") {
+          const ticket = ticketIdentity(integration.provider, response.body);
+          if (ticket) await upsertTicket(store, job, integration, event, ticket);
+        }
+      } catch (error) {
+        console.error("[enterprise] post-delivery bookkeeping failed", error);
+      }
+      recordEnterpriseDelivery(integration.provider, integration.category, "delivered", Date.now() - started, Date.now() - new Date(job.createdAt!).getTime());
+    } catch (error) {
+      if (!await store.finishDelivery(job.workspaceId, job.id, job.leaseId, { delivered: false, error: (error as Error).message })) continue;
+      if (integration) {
+        await store.update<EnterpriseIntegration>(job.workspaceId, "integrations", integration.id, { status: "degraded", lastError: (error as Error).message.slice(0, 1000) });
+        recordEnterpriseDelivery(integration.provider, integration.category, "failed", Date.now() - started, Date.now() - new Date(job.createdAt!).getTime());
+      }
+      failed += 1;
+    }
+  }
+  return { delivered, failed };
+}
 async function upsertTicket(store: EnterpriseStore, job: EnterpriseDelivery, integration: EnterpriseIntegration, event: EnterpriseEventEnvelope, ticket: { id: string; url: string | null; status: string }) { const findingId = event.resource.type === "finding" ? event.resource.id : event.id, existing = (await store.list<EnterpriseTicketLink>(job.workspaceId, "tickets")).find((item) => item.provider === integration.provider && item.findingId === findingId); if (existing) await store.update<EnterpriseTicketLink>(job.workspaceId, "tickets", existing.id, { externalId: ticket.id, externalUrl: ticket.url, status: ticket.status, syncVersion: existing.syncVersion + 1, lastSyncedAt: new Date().toISOString() }); else await store.create<EnterpriseTicketLink>(job.workspaceId, "tickets", { provider: integration.provider, findingId, externalId: ticket.id, externalUrl: ticket.url, status: ticket.status, syncVersion: 1, lastSyncedAt: new Date().toISOString(), metadata: { integrationId: integration.id } }); }

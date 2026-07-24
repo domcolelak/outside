@@ -43,11 +43,11 @@ export function changeAlertEmail(to: string, monitor: Monitor, result: ScanResul
     </div>`).join("");
   const html = shell(
     `Changes detected on ${monitor.domain}`,
-    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;margin:0 0 16px;">The latest external-surface scan of <strong style="color:#e8edf6;">${domain}</strong> found ${events.length} notable change${events.length === 1 ? "" : "s"}. Current exposure score: <strong style="color:#38e1c3;">${result.score.value}/100</strong>.</p>
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;margin:0 0 16px;">The latest external-surface scan of <strong style="color:#e8edf6;">${domain}</strong> found ${events.length} notable change${events.length === 1 ? "" : "s"}. Current protection posture: <strong style="color:#38e1c3;">${result.score.value}/100</strong>.</p>
      ${rows}
      <a href="${escapeHtml(`${APP_URL}/scan?target=${encodeURIComponent(monitor.domain)}`)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">View external surface</a>`,
   );
-  const text = `Changes detected on ${monitor.domain}\n\n${events.map((event) => `- ${CHANGE_LABEL[event.type] ?? event.type}: ${event.label} — ${event.detail}`).join("\n")}\n\nExposure score: ${result.score.value}/100\n${APP_URL}/scan?target=${monitor.domain}`;
+  const text = `Changes detected on ${monitor.domain}\n\n${events.map((event) => `- ${CHANGE_LABEL[event.type] ?? event.type}: ${event.label} — ${event.detail}`).join("\n")}\n\nProtection posture: ${result.score.value}/100\n${APP_URL}/scan?target=${monitor.domain}`;
   return { to, subject: `OUTSIDE: ${events.length} change${events.length === 1 ? "" : "s"} on ${monitor.domain}`, html, text };
 }
 

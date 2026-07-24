@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Recent scan history for a target: the timeline of exposure scores and asset
+ * Recent scan history for a target: the timeline of protection-posture scores and asset
  * counts used by the history / graph-diff view. Only real (persisted) passive
  * scans appear here; demo scans are ephemeral.
  */

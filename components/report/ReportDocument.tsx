@@ -111,7 +111,7 @@ export function ReportDocument({ result }: { result: ScanResult }) {
           <Text style={s.h2}>Executive summary</Text>
           <Text style={s.summary}>{buildExecutiveSummary(result)}</Text>
 
-          <Text style={s.h2}>Exposure score breakdown</Text>
+          <Text style={s.h2}>Protection posture breakdown</Text>
           {result.score.components.map((comp) => (
             <View key={comp.code} style={s.row}>
               <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{comp.label}</Text>

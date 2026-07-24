@@ -16,7 +16,24 @@ describe("agency RBAC", () => {
 });
 
 describe("agency portfolio", () => {
-  it("derives health only from deterministic Guardian state", () => { const healthy = clientHealth(client, guardian(20), new Date("2026-07-15T01:00:00.000Z")); const risky = clientHealth(client, guardian(80), new Date("2026-07-15T01:00:00.000Z")); expect(healthy.health).toBe("healthy"); expect(risky.health).toBe("at_risk"); expect(portfolioScore([healthy, risky])).toBe(50); });
+  it("treats higher protection-posture scores as healthier", () => {
+    const atRisk = clientHealth(client, guardian(20), new Date("2026-07-15T01:00:00.000Z"));
+    const watch = clientHealth(client, guardian(50), new Date("2026-07-15T01:00:00.000Z"));
+    const healthy = clientHealth(client, guardian(80), new Date("2026-07-15T01:00:00.000Z"));
+
+    expect(atRisk.health).toBe("at_risk");
+    expect(watch.health).toBe("watch");
+    expect(healthy.health).toBe("healthy");
+    expect(portfolioScore([atRisk, healthy])).toBe(50);
+  });
+  it("aligns portfolio health boundaries with the shared protection-posture bands", () => {
+    const healthAt = (score: number) => clientHealth(client, guardian(score), new Date("2026-07-15T01:00:00.000Z")).health;
+
+    expect(healthAt(39)).toBe("at_risk");
+    expect(healthAt(40)).toBe("watch");
+    expect(healthAt(59)).toBe("watch");
+    expect(healthAt(60)).toBe("healthy");
+  });
   it("marks stale or absent observations unknown", () => { expect(clientHealth(client, null).health).toBe("unknown"); });
 });
 

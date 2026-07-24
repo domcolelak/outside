@@ -28,7 +28,7 @@ export function buildExecutiveSummary(result: ScanResult): string {
   parts.push(
     `${org} presents ${complexityPhrase(stats.assets)} public digital footprint of ${stats.assets} observable ` +
       `asset${stats.assets === 1 ? "" : "s"}, including ${stats.webSurfaces} public web/API surface${stats.webSurfaces === 1 ? "" : "s"}. ` +
-      `Its external exposure posture is ${BAND_PHRASE[result.score.band] ?? "a"} surface, scoring ${result.score.value}/100.`,
+      `Its protection posture is ${BAND_PHRASE[result.score.band] ?? "a"} surface, scoring ${result.score.value}/100.`,
   );
 
   if (stats.shadowAssets > 0) {

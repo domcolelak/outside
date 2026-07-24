@@ -45,6 +45,7 @@ describe("Chronos diff", () => {
     expect(modified?.details.join(" ")).toContain("technology added: OpenSSL/1.0.1e");
     expect(modified?.details.join(" ")).toContain("priority info → high");
     expect(d.exposureScoreDelta).toBe(15);
+    expect(d.summary).toContain("protection posture +15");
     expect(d.metricDeltas.assets).toBe(1);
   });
 
@@ -52,6 +53,7 @@ describe("Chronos diff", () => {
     const d = diffSnapshots(T2, T3);
     expect(d.assetChanges.filter((c) => c.change === "removed").map((c) => c.canonical)).toContain("api.acme.com");
     expect(d.exposureScoreDelta).toBe(-25);
+    expect(d.summary).toContain("protection posture -25");
   });
 });
 

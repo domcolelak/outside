@@ -17,6 +17,7 @@ export interface AgencyStore {
   addClient(input: { agencyId: string; orgId: string; organizationName: string; organizationSlug: string; groupId?: string | null; externalRef?: string | null }): Promise<AgencyClient | null>;
   updateClient(agencyId: string, clientId: string, patch: Partial<Pick<AgencyClient, "groupId" | "status" | "portalMode" | "externalRef" | "serviceTier" | "slaResponseMinutes" | "notificationRouting" | "billingMode" | "monthlyPriceCents" | "currency">>): Promise<AgencyClient | null>;
   groups(agencyId: string): Promise<AgencyGroup[]>;
+  group(agencyId: string, groupId: string): Promise<AgencyGroup | null>;
   createGroup(input: { agencyId: string; name: string; color: string; description?: string | null }): Promise<AgencyGroup | null>;
   notes(agencyId: string, clientId: string): Promise<AgencyNote[]>;
   createNote(input: { agencyId: string; clientId: string; authorId: string; body: string; visibility: "internal" | "shared" }): Promise<AgencyNote>;

@@ -7,7 +7,7 @@
  * selection, progressive reveal, and priority/kind coloring.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { Asset, AssetKind, Edge } from "@/lib/types";
 import { applyRepulsion } from "@/lib/graph/barnesHut";
 import { staleGraphIds } from "@/lib/graph/reconcile";
@@ -52,6 +52,7 @@ export function AssetGraph({
   onSelect,
   focusPulseId,
   controls = false,
+  selectionEnabled = true,
   showLabels = true,
   matchIds = null,
   changedIds = null,
@@ -63,6 +64,8 @@ export function AssetGraph({
   focusPulseId?: string | null;
   /** Show the fit/zoom controls overlay (main scan & attacker view, not the hero backdrop). */
   controls?: boolean;
+  /** Expose the keyboard asset picker when selecting a node has a detail view. */
+  selectionEnabled?: boolean;
   /** Draw node labels (off for the decorative hero backdrop). */
   showLabels?: boolean;
   /** When set, nodes not in the set are dimmed (search / filter highlighting). */
@@ -78,24 +81,29 @@ export function AssetGraph({
   const autoFitRef = useRef(true);
   // Read live via refs so search/filter changes don't restart the simulation.
   const matchIdsRef = useRef(matchIds);
-  matchIdsRef.current = matchIds;
   const showLabelsRef = useRef(showLabels);
-  showLabelsRef.current = showLabels;
   const changedIdsRef = useRef(changedIds);
-  changedIdsRef.current = changedIds;
-  const dragRef = useRef<{ panning: boolean; lastX: number; lastY: number }>({ panning: false, lastX: 0, lastY: 0 });
+  const dragRef = useRef<{ panning: boolean; startX: number; startY: number; lastX: number; lastY: number }>({ panning: false, startX: 0, startY: 0, lastX: 0, lastY: 0 });
   const rafRef = useRef<number>(0);
   const wakeRef = useRef<() => void>(() => {});
   const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
   const focusPulseIdRef = useRef(focusPulseId);
-  focusPulseIdRef.current = focusPulseId;
   const [, force] = useState(0);
   const hoveredIdRef = useRef<string | null>(null);
   const reducedMotionRef = useRef(false);
-  const [hoverInfo, setHoverInfo] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<{ asset: Asset; x: number; y: number } | null>(null);
+  const assetSelectId = useId();
 
   const edgeList = useMemo(() => edges, [edges]);
+
+  useEffect(() => {
+    matchIdsRef.current = matchIds;
+    showLabelsRef.current = showLabels;
+    changedIdsRef.current = changedIds;
+    selectedIdRef.current = selectedId;
+    focusPulseIdRef.current = focusPulseId;
+    wakeRef.current();
+  }, [changedIds, focusPulseId, matchIds, selectedId, showLabels]);
 
   // Sync incoming assets into the simulation node set.
   useEffect(() => {
@@ -407,7 +415,7 @@ export function AssetGraph({
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    dragRef.current = { panning: true, lastX: e.clientX, lastY: e.clientY };
+    dragRef.current = { panning: true, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY };
     (e.target as Element).setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -416,9 +424,13 @@ export function AssetGraph({
       const hovered = hitNode(x, y, 24);
       if (hovered !== hoveredIdRef.current) {
         hoveredIdRef.current = hovered;
-        setHoverInfo(hovered ? { id: hovered, x: e.clientX, y: e.clientY } : null);
+        const asset = hovered ? nodesRef.current.get(hovered)?.asset : undefined;
+        setHoverInfo(asset ? { asset, x: e.clientX, y: e.clientY } : null);
         wakeRef.current();
-      } else if (hovered) setHoverInfo({ id: hovered, x: e.clientX, y: e.clientY });
+      } else if (hovered) {
+        const asset = nodesRef.current.get(hovered)?.asset;
+        if (asset) setHoverInfo({ asset, x: e.clientX, y: e.clientY });
+      }
       return;
     }
     const dx = e.clientX - dragRef.current.lastX;
@@ -433,16 +445,16 @@ export function AssetGraph({
     }
   };
   const onPointerUp = (e: React.PointerEvent) => {
-    const moved = Math.abs(e.clientX - dragRef.current.lastX);
+    const moved = Math.hypot(e.clientX - dragRef.current.startX, e.clientY - dragRef.current.startY);
     dragRef.current.panning = false;
-    // Treat as click: hit test nearest node.
-    const { x, y } = toWorld(e.clientX, e.clientY);
-    const hit = hitNode(x, y);
-    onSelect(hit);
+    if (moved <= 6) {
+      const { x, y } = toWorld(e.clientX, e.clientY);
+      onSelect(hitNode(x, y));
+    }
     wakeRef.current();
     force((v) => v + 1);
-    void moved;
   };
+  const onPointerCancel = () => { dragRef.current.panning = false; };
   const onWheel = (e: React.WheelEvent) => {
     autoFitRef.current = false; // user took manual control
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
@@ -483,14 +495,16 @@ export function AssetGraph({
     <div className="relative h-full w-full">
       <canvas
         ref={canvasRef}
+        aria-hidden="true"
         className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onPointerLeave={() => { hoveredIdRef.current = null; setHoverInfo(null); wakeRef.current(); }}
         onWheel={onWheel}
       />
-      {hoverInfo && (() => { const asset = nodesRef.current.get(hoverInfo.id)?.asset; if (!asset) return null; return <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[10px] text-ink">{asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[8px] uppercase text-ink-faint"><span>{asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(asset) }}>{asset.priority}</span></div><div className="mt-1 text-[9px] text-ink-faint">Click to inspect evidence</div></div>; })()}
+      {hoverInfo && <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[10px] text-ink">{hoverInfo.asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[8px] uppercase text-ink-faint"><span>{hoverInfo.asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(hoverInfo.asset) }}>{hoverInfo.asset.priority}</span></div><div className="mt-1 text-[9px] text-ink-faint">Click to inspect evidence</div></div>}
       {controls && (
         <div data-capture-hide className="absolute right-3 top-3 flex flex-col gap-1">
           <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
@@ -498,6 +512,23 @@ export function AssetGraph({
           <ControlButton label="Fit to view" onClick={fitView}>⤢</ControlButton>
           <ControlButton label="Export as image" onClick={exportImage}>⤓</ControlButton>
         </div>
+      )}
+      {controls && selectionEnabled && assets.length > 0 && (
+        <div data-capture-hide className="absolute bottom-3 right-14 max-w-[min(58%,20rem)] rounded-lg border border-line bg-base-900/85 px-2.5 py-2 backdrop-blur-sm">
+          <label htmlFor={assetSelectId} className="mono block text-[8px] uppercase tracking-wide text-ink-faint">Inspect graph asset</label>
+          <select
+            id={assetSelectId}
+            value={selectedId ?? ""}
+            onChange={(event) => onSelect(event.target.value || null)}
+            className="mono mt-1 w-full bg-transparent text-[10px] text-ink outline-none"
+          >
+            <option value="" className="bg-base-900">Choose an asset…</option>
+            {assets.map((asset) => <option key={asset.id} value={asset.id} className="bg-base-900">{asset.label} · {asset.kind.replaceAll("_", " ")} · {asset.priority}</option>)}
+          </select>
+        </div>
+      )}
+      {controls && !selectionEnabled && (
+        <p className="sr-only">Animated asset graph showing {assets.length} currently revealed public asset{assets.length === 1 ? "" : "s"}.</p>
       )}
     </div>
   );

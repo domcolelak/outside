@@ -3,7 +3,7 @@
  *
  * Consumes a finalized ScanResult (assets, findings, score, change history) and
  * produces prioritized recommendations. Each recommendation's `estimatedReduction`
- * is read directly from the exposure-score component it neutralizes, so the
+ * is read directly from the protection-posture score component it neutralizes, so the
  * "potential score" is honest — no invented numbers, no fabricated risk.
  */
 
@@ -335,7 +335,7 @@ export function buildPosture(result: ScanResult): Posture {
   const summary =
     recommendations.length === 0
       ? "No protection actions are outstanding — the observable surface is well contained."
-      : `Resolving the ${recommendations.length} open recommendation${recommendations.length > 1 ? "s" : ""} would improve your exposure score from ${currentScore} to ${potentialScore}${gain > 0 ? ` (+${gain})` : ""}.`;
+      : `Resolving the ${recommendations.length} open recommendation${recommendations.length > 1 ? "s" : ""} would improve your protection posture from ${currentScore} to ${potentialScore}${gain > 0 ? ` (+${gain})` : ""}.`;
 
   return { currentScore, potentialScore, recommendations, summary, openByPriority };
 }

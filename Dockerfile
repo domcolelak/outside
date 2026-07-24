@@ -3,7 +3,7 @@ ARG APP_VERSION=0.2.0-rc.1
 ARG GIT_SHA=unknown
 ARG BUILD_TIME=unknown
 
-FROM node:20.20.0-alpine AS base
+FROM node:24.18.0-alpine AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN apk add --no-cache openssl

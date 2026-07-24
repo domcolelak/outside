@@ -110,8 +110,16 @@ export interface ScanStore {
   latestSnapshots(targetId: string): Promise<AssetSnapshot[]>;
   /** Canonicals ever observed for a target strictly before `beforeScanId` (or all if null). */
   canonicalsSeenBefore(targetId: string, beforeScanId: string | null): Promise<Set<string>>;
-  /** Persist a completed scan and its snapshots; returns the previous scan id. */
-  saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{ previousScanId: string | null }>;
+  /**
+   * Persist a completed scan and its snapshots atomically with the history read
+   * used for diffing. Implementations serialize this operation per target so
+   * concurrent scans cannot both compare themselves with the same predecessor.
+   */
+  saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{
+    previousScanId: string | null;
+    previousSnapshots: AssetSnapshot[];
+    seenBefore: Set<string>;
+  }>;
   recentScans(targetId: string, limit: number): Promise<ScanRecord[]>;
 
   /** Domain ownership verification (DNS-TXT). */

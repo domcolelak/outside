@@ -32,7 +32,7 @@ export const PLANS: Record<PlanId, Plan> = {
     priceMonthly: 79,
     monitorLimit: 5,
     scanFrequency: "daily",
-    features: ["Up to 5 monitored domains", "Daily scans & change alerts", "Full findings & evidence", "Exposure score history", "PDF reports"],
+    features: ["Up to 5 monitored domains", "Daily scans & change alerts", "Full findings & evidence", "Protection posture history", "PDF reports"],
     stripePriceId: process.env.STRIPE_PRICE_PROFESSIONAL,
   },
   agency: {
@@ -53,4 +53,10 @@ export function planForPriceId(priceId: string | undefined | null): PlanId | nul
     if (plan.stripePriceId && plan.stripePriceId === priceId) return plan.id;
   }
   return null;
+}
+
+/** Unknown prices fail closed instead of silently granting a paid plan. */
+export function subscriptionPlan(priceId: string | undefined | null, status: string): PlanId {
+  if (status !== "active" && status !== "trialing") return "free";
+  return planForPriceId(priceId) ?? "free";
 }

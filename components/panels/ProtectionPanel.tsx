@@ -65,7 +65,7 @@ export function ProtectionPanel({ result, onSelectAsset }: { result: ScanResult;
       <div className="panel mb-3 p-4">
         <div className="flex items-end justify-between">
           <div>
-            <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Exposure score</div>
+            <div className="mono text-[10px] uppercase tracking-wide text-ink-faint">Protection posture</div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-2xl font-semibold text-ink">{current}</span>
               {gain > 0 && (

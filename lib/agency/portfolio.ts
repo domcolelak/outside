@@ -12,7 +12,7 @@ export function clientHealth(client: AgencyClient, guardian: GuardianOverview | 
   const high = recommendations.filter((item) => item.priority === "high").length;
   const lastObservedAt = snapshots.map((item) => item.observedAt).sort().at(-1) ?? null;
   const stale = !lastObservedAt || now.getTime() - new Date(lastObservedAt).getTime() > 14 * 86_400_000;
-  const health = score === null || stale ? "unknown" : critical > 0 || score >= 75 ? "at_risk" : high > 0 || score >= 45 ? "watch" : "healthy";
+  const health = score === null || stale ? "unknown" : critical > 0 || score < 40 ? "at_risk" : high > 0 || score < 60 ? "watch" : "healthy";
   const slaBreaches = events.filter((event) => (severityRank[event.severity] ?? 0) >= 4 && now.getTime() - new Date(event.observedAt).getTime() > client.slaResponseMinutes * 60_000).length;
   return {
     client, exposureScore: score, health,

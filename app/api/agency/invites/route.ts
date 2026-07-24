@@ -10,6 +10,7 @@ import { APP_URL } from "@/lib/config/runtime";
 import { readLimitedJson } from "@/lib/http/body";
 import { requireBudgets } from "@/lib/security/ratelimit";
 import type { AgencyPermission, AgencyRole } from "@/lib/agency/types";
+import { canAssignAgencyRole } from "@/lib/agency/role-policy";
 
 const ROLES: AgencyRole[] = ["admin", "manager", "analyst", "billing", "viewer"];
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
@@ -55,6 +56,7 @@ export async function PATCH(req: NextRequest) {
   if (!current) return NextResponse.json({ error: "Seat not found" }, { status: 404 });
   if (current.role === "owner" && access.role !== "owner") return NextResponse.json({ error: "Only an owner can modify an owner seat" }, { status: 403 });
   const active = typeof body.active === "boolean" ? body.active : undefined; const nextRole = ROLES.includes(body.role as AgencyRole) || body.role === "owner" ? body.role as AgencyRole : undefined;
+  if (nextRole && !canAssignAgencyRole(access.role, nextRole)) return NextResponse.json({ error: "Only an owner can transfer agency ownership" }, { status: 403 });
   if (userId === access.actorId && (active === false || (current.role === "owner" && nextRole && nextRole !== "owner"))) return NextResponse.json({ error: "Transfer ownership before changing your own owner seat" }, { status: 409 });
   if (current.role === "owner" && (active === false || (nextRole && nextRole !== "owner")) && members.filter((item) => item.active && item.role === "owner").length <= 1) return NextResponse.json({ error: "An agency must retain at least one active owner" }, { status: 409 });
   const member = await store.updateMembership(access.workspace.id, userId, { active, role: nextRole, seatLabel: body.seatLabel === undefined ? undefined : cleanText(body.seatLabel, 80) || null });

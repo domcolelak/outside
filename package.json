@@ -1,7 +1,11 @@
 {
   "name": "outside",
   "version": "0.2.0-rc.1",
-  "packageManager": "npm@10.8.2",
+  "packageManager": "npm@11.16.0",
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "npm": ">=11.16.0 <12"
+  },
   "private": true,
   "description": "OUTSIDE - External digital exposure visualization platform. See your company from the outside.",
   "scripts": {
@@ -9,9 +13,10 @@
     "build": "next build",
     "start": "next start",
     "start:standalone": "node scripts/start-standalone.mjs",
-    "lint": "eslint app browser components e2e lib instrumentation.ts playwright.config.ts vitest.config.ts vitest.e2e.config.ts --max-warnings 0",
+    "lint": "eslint . --cache --cache-strategy content --cache-location .eslintcache --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:browser": "playwright test",
     "test:migration-upgrade": "node scripts/test-migration-upgrade.mjs",
@@ -43,9 +48,10 @@
     "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^20.19.43",
+    "@types/node": "^24.0.0",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.11",
     "postcss": "8.5.20",
@@ -57,6 +63,7 @@
   "overrides": {
     "postcss": "8.5.20",
     "@hono/node-server": "1.19.13",
-    "sharp": "^0.35.0"
+    "sharp": "^0.35.0",
+    "find-my-way": "^9.7.0"
   }
 }

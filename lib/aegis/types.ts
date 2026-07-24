@@ -2,9 +2,9 @@
  * Aegis — the intelligence & protection layer of OUTSIDE.
  *
  * OUTSIDE discovers and scores an external surface (observations → findings →
- * exposure score). Aegis is the layer on top: it turns those findings into
+ * protection-posture score). Aegis is the layer on top: it turns those findings into
  * *recommendations* (what to do, why, with evidence) and quantifies each against
- * the deterministic exposure score, so "Improve" is honest — resolving a
+ * the deterministic protection-posture score, so "Improve" is honest — resolving a
  * recommendation restores exactly the score penalty it neutralizes.
  *
  * Product journey: Discover → Understand → Monitor (Guardian) → Protect (Aegis)
@@ -93,9 +93,9 @@ export interface Recommendation {
   /** Plain-English business impact of the underlying exposure. */
   businessImpact: string;
   assetIds: string[];
-  /** The exposure-score component this addresses, if any (e.g. "mail"). */
+  /** The protection-posture score component this addresses, if any (e.g. "mail"). */
   scoreComponentCode?: string;
-  /** Points restored to the exposure score if resolved — derived from the score model. */
+  /** Points restored to the protection-posture score if resolved — derived from the score model. */
   estimatedReduction: number;
   remediation: Remediation;
   status: RecommendationStatus;
@@ -114,7 +114,7 @@ export interface AuditEvent {
 
 export interface Posture {
   currentScore: number;
-  /** Exposure score if all open recommendations were resolved. */
+  /** Protection-posture score if all open recommendations were resolved. */
   potentialScore: number;
   recommendations: Recommendation[];
   summary: string;

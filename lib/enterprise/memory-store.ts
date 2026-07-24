@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { getAuthStore } from "@/lib/auth";
 import { auditHash, canonicalAuditDetail } from "./audit";
-import { SYSTEM_ROLES, type EnterpriseApiToken, type EnterpriseAuditEvent, type EnterpriseDelivery, type EnterpriseIdentityProvider, type EnterpriseOverview, type EnterpriseRecord, type EnterpriseResourceKind, type EnterpriseWorkspace } from "./types";
+import { featureEnabled } from "./permissions";
+import { workspaceInRegion } from "./residency";
+import { SYSTEM_ROLES, type EnterpriseApiToken, type EnterpriseAuditEvent, type EnterpriseDelivery, type EnterpriseDirectoryUser, type EnterpriseIdentityProvider, type EnterpriseOverview, type EnterpriseRecord, type EnterpriseResourceKind, type EnterpriseWorkspace } from "./types";
 import type { AppendEnterpriseAuditInput, EnterpriseStore } from "./store-model";
 
 const iso = () => new Date().toISOString();
@@ -11,6 +14,7 @@ export class InMemoryEnterpriseStore implements EnterpriseStore {
   private workspaces = new Map<string, EnterpriseWorkspace>();
   private records = new Map<EnterpriseResourceKind, Map<string, EnterpriseRecord>>();
   private audit = new Map<string, EnterpriseAuditEvent[]>();
+  private provisioningLocks = new Map<string, Promise<void>>();
   constructor() { for (const kind of ["identityProviders", "directoryUsers", "directoryGroups", "roles", "bindings", "units", "ownership", "policies", "approvals", "exceptions", "apiTokens", "integrations", "deliveries", "tickets", "exports", "flags"] as EnterpriseResourceKind[]) this.records.set(kind, new Map()); }
   async workspace(id: string) { return clone(this.workspaces.get(id) ?? null); }
   async allWorkspaces(options?: { limit?: number; afterId?: string }) {
@@ -45,9 +49,47 @@ export class InMemoryEnterpriseStore implements EnterpriseStore {
   async authenticateScimToken(hash: string) { return clone([...this.records.get("identityProviders")!.values()].find((item) => item.scimTokenHash === hash && item.enabled) as EnterpriseIdentityProvider | undefined ?? null); }
   async rotateScimToken(workspaceId: string, id: string, hash: string, prefix: string) { const item = this.records.get("identityProviders")!.get(id) as EnterpriseIdentityProvider | undefined; if (!item || item.workspaceId !== workspaceId) return null; item.scimTokenHash = hash; item.scimTokenPrefix = prefix; return clone(item); }
   async rotateScimTokenAudited(workspaceId: string, id: string, hash: string, prefix: string, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { const item = await this.rotateScimToken(workspaceId, id, hash, prefix); if (item) await this.appendAudit({ ...audit, workspaceId, resourceId: id }); return item; }
+  async provisionScimUserAtomic(input: { workspaceId: string; orgId: string; providerId: string; directoryUserId?: string | null; feature: "scim" | "sso"; email: string; name: string; passwordHash: string; externalId: string | null; active: boolean; attributes?: Record<string, unknown> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
+    const previous = this.provisioningLocks.get(input.workspaceId) ?? Promise.resolve();
+    let release!: () => void;
+    const current = previous.then(() => new Promise<void>((resolve) => { release = resolve; }));
+    this.provisioningLocks.set(input.workspaceId, current);
+    await previous;
+    try {
+      const workspace = this.workspaces.get(input.workspaceId);
+      const provider = this.records.get("identityProviders")!.get(input.providerId) as EnterpriseIdentityProvider | undefined;
+      if (!workspace || workspace.orgId !== input.orgId || !provider || provider.workspaceId !== input.workspaceId || !provider.enabled || !workspaceInRegion(workspace) || !featureEnabled(workspace, input.feature)) throw new Error("Enterprise provisioning is not available for this workspace.");
+      const directory = [...this.records.get("directoryUsers")!.values()] as EnterpriseDirectoryUser[];
+      const existing = directory.find((item) => item.workspaceId === input.workspaceId && item.userName === input.email);
+      if (existing && (!input.directoryUserId || existing.id !== input.directoryUserId)) throw new Error("SCIM user already exists.");
+      if (input.active && !existing?.active && directory.filter((item) => item.workspaceId === input.workspaceId && item.active).length >= workspace.licensedSeats) throw new Error("Enterprise licensed seat limit reached.");
+      const provisioned = await (await getAuthStore()).provisionMembership({ email: input.email, name: input.name, passwordHash: input.passwordHash, orgId: input.orgId, role: "viewer", provisionedBy: input.providerId, active: input.active });
+      const item = existing
+        ? await this.update<EnterpriseDirectoryUser>(input.workspaceId, "directoryUsers", existing.id, { userId: provisioned.user.id, externalId: input.externalId, displayName: input.name, active: input.active, attributes: input.attributes ?? existing.attributes, lastSyncedAt: iso() })
+        : await this.create<EnterpriseDirectoryUser>(input.workspaceId, "directoryUsers", { identityProviderId: input.providerId, userId: provisioned.user.id, externalId: input.externalId, userName: input.email, displayName: input.name, active: input.active, departmentId: null, attributes: input.attributes ?? {}, lastSyncedAt: iso() });
+      if (!item) throw new Error("Enterprise directory user could not be persisted.");
+      await this.appendAudit({ ...audit, workspaceId: input.workspaceId, resourceId: item.id });
+      return item;
+    } finally {
+      release();
+      if (this.provisioningLocks.get(input.workspaceId) === current) this.provisioningLocks.delete(input.workspaceId);
+    }
+  }
+  async updateScimUserAtomic(input: { workspaceId: string; orgId: string; providerId: string; id: string; patch: Partial<EnterpriseDirectoryUser> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) {
+    const workspace = this.workspaces.get(input.workspaceId);
+    const provider = this.records.get("identityProviders")!.get(input.providerId) as EnterpriseIdentityProvider | undefined;
+    const current = this.records.get("directoryUsers")!.get(input.id) as EnterpriseDirectoryUser | undefined;
+    if (!workspace || workspace.orgId !== input.orgId || !provider?.enabled || provider.workspaceId !== input.workspaceId || !current || current.workspaceId !== input.workspaceId || current.identityProviderId !== input.providerId || !workspaceInRegion(workspace) || !featureEnabled(workspace, "scim")) return null;
+    if (input.patch.active === true && !current.active && ([...this.records.get("directoryUsers")!.values()] as EnterpriseDirectoryUser[]).filter((item) => item.workspaceId === input.workspaceId && item.active).length >= workspace.licensedSeats) throw new Error("Enterprise licensed seat limit reached.");
+    if (typeof input.patch.active === "boolean" && current.userId && !await (await getAuthStore()).setProvisionedMembershipActive(current.userId, input.orgId, input.providerId, input.patch.active)) throw new Error("Provisioned organization membership is missing.");
+    const item = await this.update<EnterpriseDirectoryUser>(input.workspaceId, "directoryUsers", input.id, input.patch);
+    if (item) await this.appendAudit({ ...audit, workspaceId: input.workspaceId, resourceId: input.id });
+    return item;
+  }
   async enqueueDelivery(input: { workspaceId: string; integrationId: string; idempotencyKey: string; eventId: string; payload: Record<string, unknown> }) { const existing = [...this.records.get("deliveries")!.values()].find((item) => item.idempotencyKey === input.idempotencyKey) as EnterpriseDelivery | undefined; if (existing) return clone(existing); return this.create<EnterpriseDelivery>(input.workspaceId, "deliveries", { integrationId: input.integrationId, idempotencyKey: input.idempotencyKey, eventId: input.eventId, payload: input.payload, status: "pending", attempts: 0, nextAttemptAt: iso(), leaseId: null, leasedUntil: null, lastError: null, deliveredAt: null }); }
   async enqueueEventAudited(input: { workspaceId: string; integrations: Array<{ id: string; idempotencyKey: string }>; eventId: string; payload: Record<string, unknown> }, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { for (const integration of input.integrations) await this.enqueueDelivery({ workspaceId: input.workspaceId, integrationId: integration.id, idempotencyKey: integration.idempotencyKey, eventId: input.eventId, payload: input.payload }); await this.appendAudit({ ...audit, workspaceId: input.workspaceId, resourceId: null, detail: { ...audit.detail, integrations: input.integrations.length } }); return input.integrations.length; }
   async claimDeliveries(now: Date, limit: number, leaseMs: number) { const items = [...this.records.get("deliveries")!.values()].filter((item) => ["pending", "processing"].includes(String(item.status)) && new Date(String(item.nextAttemptAt)) <= now && (!item.leasedUntil || new Date(String(item.leasedUntil)) <= now)).slice(0, limit) as EnterpriseDelivery[]; return items.map((item) => { item.status = "processing"; item.attempts += 1; item.leaseId = randomUUID(); item.leasedUntil = new Date(now.getTime() + leaseMs).toISOString(); return clone(item); }); }
+  async renewDeliveryLease(workspaceId: string, id: string, leaseId: string, now: Date, leaseMs: number) { const item = this.records.get("deliveries")!.get(id) as EnterpriseDelivery | undefined; if (!item || item.workspaceId !== workspaceId || item.status !== "processing" || item.leaseId !== leaseId) return false; item.leasedUntil = new Date(now.getTime() + leaseMs).toISOString(); return true; }
   async finishDelivery(workspaceId: string, id: string, leaseId: string, result: { delivered: boolean; error?: string }) { const item = this.records.get("deliveries")!.get(id) as EnterpriseDelivery | undefined; if (!item || item.workspaceId !== workspaceId || item.leaseId !== leaseId) return false; item.leaseId = null; item.leasedUntil = null; if (result.delivered) { item.status = "delivered"; item.deliveredAt = iso(); item.lastError = null; } else { item.status = item.attempts >= 8 ? "dead_letter" : "pending"; item.lastError = result.error?.slice(0, 1000) ?? "Delivery failed"; item.nextAttemptAt = new Date(Date.now() + Math.min(3_600_000, 2 ** item.attempts * 1000)).toISOString(); } return true; }
   async updateTicketInbound(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>) { const item = this.records.get("tickets")!.get(id) as import("./types").EnterpriseTicketLink | undefined; if (!item || item.workspaceId !== workspaceId || item.syncVersion !== expectedVersion) return null; return this.update(workspaceId, "tickets", id, patch); }
   async updateTicketInboundAudited(workspaceId: string, id: string, expectedVersion: number, patch: Partial<import("./types").EnterpriseTicketLink>, audit: Omit<AppendEnterpriseAuditInput, "workspaceId" | "resourceId">) { const item = await this.updateTicketInbound(workspaceId, id, expectedVersion, patch); if (item) await this.appendAudit({ ...audit, workspaceId, resourceId: id }); return item; }

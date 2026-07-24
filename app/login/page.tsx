@@ -12,13 +12,12 @@ function AuthForm() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(params.get("error") ? "Sign-in failed. Please try again." : null);
   const [busy, setBusy] = useState(false);
   const [googleOn, setGoogleOn] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/providers").then((r) => r.json()).then((d) => setGoogleOn(!!d.google)).catch(() => {});
-    if (params.get("error")) setError("Sign-in failed. Please try again.");
     // Already signed in? Don't show a login form — it reads as a sign-out.
     fetch("/api/auth/me").then((r) => r.json()).then((d) => {
       if (d.authenticated) {

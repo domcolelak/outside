@@ -103,4 +103,24 @@ describe("temporal identity across a gap (InMemoryScanStore)", () => {
     const www = s2.graph.assets.find((a) => a.canonical === "www.acme.com");
     expect(www?.attrs.newlyObserved).toBeUndefined();
   });
+
+  it("serializes concurrent writes and keeps identity bounds monotonic", async () => {
+    const store = new InMemoryScanStore();
+    const scans = [
+      mkScan("s3", [mkAsset("www.acme.com")]),
+      mkScan("s1", [mkAsset("www.acme.com")]),
+      mkScan("s2", [mkAsset("www.acme.com")]),
+    ];
+    const summaries = await Promise.all(scans.map((scan) => recordScan(store, scan, "org-race", true)));
+    expect(summaries.filter((summary) => summary?.previousScanId === null)).toHaveLength(1);
+    expect(new Set(summaries.map((summary) => summary?.previousScanId)).size).toBeGreaterThan(1);
+
+    const target = await store.getOrCreateTarget("org-race", "acme.com");
+    const [identity] = store.identitiesFor(target.id);
+    expect(identity).toMatchObject({
+      canonical: "www.acme.com",
+      firstSeenAt: "2026-01-01T00:00:00.000Z",
+      lastSeenAt: "2026-01-03T00:00:00.000Z",
+    });
+  });
 });

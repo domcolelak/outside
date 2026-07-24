@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { InMemoryAgencyStore } from "./memory-store";
+import { visibleAgencyNotes } from "./visibility";
 
 /**
  * Cross-tenant isolation: every agency-scoped store read must be confined to its
@@ -68,5 +69,50 @@ describe("agency store — cross-tenant isolation", () => {
     expect((await store.clients(A)).length).toBe(1);
     expect((await store.clients(B)).length).toBe(1);
     expect((await store.clients(A))[0]!.id).not.toBe((await store.clients(B))[0]!.id);
+  });
+
+  it("scopes idempotency keys to the agency without returning another tenant's result", async () => {
+    const firstA = await store.createJob({ agencyId: A, type: "report", idempotencyKey: "shared-key", clientOrgIds: ["org_client_a"], payload: { tenant: "A" }, createdBy: "user_a" });
+    await store.finishJob(A, firstA.id, "completed", { privateResult: "agency-a-only" });
+    const retryA = await store.createJob({ agencyId: A, type: "report", idempotencyKey: "shared-key", clientOrgIds: ["org_client_a"], payload: {}, createdBy: "user_a" });
+    const firstB = await store.createJob({ agencyId: B, type: "report", idempotencyKey: "shared-key", clientOrgIds: [], payload: { tenant: "B" }, createdBy: "user_b" });
+
+    expect(retryA.id).toBe(firstA.id);
+    expect(retryA.result).toEqual({ privateResult: "agency-a-only" });
+    expect(firstB.id).not.toBe(firstA.id);
+    expect(firstB.agencyId).toBe(B);
+    expect(firstB.result).toBeNull();
+    expect(firstB.payload).toEqual({ tenant: "B" });
+  });
+
+  it("rejects a foreign group on client creation and update", async () => {
+    const groupA = await store.createGroup({ agencyId: A, name: "A-owned", color: "#111111" });
+    const groupB = await store.createGroup({ agencyId: B, name: "B-owned", color: "#222222" });
+
+    expect(await store.addClient({ agencyId: A, orgId: "org_foreign_group", organizationName: "Invalid", organizationSlug: "invalid", groupId: groupB!.id })).toBeNull();
+    expect(await store.updateClient(A, aClientId, { groupId: groupB!.id })).toBeNull();
+    expect((await store.clients(A)).find((item) => item.id === aClientId)?.groupId).toBeNull();
+
+    expect((await store.updateClient(A, aClientId, { groupId: groupA!.id }))?.groupId).toBe(groupA!.id);
+    expect((await store.updateClient(A, aClientId, { groupId: null }))?.groupId).toBeNull();
+  });
+
+  it("preserves omitted client fields during partial updates", async () => {
+    const updated = await store.updateClient(A, aClientId, { serviceTier: "premium", status: undefined });
+    expect(updated?.serviceTier).toBe("premium");
+    expect(updated?.status).toBe("onboarding");
+    expect(updated?.portalMode).toBe("readonly");
+  });
+});
+
+describe("agency note visibility", () => {
+  const notes = [
+    { id: "internal", agencyId: "agency", clientId: "client", authorId: "author", body: "private", visibility: "internal" as const, createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z" },
+    { id: "shared", agencyId: "agency", clientId: "client", authorId: "author", body: "public", visibility: "shared" as const, createdAt: "2026-07-23T00:00:00.000Z", updatedAt: "2026-07-23T00:00:00.000Z" },
+  ];
+
+  it("hides internal notes from viewer and API-key access while retaining analyst visibility", () => {
+    expect(visibleAgencyNotes(notes, "viewer").map((note) => note.id)).toEqual(["shared"]);
+    expect(visibleAgencyNotes(notes, "analyst").map((note) => note.id)).toEqual(["internal", "shared"]);
   });
 });

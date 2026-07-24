@@ -2,7 +2,7 @@
 
 **Live demo: [outsideguardian.eu](https://outsideguardian.eu)** — run an anonymous external snapshot with no sign-up (`/scan?target=northstar&mode=demo`).
 
-OUTSIDE is a defensive external-surface discovery and monitoring application. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and an exposure score, and tracks change for verified organizations.
+OUTSIDE is a defensive external-surface discovery and monitoring application. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and a protection-posture score, and tracks change for verified organizations.
 
 OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe. Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP, and technology history for every persisted finding.
 
@@ -13,11 +13,11 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 |  |  |
 | --- | --- |
 | ![Landing](docs/media/outside-landing.png) | ![Live discovery graph](docs/media/outside-scan-graph.png) |
-| **Landing** — passive, public sources only; no login required for an external snapshot. | **Live discovery graph** — deterministic classification, exposure score, and Aegis incident correlation. |
+| **Landing** — passive, public sources only; no login required for an external snapshot. | **Live discovery graph** — deterministic classification, protection posture, and Aegis incident correlation. |
 | ![Attacker View](docs/media/outside-attacker-view.png) | ![Guardian dashboard](docs/media/outside-guardian.png) |
 | **Attacker View** — an evidence-backed replay of how each hostname became publicly observable. Discovery only, never exploitation. | **Guardian** — continuous change intelligence, Exposure Drift, and traceable recommendations after every scheduled scan. |
 | ![Findings and posture](docs/media/outside-findings.png) | |
-| **Findings & posture** — exposure score with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. | |
+| **Findings & posture** — protection posture with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. | |
 
 > Screenshots are regenerated from the live demo with `node scripts/capture-screenshots.mjs`.
 

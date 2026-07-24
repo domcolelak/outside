@@ -18,13 +18,10 @@ import { applyHistoryFlags } from "./diff";
 export async function recordScan(store: ScanStore, result: ScanResult, orgId: string, throwOnError = false): Promise<ChangeSummary | null> {
   try {
     const target = await store.getOrCreateTarget(orgId, result.target);
-    const prev = await store.latestSnapshots(target.id);
-    const seenBefore = await store.canonicalsSeenBefore(target.id, null);
-
     const snapshots = result.graph.assets.map((a) => toSnapshot(a, result.scanId, ""));
-    const { previousScanId } = await store.saveScan(target, result, snapshots);
+    const { previousScanId, previousSnapshots, seenBefore } = await store.saveScan(target, result, snapshots);
 
-    const events = diffScans(prev, snapshots, seenBefore);
+    const events = diffScans(previousSnapshots, snapshots, seenBefore);
     const appeared = new Set(events.filter((e) => e.type === "asset_appeared" || e.type === "asset_returned").map((e) => e.canonical));
     applyHistoryFlags(result, appeared);
 

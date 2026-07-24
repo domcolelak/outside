@@ -25,6 +25,8 @@ export default function EvolutionPage() {
   const [message, setMessage] = useState("");
   const [deciding, setDeciding] = useState<Record<string, "approved" | "rejected">>({});
   const [drafts, setDrafts] = useState<Record<string, DraftChange>>({});
+  const [approved, setApproved] = useState<Record<string, true>>({});
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/evolution")
@@ -37,27 +39,65 @@ export default function EvolutionPage() {
       .catch(() => { setMessage("Network error."); setState("error"); });
   }, []);
 
+  const clearPending = (proposalId: string) => setDeciding((current) => {
+    const next = { ...current };
+    delete next[proposalId];
+    return next;
+  });
+  const clearActionError = (proposalId: string) => setActionErrors((current) => {
+    const next = { ...current };
+    delete next[proposalId];
+    return next;
+  });
+  async function prepareDraft(proposalId: string) {
+    const response = await fetch(`/api/evolution/draft?proposalId=${encodeURIComponent(proposalId)}`);
+    const data = await response.json().catch(() => null) as { draft?: DraftChange; error?: string } | null;
+    if (!response.ok || !data?.draft) throw new Error(data?.error ?? "The decision was saved, but the draft could not be prepared.");
+    setDrafts((current) => ({ ...current, [proposalId]: data.draft! }));
+  }
+  async function retryDraft(proposalId: string) {
+    if (deciding[proposalId]) return;
+    clearActionError(proposalId);
+    setDeciding((current) => ({ ...current, [proposalId]: "approved" }));
+    try {
+      await prepareDraft(proposalId);
+    } catch (cause) {
+      setActionErrors((current) => ({ ...current, [proposalId]: cause instanceof Error ? cause.message : "The draft could not be prepared." }));
+    } finally {
+      clearPending(proposalId);
+    }
+  }
   async function decide(proposalId: string, decision: "approved" | "rejected") {
     if (deciding[proposalId]) return;
+    clearActionError(proposalId);
     setDeciding((d) => ({ ...d, [proposalId]: decision }));
+    let decisionSaved = false;
     try {
       const res = await fetch("/api/evolution/decision", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ proposalId, decision }),
       });
-      if (!res.ok) { setDeciding((d) => { const n = { ...d }; delete n[proposalId]; return n; }); return; }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error ?? "Could not save this decision.");
+      }
+      decisionSaved = true;
       setData((prev) => prev && { ...prev, decisionsCount: prev.decisionsCount + 1 });
       if (decision === "approved") {
-        // Approving prepares the reviewable draft change; the card stays to show it.
-        const draftRes = await fetch(`/api/evolution/draft?proposalId=${encodeURIComponent(proposalId)}`);
-        if (draftRes.ok) { const { draft } = await draftRes.json(); setDrafts((d) => ({ ...d, [proposalId]: draft })); }
+        setApproved((current) => ({ ...current, [proposalId]: true }));
+        await prepareDraft(proposalId);
       } else {
         // Rejected proposals drop off the active list; Evolution has learned from this.
         setData((prev) => prev && { ...prev, proposals: prev.proposals.filter((p) => p.id !== proposalId) });
       }
-    } catch {
-      setDeciding((d) => { const n = { ...d }; delete n[proposalId]; return n; });
+    } catch (cause) {
+      const fallback = decisionSaved && decision === "approved"
+        ? "The decision was saved, but the draft could not be prepared."
+        : "Could not save this decision.";
+      setActionErrors((current) => ({ ...current, [proposalId]: cause instanceof Error ? cause.message : fallback }));
+    } finally {
+      clearPending(proposalId);
     }
   }
 
@@ -84,6 +124,7 @@ export default function EvolutionPage() {
           Every proposal is a <span className="font-medium">draft awaiting founder approval</span>. Evolution proposes and prepares — it never applies, merges, or deploys anything on its own.
         </div>
 
+        {state === "loading" && <div role="status" aria-live="polite" className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">Loading Evolution proposals…</div>}
         {state === "error" && <div className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">{message}</div>}
 
         {state === "done" && data && (
@@ -137,6 +178,17 @@ export default function EvolutionPage() {
                           {drafts[p.id]!.note}
                         </div>
                       </div>
+                    ) : approved[p.id] ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                        <span className="mono text-[10px] uppercase tracking-wide text-signal">✓ Approved · awaiting draft</span>
+                        <button
+                          onClick={() => void retryDraft(p.id)}
+                          disabled={!!deciding[p.id]}
+                          className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
+                        >
+                          {deciding[p.id] ? "Preparing draft…" : "Retry draft"}
+                        </button>
+                      </div>
                     ) : (
                       <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
                         <button
@@ -156,6 +208,7 @@ export default function EvolutionPage() {
                         <span className="mono ml-auto text-[10px] text-ink-faint">Approve → prepares a reviewable draft · never auto-applied</span>
                       </div>
                     )}
+                    {actionErrors[p.id] && <p role="alert" className="mono mt-2 text-[11px] text-risk-high">{actionErrors[p.id]}</p>}
                   </li>
                 ))}
               </ol>

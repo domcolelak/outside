@@ -8,6 +8,7 @@
 import type { ScanResult } from "@/lib/types";
 import type { AssetSnapshot, DomainVerification, ScanRecord, ScanStore, Target } from "./model";
 import { prisma } from "@/lib/db/prisma";
+import { randomUUID } from "node:crypto";
 
 export class PrismaScanStore implements ScanStore {
   readonly durable = true;
@@ -53,18 +54,27 @@ export class PrismaScanStore implements ScanStore {
     return new Set(identities.map((i) => i.canonical));
   }
 
-  async saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{ previousScanId: string | null }> {
+  async saveScan(target: Target, result: ScanResult, snapshots: AssetSnapshot[]): Promise<{ previousScanId: string | null; previousSnapshots: AssetSnapshot[]; seenBefore: Set<string> }> {
     const finishedAt = new Date(result.finishedAt);
-    const prevScan = await prisma.scan.findFirst({ where: { targetId: target.id }, orderBy: { finishedAt: "desc" } });
+    return prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"outside:scan:" + target.id}))`;
+      const prevScan = await tx.scan.findFirst({ where: { targetId: target.id }, orderBy: [{ finishedAt: "desc" }, { id: "desc" }] });
+      const previousRows = prevScan ? await tx.assetSnapshot.findMany({ where: { scanId: prevScan.id } }) : [];
+      const previousSnapshots = previousRows.map(this.mapSnapshot);
+      const seenBefore = new Set((await tx.assetIdentity.findMany({ where: { targetId: target.id }, select: { canonical: true } })).map((identity) => identity.canonical));
 
-    await prisma.$transaction(async (tx) => {
       // Upsert identities and resolve identity ids for each snapshot.
       for (const snap of snapshots) {
-        const identity = await tx.assetIdentity.upsert({
-          where: { targetId_canonical: { targetId: target.id, canonical: snap.canonical } },
-          create: { targetId: target.id, canonical: snap.canonical, label: snap.label, firstSeenAt: finishedAt, lastSeenAt: finishedAt },
-          update: { lastSeenAt: finishedAt, label: snap.label },
-        });
+        const [identity] = await tx.$queryRaw<Array<{ id: string }>>`
+          INSERT INTO asset_identities (id, "targetId", canonical, label, "firstSeenAt", "lastSeenAt")
+          VALUES (${`aid_${randomUUID()}`}, ${target.id}, ${snap.canonical}, ${snap.label}, ${finishedAt}, ${finishedAt})
+          ON CONFLICT ("targetId", canonical) DO UPDATE SET
+            "firstSeenAt" = LEAST(asset_identities."firstSeenAt", EXCLUDED."firstSeenAt"),
+            "lastSeenAt" = GREATEST(asset_identities."lastSeenAt", EXCLUDED."lastSeenAt"),
+            label = CASE WHEN EXCLUDED."lastSeenAt" >= asset_identities."lastSeenAt" THEN EXCLUDED.label ELSE asset_identities.label END
+          RETURNING id
+        `;
+        if (!identity) throw new Error(`Asset identity could not be persisted for ${snap.canonical}.`);
         snap.identityId = identity.id;
       }
       await tx.scan.create({
@@ -92,9 +102,8 @@ export class PrismaScanStore implements ScanStore {
           present: true,
         })),
       });
+      return { previousScanId: prevScan?.id ?? null, previousSnapshots, seenBefore };
     });
-
-    return { previousScanId: prevScan?.id ?? null };
   }
 
   async recentScans(targetId: string, limit: number): Promise<ScanRecord[]> {

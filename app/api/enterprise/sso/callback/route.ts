@@ -5,6 +5,8 @@ import { hashPassword } from "@/lib/auth/password";
 import { SESSION_MAX_AGE, sessionCookie, signSession } from "@/lib/auth/session";
 import { APP_URL } from "@/lib/config/runtime";
 import { decryptEnterpriseSecret } from "@/lib/enterprise/crypto";
+import { featureEnabled } from "@/lib/enterprise/permissions";
+import { workspaceInRegion } from "@/lib/enterprise/residency";
 import { getEnterpriseStore } from "@/lib/enterprise/store";
 import { ENTERPRISE_SSO_COOKIE, exchangeEnterpriseCode, verifySsoState, type OidcConfig } from "@/lib/enterprise/sso";
 import type { EnterpriseDirectoryUser } from "@/lib/enterprise/types";
@@ -22,13 +24,13 @@ export async function GET(req: NextRequest) {
   const store = await getEnterpriseStore();
   const provider = await store.identityProvider(state.idpId);
   if (!provider?.enabled) return failure();
+  const workspace = await store.workspace(provider.workspaceId);
+  if (!workspace || !workspaceInRegion(workspace) || !featureEnabled(workspace, "sso")) return failure();
 
   try {
     const profile = await exchangeEnterpriseCode(decryptEnterpriseSecret<OidcConfig>(provider.configEncrypted), code, state.nonce);
     const domain = profile.email.split("@")[1];
     if (!domain || !provider.domains.includes(domain)) return failure();
-    const workspace = await store.workspace(provider.workspaceId);
-    if (!workspace) return failure();
 
     const auth = await getAuthStore();
     const directory = await store.list<EnterpriseDirectoryUser>(workspace.id, "directoryUsers");
@@ -37,16 +39,21 @@ export async function GET(req: NextRequest) {
     const needsProvisioning = !directoryUser || !user || !directoryUser.userId;
     if (needsProvisioning && !provider.jitProvisioning) return failure();
     const consumesNewSeat = !directoryUser || !directoryUser.active;
-    if (needsProvisioning && consumesNewSeat && directory.filter((item) => item.active).length >= workspace.licensedSeats) return failure();
+    if (needsProvisioning && consumesNewSeat && !store.provisionScimUserAtomic && directory.filter((item) => item.active).length >= workspace.licensedSeats) return failure();
 
     if (needsProvisioning) {
       const passwordHash = await hashPassword(randomBytes(48).toString("base64url"));
-      const provisioned = await auth.provisionMembership({ email: profile.email, name: profile.name, passwordHash, orgId: workspace.orgId, role: "viewer", provisionedBy: provider.id, active: true });
-      user = provisioned.user;
-      if (directoryUser) {
-        directoryUser = await store.update<EnterpriseDirectoryUser>(workspace.id, "directoryUsers", directoryUser.id, { userId: user.id, displayName: profile.name, active: true, lastSyncedAt: new Date().toISOString() }) ?? directoryUser;
+      if (store.provisionScimUserAtomic) {
+        directoryUser = await store.provisionScimUserAtomic({ workspaceId: workspace.id, orgId: workspace.orgId, providerId: provider.id, directoryUserId: directoryUser?.id ?? null, feature: "sso", email: profile.email, name: profile.name, passwordHash, externalId: profile.subject, active: true, attributes: { oidcSubject: profile.subject } }, { actorType: "user", actorId: `sso:${profile.subject}`, action: "enterprise.sso.user.provisioned", resourceType: "directory_user", requestId: req.headers.get("x-request-id"), ipHash: null, detail: { identityProviderId: provider.id } });
+        user = await auth.findUserByEmail(profile.email);
       } else {
-        directoryUser = await store.create<EnterpriseDirectoryUser>(workspace.id, "directoryUsers", { identityProviderId: provider.id, userId: user.id, externalId: profile.subject, userName: profile.email, displayName: profile.name, active: true, departmentId: null, attributes: { oidcSubject: profile.subject }, lastSyncedAt: new Date().toISOString() });
+        const provisioned = await auth.provisionMembership({ email: profile.email, name: profile.name, passwordHash, orgId: workspace.orgId, role: "viewer", provisionedBy: provider.id, active: true });
+        user = provisioned.user;
+        if (directoryUser) {
+          directoryUser = await store.update<EnterpriseDirectoryUser>(workspace.id, "directoryUsers", directoryUser.id, { userId: user.id, displayName: profile.name, active: true, lastSyncedAt: new Date().toISOString() }) ?? directoryUser;
+        } else {
+          directoryUser = await store.create<EnterpriseDirectoryUser>(workspace.id, "directoryUsers", { identityProviderId: provider.id, userId: user.id, externalId: profile.subject, userName: profile.email, displayName: profile.name, active: true, departmentId: null, attributes: { oidcSubject: profile.subject }, lastSyncedAt: new Date().toISOString() });
+        }
       }
     }
     if (!user || !directoryUser?.active) return failure();

@@ -83,10 +83,11 @@ export function Summary({
       <div className="panel flex items-center gap-4 p-4">
         <ScoreRing value={result.score.value} color={band.color} />
         <div>
-          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Exposure posture</div>
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Protection posture</div>
           <div className="mt-1 text-lg font-medium" style={{ color: band.color }}>{band.label}</div>
+          <div className="mono mt-1 text-[10px] text-ink-faint">Higher is better — how contained your surface is, not a hack probability.</div>
           <button onClick={() => setShowScore((v) => !v)} className="mono mt-2 text-[11px] text-signal hover:underline">
-            {showScore ? "Hide breakdown" : `Why is my score ${result.score.value}?`}
+            {showScore ? "Hide breakdown" : `Why is my posture ${result.score.value}/100?`}
           </button>
         </div>
       </div>
