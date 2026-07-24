@@ -60,6 +60,20 @@ Verification methods may include:
 
 Customers remain responsible for ensuring that their use is legally and contractually authorized.
 
+### Opting out of anonymous scanning
+
+If you operate a domain and do not want it scanned by anonymous visitors, publish this DNS TXT record:
+
+- **Name:** \`_outside-optout.yourdomain.com\`
+- **Type:** TXT
+- **Value:** \`outside-optout=1\`
+
+Only your domain's own DNS operator can publish it, so nobody else can opt your domain out — or back in — on your behalf. It takes effect within ten minutes of propagating and applies to the domain and its subdomains.
+
+An organization that has completed ownership verification for the domain can still scan and monitor it, so opting out never locks you out of your own surface.
+
+You can check the current state at \`/api/optout?domain=yourdomain.com\`. For legal or abuse requests that cannot be handled through DNS, contact security@outsideguardian.eu.
+
 ## 4. Safe network access
 
 External requests initiated by OUTSIDE are designed to be bounded and controlled.
