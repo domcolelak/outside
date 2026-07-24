@@ -114,9 +114,11 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
   }, [target, mode]);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(start);
+    // A timeout, not requestAnimationFrame: rAF never fires in a background tab,
+    // so a scan opened in one would never start at all.
+    const timer = window.setTimeout(start, 0);
     return () => {
-      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
       esRef.current?.close();
     };
   }, [start]);

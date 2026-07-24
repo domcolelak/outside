@@ -40,8 +40,10 @@ function ChronosView() {
 
   useEffect(() => {
     const t = params.get("target");
-    const frame = t ? window.requestAnimationFrame(() => void load(t)) : 0;
-    return () => window.cancelAnimationFrame(frame);
+    // A timeout, not requestAnimationFrame: rAF never fires in a background tab,
+    // which would leave the history loading forever.
+    const timer = t ? window.setTimeout(() => void load(t), 0) : 0;
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

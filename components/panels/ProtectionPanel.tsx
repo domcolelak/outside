@@ -164,7 +164,7 @@ function RecCard({
             )}
             {rec.remediation.proposal && <ProposalPreview proposal={rec.remediation.proposal} />}
             {rec.remediation.changesInfrastructure && (
-              <p className="mono mt-1 text-[11px] text-risk-medium">Applying this changes live infrastructure — always preview & approve first.</p>
+              <p className="mono mt-1 text-[11px] text-risk-medium">These steps change live infrastructure — review them before you roll them out. OUTSIDE does not apply them for you.</p>
             )}
           </div>
 
@@ -176,7 +176,7 @@ function RecCard({
             )}
             {rec.status === "open" && (
               <button onClick={() => onStatus(rec, "in_progress")} className="mono rounded-md border border-line px-2.5 py-1 text-[12px] text-ink-soft hover:bg-base-700">
-                Start
+                Mark in progress
               </button>
             )}
             {!dismissed && !resolved && (

@@ -234,8 +234,10 @@ export function AgencyAdmin({
     });
   }, [agencyId]);
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => void load());
-    return () => window.cancelAnimationFrame(frame);
+    // A timeout, not requestAnimationFrame: rAF never fires in a background tab,
+    // which would leave this view loading forever.
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
   async function mutate(
     url: string,

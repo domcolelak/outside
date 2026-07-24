@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { connectorStates, INTEGRATION_CATEGORY_LABEL, type IntegrationCategory } from "@/lib/aegis/integrations";
+import { getSessionContext, roleAtLeast } from "@/lib/auth";
+import { CloudflareConnector } from "@/components/integrations/CloudflareConnector";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,13 @@ const REMEDIATION_LABEL: Record<string, string> = {
   surface_change: "Surface change",
 };
 
-export default function IntegrationsPage() {
+export default async function IntegrationsPage() {
+  const ctx = await getSessionContext();
+  // Connecting a provider stores a credential that can change live DNS, so it is
+  // an owner/admin action on a specific organization.
+  const adminOrg = ctx?.memberships.find((membership) => roleAtLeast(membership.role, "admin"))?.org ?? null;
+  const canConnect = !!ctx?.user.emailVerifiedAt && !!adminOrg;
+
   const connectors = connectorStates();
   const configuredCount = connectors.filter((connector) => connector.connected).length;
   const groups = connectors.reduce<Record<string, typeof connectors>>((acc, connector) => {
@@ -34,13 +42,23 @@ export default function IntegrationsPage() {
       </header>
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="mono text-[12px] uppercase tracking-widest text-signal">Aegis · integrations</div>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">Connector registry and remediation previews</h1>
+        <h1 className="mt-2 text-3xl font-semibold text-ink">Connect your infrastructure</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
-          This registry reports whether provider credentials are configured and maps providers to recommendation categories.
-          Aegis currently generates and validates <span className="text-ink">preview-only proposals</span>; this repository
-          does not execute provider changes. A configured credential is not evidence that apply, verify, or rollback is implemented.
+          Connecting a provider lets OUTSIDE confirm findings against your real configuration instead of inferring them from
+          the outside. <span className="text-ink">Cloudflare can be connected here</span> with your own API token — we verify it,
+          store it encrypted, and never show it again. The remaining providers are operator-configured and remain read-only
+          previews until they are built.
         </p>
-        <div className="mono mt-3 text-xs text-ink-faint">{configuredCount} of {connectors.length} credential sets configured</div>
+        {!canConnect && (
+          <div className="mt-4 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">
+            {!ctx
+              ? <>Sign in as an organization owner or admin to connect a provider.</>
+              : !ctx.user.emailVerifiedAt
+                ? <>Verify your email address to connect a provider.</>
+                : <>Connecting requires owner or admin access to an organization.</>}
+          </div>
+        )}
+        <div className="mono mt-3 text-xs text-ink-faint">{configuredCount} of {connectors.length} operator credential sets configured</div>
         <div className="mt-8 space-y-8">
           {Object.entries(groups).map(([category, list]) => (
             <section key={category}>
@@ -64,9 +82,15 @@ export default function IntegrationsPage() {
                         </span>
                       ))}
                     </div>
-                    <div className="mono mt-3 text-[11px] text-ink-faint">
-                      {connector.connected ? `Registry enabled via ${connector.envKey}; preview only` : `Set ${connector.envKey} to register; preview only`}
-                    </div>
+                    {connector.id === "cloudflare" ? (
+                      canConnect && adminOrg
+                        ? <CloudflareConnector orgId={adminOrg.id} orgName={adminOrg.name} />
+                        : <div className="mono mt-3 text-[11px] text-ink-faint">Sign in as an owner or admin to connect your Cloudflare account.</div>
+                    ) : (
+                      <div className="mono mt-3 text-[11px] text-ink-faint">
+                        {connector.connected ? `Operator-configured via ${connector.envKey}; read-only preview` : `Not built yet — read-only preview`}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
