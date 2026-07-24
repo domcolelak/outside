@@ -1303,3 +1303,17 @@ model AppliedRemediation {
   @@index([orgId, provider, target])
   @@map("applied_remediations")
 }
+
+/**
+ * Domains removed from anonymous scanning by operator/legal request. Owner-driven
+ * opt-out uses a DNS TXT record instead and needs no row here.
+ */
+model ScanOptOut {
+  domain    String   @id
+  reason    String
+  source    String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@map("scan_opt_outs")
+}

@@ -15,6 +15,7 @@ import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { processGuardianScan } from "@/lib/guardian/process";
 import { recordScanOperation } from "@/lib/observability/metrics";
+import { isOptedOut } from "@/lib/security/optout";
 import { issueShareProof } from "@/lib/share/proof";
 
 export const runtime = "nodejs";
@@ -76,6 +77,19 @@ export async function GET(req: NextRequest) {
           const domain = normalizeDomain(rawTarget);
           const ctx = await getSessionContext();
           const orgId = await authorizedTargetOrg(ctx, domain, "viewer");
+
+          // A domain owner can opt out of anonymous scanning. This never blocks an
+          // organization that has verified the domain — an owner must always be
+          // able to monitor their own surface.
+          if (!orgId) {
+            const optOut = await isOptedOut(domain, signal);
+            if (optOut.optedOut) {
+              emit({ type: "error", message: "This domain has opted out of anonymous scanning. If you own it, verify ownership to scan and monitor it." });
+              outcome = "success";
+              return;
+            }
+          }
+
           const result = await runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal });
           // Persist + derive change detection against this target's history.
           const store = await getStore();
