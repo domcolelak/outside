@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionContext } from "@/lib/auth";
 import { PLANS } from "@/lib/billing/plans";
 import { isBillingEnabled } from "@/lib/billing/stripe";
-import { Wordmark } from "@/components/Wordmark";
 import { CheckoutButton, ManageBillingButton } from "@/components/account/BillingActions";
 
 export const dynamic = "force-dynamic";
@@ -17,15 +15,7 @@ export default async function BillingPage() {
   const billingOn = isBillingEnabled();
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/"><Wordmark className="h-6" /></Link>
-          <Link href="/account" className="mono text-xs text-ink-soft hover:text-ink">← Account</Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <>
         <div className="flex items-end justify-between">
           <div>
             <div className="mono text-[12px] uppercase tracking-widest text-signal">Billing</div>
@@ -69,7 +59,6 @@ export default async function BillingPage() {
             );
           })}
         </div>
-      </main>
-    </div>
+      </>
   );
 }

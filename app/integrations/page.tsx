@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { Wordmark } from "@/components/Wordmark";
 import { connectorStates, INTEGRATION_CATEGORY_LABEL, type IntegrationCategory } from "@/lib/aegis/integrations";
 import { getSessionContext, roleAtLeast } from "@/lib/auth";
 import { CloudflareConnector } from "@/components/integrations/CloudflareConnector";
@@ -33,14 +31,7 @@ export default async function IntegrationsPage() {
   }, {});
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/"><Wordmark className="h-6" /></Link>
-          <Link href="/account" className="mono text-xs text-ink-soft hover:text-ink">Back to account</Link>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <>
         <div className="mono text-[12px] uppercase tracking-widest text-signal">Aegis · integrations</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">Connect your infrastructure</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
@@ -97,7 +88,6 @@ export default async function IntegrationsPage() {
             </section>
           ))}
         </div>
-      </main>
-    </div>
+      </>
   );
 }

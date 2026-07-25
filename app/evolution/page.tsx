@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Wordmark } from "@/components/Wordmark";
 
 interface Proposal {
   id: string;
@@ -102,15 +100,7 @@ export default function EvolutionPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/"><Wordmark className="h-6" /></Link>
-          <Link href="/account" className="mono text-xs text-ink-soft hover:text-ink">Back to account</Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-6 py-10">
+    <>
         <div className="mono text-[12px] uppercase tracking-widest text-signal">Evolution · control center</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">What OUTSIDE should learn next</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
@@ -234,7 +224,6 @@ export default function EvolutionPage() {
             )}
           </>
         )}
-      </main>
-    </div>
+      </>
   );
 }
