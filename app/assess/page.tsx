@@ -1,0 +1,162 @@
+"use client";
+
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+
+interface Check { id: string; version: string; title: string; category: string; rationale: string; remediation: string; references: string[] }
+interface CheckResult { check: Check; status: "pass" | "fail" | "not_evaluated"; severity: string | null; findingIds: string[] }
+interface Run { id: string; target: string; catalogueVersion: string; passed: number; failed: number; createdAt: string; results: CheckResult[] }
+interface RunSummary { id: string; passed: number; failed: number; createdAt: string }
+interface Diff { fixed: string[]; regressed: string[]; stillFailing: string[] }
+interface Status {
+  catalogue: { version: string; checks: Check[] };
+  target: string | null;
+  verified?: boolean;
+  runs?: RunSummary[];
+  latest?: Run | null;
+  diff?: Diff | null;
+}
+
+const SEVERITY_COLOR: Record<string, string> = { critical: "text-risk-high", high: "text-risk-high", medium: "text-risk-medium", low: "text-ink-soft", info: "text-ink-faint" };
+
+function AssessView() {
+  const params = useSearchParams();
+  const [target, setTarget] = useState(params.get("target") ?? "");
+  const [status, setStatus] = useState<Status | null>(null);
+  const [run, setRun] = useState<{ run: Run; diff: Diff | null } | null>(null);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadStatus(t: string) {
+    setError(null);
+    setRun(null);
+    const query = t.trim() ? `?target=${encodeURIComponent(t.trim())}` : "";
+    const res = await fetch(`/api/assess${query}`, { credentials: "include" });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error ?? "Could not load."); return; }
+    setStatus(data);
+    if (data.latest) setRun({ run: data.latest, diff: data.diff ?? null });
+  }
+
+  useEffect(() => {
+    const initial = params.get("target") ?? "";
+    const timer = window.setTimeout(() => void loadStatus(initial), 0);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function runAssessment() {
+    if (running || !target.trim()) return;
+    setRunning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/assess", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ target: target.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data.error ?? "The assessment did not complete.");
+      else { setRun(data); await loadStatus(target); }
+    } catch {
+      setError("Network error. Nothing was changed.");
+    }
+    setRunning(false);
+  }
+
+  const checks = status?.catalogue.checks ?? [];
+  const results = run?.run.results ?? null;
+
+  return (
+    <>
+      <div className="mono text-[12px] uppercase tracking-widest text-signal">OUTSIDE Assess</div>
+      <h1 className="mt-2 text-3xl font-semibold text-ink">Safe, verified security assessment</h1>
+      <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
+        A named, versioned checklist of non-destructive checks — TLS, security headers, mail authentication, known-vulnerability
+        correlation and more — run against a domain you have verified. Every check passes or reports the evidence that failed it.
+        No exploitation, ever.
+      </p>
+
+      <form onSubmit={(e) => { e.preventDefault(); void loadStatus(target); }} className="mt-6 flex flex-wrap gap-2">
+        <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="yourcompany.com" spellCheck={false} autoComplete="off" className="mono min-w-0 flex-1 rounded-lg border border-line bg-base-950 px-3 py-2 text-sm text-ink" />
+        <button type="submit" className="mono rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:text-ink">Check status</button>
+        <button type="button" onClick={runAssessment} disabled={running || !status?.verified} className="rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950 disabled:opacity-50">
+          {running ? "Assessing…" : "Run assessment"}
+        </button>
+      </form>
+
+      {error && <div role="alert" className="mt-4 rounded-lg border border-risk-high/30 bg-risk-high/5 px-4 py-3 text-sm text-risk-high">{error}</div>}
+
+      {status?.target && status.verified === false && (
+        <div className="mt-4 rounded-lg border border-risk-medium/30 bg-risk-medium/5 px-4 py-3 text-sm text-ink-soft">
+          <span className="text-risk-medium">Ownership not verified.</span> Assessment runs only on domains your organization has verified.{" "}
+          <Link href={`/scan?target=${encodeURIComponent(status.target)}`} className="text-signal hover:underline">Verify {status.target}</Link> first.
+        </div>
+      )}
+
+      {run && results && (
+        <section className="mt-8">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-medium text-ink">Results for {run.run.target}</h2>
+            <span className="mono text-xs text-ink-faint">{new Date(run.run.createdAt).toLocaleString()} · catalogue {run.run.catalogueVersion}</span>
+          </div>
+          <div className="mono mt-2 flex flex-wrap gap-x-6 text-xs">
+            <span className="text-signal">{run.run.passed} passed</span>
+            <span className={run.run.failed > 0 ? "text-risk-high" : "text-ink-faint"}>{run.run.failed} failed</span>
+            {run.diff && (run.diff.fixed.length > 0 || run.diff.regressed.length > 0) && (
+              <span className="text-ink-faint">
+                retest: {run.diff.fixed.length > 0 && <span className="text-signal">{run.diff.fixed.length} fixed</span>}
+                {run.diff.fixed.length > 0 && run.diff.regressed.length > 0 && " · "}
+                {run.diff.regressed.length > 0 && <span className="text-risk-high">{run.diff.regressed.length} regressed</span>}
+              </span>
+            )}
+          </div>
+
+          <ul className="mt-4 space-y-2">
+            {results.map((result) => {
+              const regressed = run.diff?.regressed.includes(result.check.id);
+              const fixed = run.diff?.fixed.includes(result.check.id);
+              return (
+                <li key={result.check.id} className="panel p-4">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className={`mono text-[11px] uppercase tracking-wide ${result.status === "pass" ? "text-signal" : SEVERITY_COLOR[result.severity ?? "medium"]}`}>
+                      {result.status === "pass" ? "✓ pass" : `✕ fail`}
+                    </span>
+                    <span className="text-sm text-ink">{result.check.title}</span>
+                    {result.status === "fail" && result.severity && <span className={`mono text-[10px] uppercase ${SEVERITY_COLOR[result.severity]}`}>{result.severity}</span>}
+                    {fixed && <span className="mono text-[10px] uppercase text-signal">newly fixed</span>}
+                    {regressed && <span className="mono text-[10px] uppercase text-risk-high">regressed</span>}
+                    <span className="mono ml-auto text-[10px] text-ink-faint">v{result.check.version}</span>
+                  </div>
+                  {result.status === "fail" && (
+                    <p className="mt-2 text-xs leading-relaxed text-ink-soft"><span className="text-ink-faint">Remediation: </span>{result.check.remediation}</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {!run && checks.length > 0 && (
+        <section className="mt-8">
+          <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">Catalogue · {checks.length} safe checks · version {status?.catalogue.version}</div>
+          <ul className="mt-3 grid gap-2 md:grid-cols-2">
+            {checks.map((check) => (
+              <li key={check.id} className="panel p-3">
+                <div className="text-sm text-ink">{check.title}</div>
+                <p className="mt-1 text-xs leading-relaxed text-ink-soft">{check.rationale}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
+  );
+}
+
+export default function AssessPage() {
+  return <Suspense><AssessView /></Suspense>;
+}

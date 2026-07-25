@@ -9,6 +9,7 @@ import { LogoutButton } from "@/components/account/AccountControls";
 export type AppSection =
   | "overview"
   | "guardian"
+  | "assess"
   | "history"
   | "integrations"
   | "capabilities"
@@ -53,6 +54,7 @@ export async function AppShell({
   const items: Array<{ key: AppSection; href: string; label: string; accent?: boolean }> = [
     { key: "overview", href: "/account", label: "Overview" },
     { key: "guardian", href: "/guardian", label: "Guardian", accent: true },
+    { key: "assess", href: "/assess", label: "Assess" },
     { key: "history", href: "/chronos", label: "History" },
     { key: "integrations", href: "/integrations", label: "Integrations" },
     { key: "capabilities", href: "/capabilities", label: "Capabilities" },
