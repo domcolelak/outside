@@ -1317,3 +1317,24 @@ model ScanOptOut {
 
   @@map("scan_opt_outs")
 }
+
+/**
+ * An immutable OUTSIDE Assess run: the safe verified check catalogue evaluated
+ * against a verified target at a point in time. Retest = a later run diffed
+ * against the previous one. Never stores exploitation evidence — only pass/fail
+ * per check with references to the scan's deterministic findings.
+ */
+model AssessmentRun {
+  id               String   @id @default(cuid())
+  orgId            String
+  target           String
+  catalogueVersion String
+  passed           Int
+  failed           Int
+  results          Json
+  createdBy        String
+  createdAt        DateTime @default(now())
+
+  @@index([orgId, target, createdAt])
+  @@map("assessment_runs")
+}
