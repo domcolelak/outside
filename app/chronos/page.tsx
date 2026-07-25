@@ -1,9 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Wordmark } from "@/components/Wordmark";
 
 interface AssetChange { canonical: string; label: string; change: "added" | "removed" | "modified"; details: string[] }
 interface Diff { from: { observedAt: string } | null; exposureScoreDelta: number; assetChanges: AssetChange[]; summary: string }
@@ -48,15 +46,7 @@ function ChronosView() {
   }, []);
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/"><Wordmark className="h-6" /></Link>
-          <Link href="/account" className="mono text-xs text-ink-soft hover:text-ink">Back to account</Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-6 py-10">
+    <>
         <div className="mono text-[12px] uppercase tracking-widest text-signal">Chronos · security time machine</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">How this surface changed over time</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
@@ -107,8 +97,7 @@ function ChronosView() {
         {state === "done" && steps.length === 0 && (
           <div className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">No recorded points yet.</div>
         )}
-      </main>
-    </div>
+      </>
   );
 }
 

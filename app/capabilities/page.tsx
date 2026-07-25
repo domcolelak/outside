@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { Wordmark } from "@/components/Wordmark";
 import { CAPABILITIES, type Capability, type CapabilityType } from "@/lib/capabilities/registry";
 
 export const dynamic = "force-dynamic";
@@ -40,15 +38,7 @@ export default function CapabilitiesPage() {
   const order: CapabilityType[] = ["discovery_collector", "enrichment_collector", "passive_detector", "correlation"];
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/"><Wordmark className="h-6" /></Link>
-          <Link href="/account" className="mono text-xs text-ink-soft hover:text-ink">Back to account</Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <>
         <div className="mono text-[12px] uppercase tracking-widest text-signal">Capability registry</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">What OUTSIDE can detect</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
@@ -95,7 +85,6 @@ export default function CapabilitiesPage() {
             </section>
           ))}
         </div>
-      </main>
-    </div>
+      </>
   );
 }

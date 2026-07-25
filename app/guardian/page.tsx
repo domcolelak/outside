@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionContext, roleAtLeast } from "@/lib/auth";
-import { Wordmark } from "@/components/Wordmark";
-import { LogoutButton } from "@/components/account/AccountControls";
 import { GuardianDashboard } from "@/components/guardian/GuardianDashboard";
 import { PresentationControls } from "@/components/experience/PresentationControls";
 import { getGuardianStore } from "@/lib/guardian/store";
@@ -17,7 +15,20 @@ export default async function GuardianPage({ searchParams }: { searchParams: Pro
   const membership = ctx.memberships.find((item) => item.org.id === requested) ?? ctx.memberships[0];
   if (!membership) redirect("/account");
   const premium = membership.org.plan !== "free";
-  return <div className="min-h-screen"><header data-capture-hide className="sticky top-0 z-40 border-b border-line bg-base-950/78 backdrop-blur-2xl"><div className="mx-auto flex max-w-[1500px] items-center justify-between px-5 py-3 md:px-8"><div className="flex items-center gap-5"><Link href="/"><Wordmark className="h-6"/></Link><div className="hidden h-5 w-px bg-line md:block"/><div className="hidden md:block"><div className="mono text-[10px] uppercase tracking-[.18em] text-signal">Guardian workspace</div><div className="mt-0.5 text-xs text-ink-soft">{membership.org.name}</div></div></div><nav className="flex items-center gap-2"><Link href="/account" className="mono hidden rounded-lg px-3 py-2 text-[11px] uppercase tracking-wider text-ink-faint hover:bg-base-800 hover:text-ink md:block">Workspace</Link><Link href="/scan" className="mono hidden rounded-lg px-3 py-2 text-[11px] uppercase tracking-wider text-ink-faint hover:bg-base-800 hover:text-ink md:block">New scan</Link>{premium && <PresentationControls name={`outside-guardian-${membership.org.slug}`}/>}<LogoutButton/></nav></div></header><main className="mx-auto max-w-[1500px] px-5 py-7 md:px-8 md:py-10">{premium ? <GuardianDashboard initial={await (await getGuardianStore()).overview(membership.org.id)} orgId={membership.org.id} canAdmin={roleAtLeast(membership.role, "admin")}/> : <GuardianPaywall/>}</main></div>;
+  return (
+    <>
+      <div data-capture-hide className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="mono text-[10px] uppercase tracking-[.18em] text-signal">Guardian workspace</div>
+          <div className="mt-0.5 text-sm text-ink-soft">{membership.org.name}</div>
+        </div>
+        {premium && <PresentationControls name={`outside-guardian-${membership.org.slug}`} />}
+      </div>
+      {premium
+        ? <GuardianDashboard initial={await (await getGuardianStore()).overview(membership.org.id)} orgId={membership.org.id} canAdmin={roleAtLeast(membership.role, "admin")} />
+        : <GuardianPaywall />}
+    </>
+  );
 }
 
 function GuardianPaywall() {
