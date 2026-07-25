@@ -1,6 +1,7 @@
 import { connectorStates, INTEGRATION_CATEGORY_LABEL, type IntegrationCategory } from "@/lib/aegis/integrations";
 import { getSessionContext, roleAtLeast } from "@/lib/auth";
 import { CloudflareConnector } from "@/components/integrations/CloudflareConnector";
+import { HibpConnector } from "@/components/integrations/HibpConnector";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,14 @@ export default async function IntegrationsPage() {
         )}
         <div className="mono mt-3 text-xs text-ink-faint">{configuredCount} of {connectors.length} operator credential sets configured</div>
         <div className="mt-8 space-y-8">
+          <section>
+            <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">Threat &amp; identity intelligence</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {canConnect && adminOrg
+                ? <HibpConnector orgId={adminOrg.id} />
+                : <div className="panel p-4"><div className="text-ink">Have I Been Pwned</div><p className="mt-2 text-sm text-ink-soft">Breach exposure for your verified domains, using your own HIBP API key.</p><div className="mono mt-3 text-[11px] text-ink-faint">Sign in as an owner or admin to connect.</div></div>}
+            </div>
+          </section>
           {Object.entries(groups).map(([category, list]) => (
             <section key={category}>
               <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">
