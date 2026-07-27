@@ -1285,6 +1285,45 @@ model IntegrationConnection {
 }
 
 /**
+ * Usage telemetry for external provider calls — one row per validate/connect/
+ * status/search/etc. Records outcome, mapped error code and latency, never any
+ * secret or provider payload. Powers the per-connection "View usage" summary and
+ * rate/quota awareness. Shared by every provider; no per-provider table.
+ */
+model ProviderUsageEvent {
+  id        String   @id @default(cuid())
+  orgId     String
+  provider  String
+  operation String
+  ok        Boolean
+  status    Int?
+  errorCode String?
+  latencyMs Int?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, provider, createdAt])
+  @@map("provider_usage_events")
+}
+
+/**
+ * Immutable audit trail for provider credential lifecycle events (connected,
+ * validated, replaced, disconnected). Carries the actor and a non-secret detail
+ * string only — never the credential. Shared by every provider.
+ */
+model ProviderAuditEvent {
+  id        String   @id @default(cuid())
+  orgId     String
+  provider  String
+  action    String
+  actorId   String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([orgId, provider, createdAt])
+  @@map("provider_audit_events")
+}
+
+/**
  * A remediation OUTSIDE actually applied to a customer's provider account.
  * Stores the rollback handle returned by the provider so the change can be
  * reversed later, and keeps an immutable record of who applied it.

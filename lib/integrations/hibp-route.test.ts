@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 /**
- * Route-level authorization for the HIBP integration. The store is already
- * tenant-scoped; this proves the ENDPOINT refuses a user of organization A any
- * access to organization B's credential — read, test, connect/replace or
- * disconnect — before the store is ever touched.
+ * Route-level authorization for the shared provider endpoint, exercised through
+ * HIBP. The store is already tenant-scoped; this proves the ENDPOINT refuses a
+ * user of organization A any access to organization B's credential — read, test,
+ * connect/replace or disconnect — before the store is ever touched.
  */
 const session = vi.hoisted(() => ({ current: null as unknown }));
 vi.mock("@/lib/auth", () => ({
@@ -30,10 +30,11 @@ vi.mock("@/lib/security/ratelimit", () => ({ rateLimit: async () => ({ ok: true 
 vi.mock("@/lib/http/body", () => ({ readLimitedJson: async (r: Request) => JSON.parse(await r.text()), RequestBodyError: class extends Error {} }));
 vi.mock("@/lib/observability/log", () => ({ operationalLog: () => {} }));
 
-import { GET, POST, DELETE } from "@/app/api/integrations/hibp/route";
+import { GET, POST, DELETE } from "@/app/api/integrations/[provider]/route";
 
 const KEY = "0".repeat(32);
-function get(url: string) { return GET(new NextRequest(url)); }
+const ctx = { params: Promise.resolve({ provider: "hibp" }) };
+function get(url: string) { return GET(new NextRequest(url), ctx); }
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -42,7 +43,7 @@ beforeEach(() => {
   store.token.mockResolvedValue(null);
 });
 
-describe("HIBP route authorization — cross-tenant", () => {
+describe("provider route authorization — cross-tenant (via HIBP)", () => {
   it("refuses to READ another org's credential (403, store never touched)", async () => {
     const res = await get("http://x/api/integrations/hibp?orgId=org_b");
     expect(res.status).toBe(403);
@@ -51,13 +52,13 @@ describe("HIBP route authorization — cross-tenant", () => {
   });
 
   it("refuses to CONNECT/REPLACE on another org (403, nothing saved)", async () => {
-    const res = await POST(new NextRequest("http://x/api/integrations/hibp", { method: "POST", body: JSON.stringify({ orgId: "org_b", key: KEY }) }));
+    const res = await POST(new NextRequest("http://x/api/integrations/hibp", { method: "POST", body: JSON.stringify({ orgId: "org_b", key: KEY }) }), ctx);
     expect(res.status).toBe(403);
     expect(store.save).not.toHaveBeenCalled();
   });
 
   it("refuses to DISCONNECT another org (403, nothing deleted)", async () => {
-    const res = await DELETE(new NextRequest("http://x/api/integrations/hibp?orgId=org_b", { method: "DELETE" }));
+    const res = await DELETE(new NextRequest("http://x/api/integrations/hibp?orgId=org_b", { method: "DELETE" }), ctx);
     expect(res.status).toBe(403);
     expect(store.del).not.toHaveBeenCalled();
   });
@@ -77,5 +78,10 @@ describe("HIBP route authorization — cross-tenant", () => {
     session.current = null;
     const res = await get("http://x/api/integrations/hibp?orgId=org_a");
     expect(res.status).toBe(401);
+  });
+
+  it("returns 404 for an unknown provider", async () => {
+    const res = await GET(new NextRequest("http://x/api/integrations/nope?orgId=org_a"), { params: Promise.resolve({ provider: "nope" }) });
+    expect(res.status).toBe(404);
   });
 });

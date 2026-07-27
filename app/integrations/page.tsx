@@ -1,9 +1,18 @@
 import { connectorStates, INTEGRATION_CATEGORY_LABEL, type IntegrationCategory } from "@/lib/aegis/integrations";
 import { getSessionContext, roleAtLeast } from "@/lib/auth";
 import { CloudflareConnector } from "@/components/integrations/CloudflareConnector";
-import { HibpConnector } from "@/components/integrations/HibpConnector";
+import { ProviderConnector } from "@/components/integrations/ProviderConnector";
+import { listByokDescriptors } from "@/lib/integrations/providers/registry";
 
 export const dynamic = "force-dynamic";
+
+const BYOK_CATEGORY_LABEL: Record<string, string> = {
+  threat_intel: "Threat & identity intelligence",
+  attack_surface: "Attack surface intelligence",
+  reputation: "IP & domain reputation",
+  ai: "AI & enrichment",
+  notifier: "Notifications",
+};
 
 const REMEDIATION_LABEL: Record<string, string> = {
   mail_security: "Mail security",
@@ -31,15 +40,23 @@ export default async function IntegrationsPage() {
     return acc;
   }, {});
 
+  // Bring-your-own-key providers come from the shared registry — adding one is a
+  // registry entry, not new page code.
+  const byok = listByokDescriptors();
+  const byokGroups = byok.reduce<Record<string, typeof byok>>((acc, descriptor) => {
+    (acc[descriptor.category] ??= []).push(descriptor);
+    return acc;
+  }, {});
+
   return (
     <>
         <div className="mono text-[12px] uppercase tracking-widest text-signal">Aegis · integrations</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">Connect your infrastructure</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
           Connecting a provider lets OUTSIDE confirm findings against your real configuration instead of inferring them from
-          the outside. <span className="text-ink">Cloudflare can be connected here</span> with your own API token — we verify it,
-          store it encrypted, and never show it again. The remaining providers are operator-configured and remain read-only
-          previews until they are built.
+          the outside. <span className="text-ink">Cloudflare and Have I Been Pwned can be connected here</span> with your own
+          credentials — we verify each one live, store it encrypted, and never show it again. The remaining providers are
+          operator-configured and remain read-only previews until they are built.
         </p>
         {!canConnect && (
           <div className="mt-4 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">
@@ -52,14 +69,18 @@ export default async function IntegrationsPage() {
         )}
         <div className="mono mt-3 text-xs text-ink-faint">{configuredCount} of {connectors.length} operator credential sets configured</div>
         <div className="mt-8 space-y-8">
-          <section>
-            <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">Threat &amp; identity intelligence</div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {canConnect && adminOrg
-                ? <HibpConnector orgId={adminOrg.id} />
-                : <div className="panel p-4"><div className="text-ink">Have I Been Pwned</div><p className="mt-2 text-sm text-ink-soft">Breach exposure for your verified domains, using your own HIBP API key.</p><div className="mono mt-3 text-[11px] text-ink-faint">Sign in as an owner or admin to connect.</div></div>}
-            </div>
-          </section>
+          {Object.entries(byokGroups).map(([category, list]) => (
+            <section key={category}>
+              <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">{BYOK_CATEGORY_LABEL[category] ?? category}</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                {list.map((descriptor) => (
+                  canConnect && adminOrg
+                    ? <ProviderConnector key={descriptor.id} descriptor={descriptor} orgId={adminOrg.id} />
+                    : <div key={descriptor.id} className="panel p-4"><div className="text-ink">{descriptor.name}</div><p className="mt-2 text-sm text-ink-soft">{descriptor.summary}</p><div className="mono mt-3 text-[11px] text-ink-faint">Sign in as an owner or admin to connect.</div></div>
+                ))}
+              </div>
+            </section>
+          ))}
           {Object.entries(groups).map(([category, list]) => (
             <section key={category}>
               <div className="mono mb-3 text-[12px] uppercase tracking-wider text-ink-faint">
