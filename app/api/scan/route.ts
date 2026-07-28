@@ -17,6 +17,7 @@ import { processGuardianScan } from "@/lib/guardian/process";
 import { recordScanOperation } from "@/lib/observability/metrics";
 import { isOptedOut } from "@/lib/security/optout";
 import { issueShareProof } from "@/lib/share/proof";
+import { recordScanProviderUsage, withOrgProviderKeys } from "@/lib/integrations/providers/org-keys";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,7 +91,12 @@ export async function GET(req: NextRequest) {
             }
           }
 
-          const result = await runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal });
+          // Run with the organization's own provider credentials in scope, so a
+          // customer's connected key powers their scan instead of the platform key.
+          const result = await withOrgProviderKeys(orgId, () =>
+            runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal }),
+          );
+          await recordScanProviderUsage(orgId, result.providerRuns ?? []);
           // Persist + derive change detection against this target's history.
           const store = await getStore();
           if (orgId) {

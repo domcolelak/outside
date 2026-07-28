@@ -40,6 +40,8 @@ export const hibpProvider: ProviderDefinition = {
   category: "threat_intel",
   summary: "Breach exposure for domains you have verified. Bring your own HIBP API key — used server-side only.",
   credentialKind: "api_key",
+  envKey: "HIBP_API_KEY",
+  runLabel: "HaveIBeenPwned",
   docsUrl: "https://haveibeenpwned.com/API/Key",
   keyPlaceholder: "32-character key",
   looksValid: looksLikeHibpKey,

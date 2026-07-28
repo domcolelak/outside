@@ -21,6 +21,8 @@ function makeDef(validate: (raw: string) => Promise<ProviderValidation>): Provid
     category: "threat_intel",
     summary: "",
     credentialKind: "api_key",
+    envKey: "STUB_API_KEY",
+    runLabel: "Stub",
     docsUrl: "https://example.test",
     keyPlaceholder: "",
     formatHint: "Key must be at least 4 characters.",
