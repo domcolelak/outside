@@ -60,6 +60,17 @@ export interface ProviderDefinition {
   category: "threat_intel" | "attack_surface" | "reputation" | "ai" | "notifier";
   summary: string;
   credentialKind: CredentialKind;
+  /**
+   * The environment variable this credential substitutes inside a scan. The
+   * scan pipeline reads keys through providerKey(envKey), so an organization's
+   * stored credential transparently takes precedence over the platform key.
+   */
+  envKey: string;
+  /**
+   * The name this provider reports itself as in a scan's ProviderRun list, used
+   * to attribute post-scan usage back to the organization's credential.
+   */
+  runLabel: string;
   /** Where a customer obtains the credential. */
   docsUrl: string;
   /** Placeholder shown in the key field. */

@@ -8,14 +8,17 @@
  * public IP this queries Censys for its observed services and attaches them to
  * the asset, from which the finding layer surfaces risky non-web exposure.
  *
- * Operator-keyed (CENSYS_API_ID + CENSYS_API_SECRET, HTTP basic auth): inactive
- * without both. Bounded (timeout + IP cap) and isolated — a failure is captured
- * in its ProviderRun and never fails the scan. The target's resolved IPs are the
- * query subjects, never connection destinations, so this never touches egress.
+ * Keyed by CENSYS_API_ID + CENSYS_API_SECRET (HTTP basic auth) and inactive
+ * without both. The pair is read through providerKey(), so an organization's own
+ * connected credential takes precedence over the platform key for its scans.
+ * Bounded (timeout + IP cap) and isolated — a failure is captured in its
+ * ProviderRun and never fails the scan. The target's resolved IPs are the query
+ * subjects, never connection destinations, so this never touches egress.
  */
 
 import type { Asset, ProviderRun } from "@/lib/types";
 import { isSafePublicIp } from "@/lib/security/target";
+import { providerKey } from "@/lib/integrations/credential-context";
 import { mapPool } from "./net";
 
 const FETCH_TIMEOUT_MS = 10_000;
@@ -30,12 +33,12 @@ export interface HostService {
 }
 
 export function censysConfigured(): boolean {
-  return !!process.env.CENSYS_API_ID?.trim() && !!process.env.CENSYS_API_SECRET?.trim();
+  return !!providerKey("CENSYS_API_ID") && !!providerKey("CENSYS_API_SECRET");
 }
 
 function authHeader(): string {
-  const id = process.env.CENSYS_API_ID?.trim() ?? "";
-  const secret = process.env.CENSYS_API_SECRET?.trim() ?? "";
+  const id = providerKey("CENSYS_API_ID") ?? "";
+  const secret = providerKey("CENSYS_API_SECRET") ?? "";
   return `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
 }
 

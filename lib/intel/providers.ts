@@ -1,10 +1,12 @@
 /**
  * Threat-intelligence providers.
  *
- * Optional, operator-configured enrichment that queries third-party reputation
- * and breach intelligence about a scan's discovered infrastructure. Each
- * provider is env-gated by its own API key: with no key the provider returns
- * null and the product is unaffected. Calls go to a single fixed, trusted API
+ * Optional enrichment that queries third-party reputation and breach
+ * intelligence about a scan's discovered infrastructure. Each provider is gated
+ * by its own API key, read through providerKey() so an organization's own
+ * connected credential takes precedence over the platform key for that
+ * organization's scans. With no key at all the provider returns null and the
+ * product is unaffected. Calls go to a single fixed, trusted API
  * host per provider — the target's resolved IPs are query parameters, never
  * connection destinations, so this never touches the scan egress path.
  *
@@ -13,6 +15,8 @@
  * organization). They are never presented as confirmed compromise of the
  * target's current systems.
  */
+
+import { providerKey } from "@/lib/integrations/credential-context";
 
 const FETCH_TIMEOUT_MS = 8_000;
 
@@ -60,19 +64,19 @@ export interface DomainReputation {
 }
 
 export function abuseIpdbConfigured(): boolean {
-  return !!process.env.ABUSEIPDB_API_KEY?.trim();
+  return !!providerKey("ABUSEIPDB_API_KEY");
 }
 
 export function hibpConfigured(): boolean {
-  return !!process.env.HIBP_API_KEY?.trim();
+  return !!providerKey("HIBP_API_KEY");
 }
 
 export function greyNoiseConfigured(): boolean {
-  return !!process.env.GREYNOISE_API_KEY?.trim();
+  return !!providerKey("GREYNOISE_API_KEY");
 }
 
 export function virusTotalConfigured(): boolean {
-  return !!process.env.VIRUSTOTAL_API_KEY?.trim();
+  return !!providerKey("VIRUSTOTAL_API_KEY");
 }
 
 async function getJson(url: string, headers: Record<string, string>, signal?: AbortSignal): Promise<unknown> {
@@ -99,7 +103,7 @@ function str(value: unknown): string {
 
 /** AbuseIPDB reputation for a single IP. Returns null when unconfigured. */
 export async function checkIpReputation(ip: string, options: { signal?: AbortSignal } = {}): Promise<IpReputation | null> {
-  const key = process.env.ABUSEIPDB_API_KEY?.trim();
+  const key = providerKey("ABUSEIPDB_API_KEY");
   if (!key) return null;
   const url = `https://api.abuseipdb.com/api/v2/check?ipAddress=${encodeURIComponent(ip)}&maxAgeInDays=90`;
   const body = await getJson(url, { Key: key }, options.signal);
@@ -118,10 +122,11 @@ export async function checkIpReputation(ip: string, options: { signal?: AbortSig
 
 /** HaveIBeenPwned breaches recorded against an organization's domain. */
 export async function checkDomainBreaches(domain: string, options: { signal?: AbortSignal } = {}): Promise<BreachExposure | null> {
-  const key = process.env.HIBP_API_KEY?.trim();
+  const key = providerKey("HIBP_API_KEY");
   if (!key) return null;
   const url = `https://haveibeenpwned.com/api/v3/breaches?domain=${encodeURIComponent(domain)}`;
-  const body = await getJson(url, { "hibp-api-key": key, "user-agent": "OUTSIDE-external-surface-monitor" }, options.signal);
+  const userAgent = process.env.HIBP_USER_AGENT?.trim() || "OUTSIDE-Guardian";
+  const body = await getJson(url, { "hibp-api-key": key, "user-agent": userAgent }, options.signal);
   if (!Array.isArray(body)) return { source: "HaveIBeenPwned", breaches: [] };
   const breaches: DomainBreach[] = [];
   for (const entry of body) {
@@ -136,7 +141,7 @@ export async function checkDomainBreaches(domain: string, options: { signal?: Ab
 
 /** GreyNoise Community classification for a single IP. A 404 (never observed) reads as no signal. */
 export async function checkIpGreyNoise(ip: string, options: { signal?: AbortSignal } = {}): Promise<IpClassification | null> {
-  const key = process.env.GREYNOISE_API_KEY?.trim();
+  const key = providerKey("GREYNOISE_API_KEY");
   if (!key) return null;
   const body = await getJson(`https://api.greynoise.io/v3/community/${encodeURIComponent(ip)}`, { key }, options.signal);
   if (!body || typeof body !== "object") return null;
@@ -158,7 +163,7 @@ export async function checkIpGreyNoise(ip: string, options: { signal?: AbortSign
 
 /** VirusTotal domain reputation (aggregate of security-vendor verdicts). Null when unconfigured. */
 export async function checkDomainReputation(domain: string, options: { signal?: AbortSignal } = {}): Promise<DomainReputation | null> {
-  const key = process.env.VIRUSTOTAL_API_KEY?.trim();
+  const key = providerKey("VIRUSTOTAL_API_KEY");
   if (!key) return null;
   const body = await getJson(`https://www.virustotal.com/api/v3/domains/${encodeURIComponent(domain)}`, { "x-apikey": key }, options.signal);
   const attrs = body && typeof body === "object" ? ((body as { data?: { attributes?: unknown } }).data?.attributes) : undefined;

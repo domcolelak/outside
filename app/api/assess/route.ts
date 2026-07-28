@@ -9,6 +9,7 @@ import { recordRun, listRuns, getRun, previousRun, diffRuns } from "@/lib/assess
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { operationalLog } from "@/lib/observability/log";
+import { recordScanProviderUsage, withOrgProviderKeys } from "@/lib/integrations/providers/org-keys";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,10 +77,13 @@ export async function POST(req: NextRequest) {
 
   let findings;
   try {
-    const result = await runPassiveScan(target, `assess_${randomUUID()}`, () => {}, {
-      activeObservation: true,
-      signal: AbortSignal.timeout(55_000),
-    });
+    const result = await withOrgProviderKeys(orgId, () =>
+      runPassiveScan(target, `assess_${randomUUID()}`, () => {}, {
+        activeObservation: true,
+        signal: AbortSignal.timeout(55_000),
+      }),
+    );
+    await recordScanProviderUsage(orgId, result.providerRuns ?? []);
     findings = result.findings;
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error && error.name === "TimeoutError" ? "The assessment timed out. Try again." : "The assessment could not complete — the target may be unreachable." }, { status: 502 });

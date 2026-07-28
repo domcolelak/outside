@@ -10,6 +10,7 @@ import { deliverGuardianBatch } from "@/lib/guardian/notifications";
 import { getGuardianStore } from "@/lib/guardian/store";
 import { authorizeCronHeader } from "@/lib/security/cron-auth";
 import { operationalLog } from "@/lib/observability/log";
+import { recordScanProviderUsage, withOrgProviderKeys } from "@/lib/integrations/providers/org-keys";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,11 @@ export async function GET(req: NextRequest) {
     const leaseId = monitor.leaseId!;
     try {
       const scanId = `cron_${monitor.id}_${new Date(monitor.nextRunAt).getTime()}`;
-      const result = await runPassiveScan(monitor.domain, scanId, () => {}, { activeObservation: true, signal: AbortSignal.timeout(90_000) });
+      // Scheduled monitoring uses the organization's own provider credentials too.
+      const result = await withOrgProviderKeys(monitor.orgId, () =>
+        runPassiveScan(monitor.domain, scanId, () => {}, { activeObservation: true, signal: AbortSignal.timeout(90_000) }),
+      );
+      await recordScanProviderUsage(monitor.orgId, result.providerRuns ?? []);
       let alreadyPersisted = false;
       try { await recordScan(scanStore, result, monitor.orgId, true); }
       catch (error) {
