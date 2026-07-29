@@ -9,10 +9,16 @@ import type { ProviderDefinition } from "./types";
 import { toDescriptor } from "./types";
 import { hibpProvider } from "./hibp";
 import { securityTrailsProvider } from "./securitytrails";
+import { shodanProvider } from "./shodan";
+import { abuseIpdbProvider } from "./abuseipdb";
+import { greyNoiseProvider } from "./greynoise";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
   [securityTrailsProvider.id]: securityTrailsProvider,
+  [shodanProvider.id]: shodanProvider,
+  [abuseIpdbProvider.id]: abuseIpdbProvider,
+  [greyNoiseProvider.id]: greyNoiseProvider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */
