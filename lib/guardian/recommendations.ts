@@ -111,7 +111,16 @@ export function mergeRecommendationState(current: GuardianRecommendation[], prio
   const old = new Map(prior.map((item) => [item.code, item]));
   return current.map((item) => {
     const previous = old.get(item.code);
-    return previous ? { ...item, status: previous.status === "resolved" ? "open" : previous.status, firstObservedAt: previous.firstObservedAt } : item;
+    if (!previous) return item;
+    // A recommendation that was resolved and is observed again is a regression;
+    // record when so the weekly digest can say so instead of guessing.
+    const regressed = previous.status === "resolved";
+    return {
+      ...item,
+      status: regressed ? "open" : previous.status,
+      firstObservedAt: previous.firstObservedAt,
+      regressedAt: regressed ? item.lastObservedAt : previous.regressedAt,
+    };
   });
 }
 

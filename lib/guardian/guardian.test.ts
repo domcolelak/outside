@@ -103,9 +103,11 @@ describe("Guardian deterministic analysis", () => {
     expect(second.drift.dimensions.find((item) => item.code === "assets")?.delta).toBe(6);
     expect(second.events.some((event) => event.type === "surface_growth")).toBe(true);
     const digest = createWeeklyDigest(second.snapshot, second.events, second.recommendations, second.drift, new Date("2026-06-08T12:00:00.000Z"));
-    expect(digest.newAssets).toBe(6);
-    expect(digest.reviewItems.length).toBeGreaterThan(0);
-    expect(digest.executiveSummary).toContain("6 new or returning");
+    expect(digest.changeStatus.newAssets).toBe(6);
+    expect(digest.changeStatus.returnedAssets).toBe(0);
+    expect(digest.recommendations.cards.length).toBeGreaterThan(0);
+    expect(digest.executiveSummary).toContain("6 new assets");
+    expect(digest.executiveSummary).toContain("0 returning assets");
   });
 
   it("preserves recommendation state and idempotency in the store", async () => {

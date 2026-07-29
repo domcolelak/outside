@@ -5,6 +5,7 @@ import { decryptGuardianConfig } from "./crypto";
 import { safeGuardianPost, type GuardianHttpRequest } from "./transport";
 import type { GuardianStore } from "./store-model";
 import type { GuardianAnalysis, GuardianChannelType, GuardianDigest, GuardianEvent } from "./types";
+import { groupCardsByArea, type DigestRecommendationCard } from "./digest-content";
 import { recordGuardianDelivery, recordGuardianQueueMetrics } from "@/lib/observability/metrics";
 
 type Config = Record<string, string>;
@@ -46,8 +47,8 @@ export async function queueGuardianDigestNotifications(store: GuardianStore, dig
   const recipients = members.filter((member) => member.role !== "viewer" && member.notifyChanges);
   const payload: DigestPayload = { kind: "weekly_digest", digest };
   const jobs = [
-    ...channels.map((channel) => store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:${channel.id}`, orgId: digest.orgId, channelId: channel.id, channelType: channel.type, target: digest.target, kind: "weekly_digest", itemCount: digest.reviewItems.length, payload })),
-    ...recipients.map((member) => store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:email:${member.email.toLowerCase()}`, orgId: digest.orgId, channelId: null, channelType: "email", target: digest.target, kind: "weekly_digest", itemCount: digest.reviewItems.length, payload: digestEmail(member.email, digest) })),
+    ...channels.map((channel) => store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:${channel.id}`, orgId: digest.orgId, channelId: channel.id, channelType: channel.type, target: digest.target, kind: "weekly_digest", itemCount: digest.recommendations.cards.length, payload })),
+    ...recipients.map((member) => store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:email:${member.email.toLowerCase()}`, orgId: digest.orgId, channelId: null, channelType: "email", target: digest.target, kind: "weekly_digest", itemCount: digest.recommendations.cards.length, payload: digestEmail(member.email, digest) })),
   ];
   await Promise.all(jobs);
   return jobs.length;
@@ -60,14 +61,54 @@ function eventEmail(to: string, payload: EventPayload): EmailPayload {
   return { to, subject: `Guardian: ${payload.events.length} important change${payload.events.length === 1 ? "" : "s"} for ${payload.target}`, text, html };
 }
 
-function digestEmail(to: string, digest: GuardianDigest): EmailPayload {
-  const text = `${digest.headline}\n\n${digest.executiveSummary}\n\nReview:\n${digest.reviewItems.map((item) => `- ${item.title}: ${item.detail}`).join("\n")}`;
-  const html = `<div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px"><p style="color:#76e6a8;letter-spacing:.12em">OUTSIDE GUARDIAN · WEEKLY</p><h1>${escapeHtml(digest.headline)}</h1><p>${escapeHtml(digest.executiveSummary)}</p><div style="display:flex;gap:12px"><b>${digest.newAssets} new</b><b>${digest.importantChanges} important</b><b>${digest.shadowAssets} shadow</b></div>${digest.reviewItems.map((item) => `<div style="margin-top:16px;padding:14px;border-left:3px solid #76e6a8"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.detail)}</p></div>`).join("")}</div>`;
+const STATE_LABEL: Record<DigestRecommendationCard["state"], string> = { new: "New", existing: "Existing", regressed: "Regressed" };
+
+/**
+ * Render the weekly digest. The three subjects stay visually separate — what
+ * changed, how protected the surface is, and what is open to act on — and every
+ * recommendation card carries the facts needed to act on it without opening the
+ * app first: severity, affected asset, whether it is new, the action, and a
+ * tenant-scoped link.
+ */
+export function digestEmail(to: string, digest: GuardianDigest): EmailPayload {
+  const { changeStatus: change, posture, recommendations } = digest;
+  const groups = groupCardsByArea(recommendations.cards);
+  const more = recommendations.additional > 0 ? `View ${recommendations.additional} additional recommendation${recommendations.additional === 1 ? "" : "s"}` : "";
+
+  const changeLine = `Change status: ${change.newAssets} new, ${change.returnedAssets} returning, ${change.removedAssets} disappeared, ${change.newSurfaceSignals} new surface signal(s), ${change.highPriorityAlerts} high-priority alert(s).`;
+  const postureLine = `Protection posture: ${posture.drift.headline}. ${posture.shadowAssets} possible shadow asset(s).`;
+
+  const textCards = groups
+    .map((group) => `${group.area}\n${group.cards.map((card) => `- [${card.priority.toUpperCase()} · ${STATE_LABEL[card.state]}] ${card.title}\n  Asset: ${card.affectedAsset}${card.assetCount > 1 ? ` (+${card.assetCount - 1} more)` : ""}\n  Action: ${card.action}\n  ${card.link}`).join("\n")}`)
+    .join("\n\n");
+  const text = [`${digest.headline}`, digest.executiveSummary, changeLine, postureLine, `Open recommendations (${recommendations.total}):`, textCards, more].filter(Boolean).join("\n\n");
+
+  const card = (item: DigestRecommendationCard) => `<div style="margin-top:10px;padding:14px;border:1px solid #244339;border-radius:12px">
+<div style="font-size:11px;letter-spacing:.08em;color:#9fd9bd">${escapeHtml(item.priority.toUpperCase())} · ${escapeHtml(STATE_LABEL[item.state])}</div>
+<strong style="display:block;margin-top:6px">${escapeHtml(item.title)}</strong>
+<div style="margin-top:6px;font-size:13px;color:#9fd9bd">${escapeHtml(item.affectedAsset)}${item.assetCount > 1 ? ` <span style="color:#6f9d87">+${item.assetCount - 1} more</span>` : ""}</div>
+<p style="margin:8px 0 0;font-size:13px">${escapeHtml(item.action)}</p>
+<a href="${escapeHtml(item.link)}" style="display:inline-block;margin-top:10px;font-size:12px;color:#76e6a8">Open in OUTSIDE</a>
+</div>`;
+
+  const html = `<div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px">
+<p style="color:#76e6a8;letter-spacing:.12em">OUTSIDE GUARDIAN · WEEKLY</p>
+<h1 style="margin:0 0 8px">${escapeHtml(digest.headline)}</h1>
+<p style="color:#9fd9bd">${escapeHtml(digest.target)}</p>
+<h2 style="margin:28px 0 6px;font-size:15px">What changed</h2>
+<p style="margin:0;font-size:13px;color:#9fd9bd">${escapeHtml(changeLine)}</p>
+<h2 style="margin:24px 0 6px;font-size:15px">Protection posture</h2>
+<p style="margin:0;font-size:13px;color:#9fd9bd">${escapeHtml(postureLine)}</p>
+<h2 style="margin:24px 0 6px;font-size:15px">Open recommendations (${recommendations.total})</h2>
+${groups.map((group) => `<div style="margin-top:16px"><div style="font-size:11px;letter-spacing:.08em;color:#76e6a8">${escapeHtml(group.area.toUpperCase())}</div>${group.cards.map(card).join("")}</div>`).join("")}
+${more ? `<p style="margin-top:18px;font-size:13px;color:#9fd9bd">${escapeHtml(more)}</p>` : ""}
+</div>`;
+
   return { to, subject: `Guardian weekly: ${digest.headline}`, text, html };
 }
 
 function concisePayload(payload: EventPayload | DigestPayload) {
-  if (payload.kind === "weekly_digest") return { title: payload.digest.headline, text: payload.digest.executiveSummary, target: payload.digest.target, items: payload.digest.reviewItems.map((item) => ({ title: item.title, detail: item.detail, severity: item.severity })) };
+  if (payload.kind === "weekly_digest") return { title: payload.digest.headline, text: payload.digest.executiveSummary, target: payload.digest.target, items: payload.digest.recommendations.cards.map((card) => ({ title: card.title, detail: card.action, severity: card.priority })) };
   return { title: `${payload.events.length} important Guardian change(s)`, text: `External changes observed for ${payload.target}`, target: payload.target, items: payload.events.map((event) => ({ title: event.title, detail: event.summary, severity: event.severity })) };
 }
 
