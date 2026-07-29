@@ -8,14 +8,17 @@
  * the scan then resolves and classifies deterministically. It buys the data;
  * it does not build the telemetry.
  *
- * Each provider is env-gated by its own key (inactive without it), bounded and
- * isolated (a failure is captured in its ProviderRun and never fails the scan),
- * and every returned hostname is validated to be a real subdomain of the target
- * before it is trusted — a provider can never inject an unrelated host.
+ * Each provider is gated by its own key (inactive without it), read through
+ * providerKey() so an organization's own connected credential takes precedence
+ * over the platform key for its scans. Bounded and isolated (a failure is
+ * captured in its ProviderRun and never fails the scan), and every returned
+ * hostname is validated to be a real subdomain of the target before it is
+ * trusted — a provider can never inject an unrelated host.
  */
 
 import type { ProviderRun } from "@/lib/types";
 import { registrableDomain } from "@/lib/security/target";
+import { providerKey } from "@/lib/integrations/credential-context";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HOSTNAMES = 500;
@@ -23,11 +26,11 @@ const LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
 const FQDN_RE = new RegExp(`^(?:${LABEL}\\.)+[a-z]{2,63}$`, "i");
 
 export function securityTrailsConfigured(): boolean {
-  return !!process.env.SECURITYTRAILS_API_KEY?.trim();
+  return !!providerKey("SECURITYTRAILS_API_KEY");
 }
 
 export function shodanConfigured(): boolean {
-  return !!process.env.SHODAN_API_KEY?.trim();
+  return !!providerKey("SHODAN_API_KEY");
 }
 
 export function passiveDnsEnabled(): boolean {
@@ -67,7 +70,7 @@ export function normalizeSubdomains(labels: unknown, domain: string): string[] {
 }
 
 async function securityTrails(domain: string, signal?: AbortSignal): Promise<string[]> {
-  const key = process.env.SECURITYTRAILS_API_KEY?.trim();
+  const key = providerKey("SECURITYTRAILS_API_KEY");
   if (!key) return [];
   const body = await getJson(`https://api.securitytrails.com/v1/domain/${encodeURIComponent(domain)}/subdomains?children_only=false`, { apikey: key }, signal);
   const subdomains = body && typeof body === "object" ? (body as { subdomains?: unknown }).subdomains : undefined;
@@ -75,7 +78,7 @@ async function securityTrails(domain: string, signal?: AbortSignal): Promise<str
 }
 
 async function shodan(domain: string, signal?: AbortSignal): Promise<string[]> {
-  const key = process.env.SHODAN_API_KEY?.trim();
+  const key = providerKey("SHODAN_API_KEY");
   if (!key) return [];
   const body = await getJson(`https://api.shodan.io/dns/domain/${encodeURIComponent(domain)}?key=${encodeURIComponent(key)}`, {}, signal);
   const subdomains = body && typeof body === "object" ? (body as { subdomains?: unknown }).subdomains : undefined;

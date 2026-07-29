@@ -8,9 +8,11 @@ import type { IntegrationProvider } from "@/lib/integrations/connections";
 import type { ProviderDefinition } from "./types";
 import { toDescriptor } from "./types";
 import { hibpProvider } from "./hibp";
+import { securityTrailsProvider } from "./securitytrails";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
+  [securityTrailsProvider.id]: securityTrailsProvider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */
