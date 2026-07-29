@@ -1,4 +1,5 @@
 import type { Priority } from "@/lib/types";
+import type { DigestCards, DigestChangeStatus } from "./digest-content";
 
 export type GuardianChecklistCode =
   | "spf"
@@ -278,6 +279,11 @@ export interface GuardianRecommendation {
   guides: GuardianRemediationGuide[];
   firstObservedAt: string;
   lastObservedAt: string;
+  /**
+   * When this recommendation came back after having been resolved. Recorded so a
+   * digest can report a regression truthfully instead of inferring one.
+   */
+  regressedAt?: string;
 }
 
 export interface GuardianAnalysis {
@@ -331,6 +337,12 @@ export interface GuardianActivity {
   createdAt: string;
 }
 
+/**
+ * The weekly digest keeps its three subjects apart, because they answer
+ * different questions: what changed, how protected the surface is, and what is
+ * open to act on. Merging them into one list was what let a roll-up sit next to
+ * its own children and a "stable" headline sit above a list of new assets.
+ */
 export interface GuardianDigest {
   orgId: string;
   target: string;
@@ -338,15 +350,13 @@ export interface GuardianDigest {
   generatedAt: string;
   headline: string;
   executiveSummary: string;
-  newAssets: number;
-  removedAssets: number;
-  importantChanges: number;
-  checklistImprovements: number;
-  checklistRegressions: number;
+  /** What changed on the outside — counts are kept separate, never conflated. */
+  changeStatus: DigestChangeStatus;
+  /** How protected the surface is: drift plus the standing shadow-asset count. */
+  posture: { drift: GuardianDrift; shadowAssets: number };
+  /** What is open to act on: capped, deduplicated, roll-up-suppressed cards. */
+  recommendations: DigestCards;
   openRecommendations: number;
-  shadowAssets: number;
-  drift: GuardianDrift;
-  reviewItems: Array<{ title: string; detail: string; severity: Priority }>;
 }
 
 export interface GuardianTargetView {

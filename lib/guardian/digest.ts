@@ -1,4 +1,6 @@
 import type { GuardianDigest, GuardianEvent, GuardianRecommendation, GuardianSnapshot } from "./types";
+import { buildChangeStatus, buildDigestCards, changeSummarySentence } from "./digest-content";
+import { appUrl } from "@/lib/config/runtime";
 
 export function startOfIsoWeek(value: string | Date): string {
   const date = new Date(value);
@@ -8,22 +10,38 @@ export function startOfIsoWeek(value: string | Date): string {
   return date.toISOString();
 }
 
-export function createWeeklyDigest(current: GuardianSnapshot, events: GuardianEvent[], recommendations: GuardianRecommendation[], drift: GuardianDigest["drift"], now = new Date()): GuardianDigest {
-  const cutoff = now.getTime() - 7 * 86_400_000;
-  const relevant = events.filter((event) => Date.parse(event.observedAt) >= cutoff && Date.parse(event.observedAt) <= now.getTime());
-  const newAssets = relevant.filter((event) => ["asset_new", "asset_returned", "auth_surface_new", "api_surface_new", "nonproduction_reachable", "shadow_appeared"].includes(event.type)).length;
-  const removedAssets = relevant.filter((event) => event.type === "asset_removed").length;
-  const checklist = relevant.filter((event) => event.type === "checklist_changed");
-  const important = relevant.filter((event) => event.severity === "critical" || event.severity === "high");
-  const reviewItems = [...important.map((event) => ({ title: event.title, detail: event.summary, severity: event.severity })), ...recommendations.slice(0, 5).map((item) => ({ title: item.title, detail: item.suggestedReview, severity: item.priority }))].slice(0, 8);
-  const headline = important.length ? `${important.length} important external change${important.length === 1 ? "" : "s"} to review` : drift.headline;
+/**
+ * Build the weekly digest. Deterministic by construction: every number comes
+ * from counting observations and every string is assembled from those counts, so
+ * the same inputs always produce the same digest. Nothing here calls a model.
+ */
+export function createWeeklyDigest(
+  current: GuardianSnapshot,
+  events: GuardianEvent[],
+  recommendations: GuardianRecommendation[],
+  drift: GuardianDigest["posture"]["drift"],
+  now = new Date(),
+  baseUrl = appUrl(),
+): GuardianDigest {
+  const windowStartMs = now.getTime() - 7 * 86_400_000;
+  const relevant = events.filter((event) => {
+    const observed = Date.parse(event.observedAt);
+    return observed >= windowStartMs && observed <= now.getTime();
+  });
+
+  const changeStatus = buildChangeStatus(relevant, drift);
+  const cards = buildDigestCards(recommendations, baseUrl, windowStartMs);
+
   return {
-    orgId: current.orgId, target: current.target, weekOf: startOfIsoWeek(now), generatedAt: now.toISOString(), headline,
-    executiveSummary: `Guardian observed ${newAssets} new or returning asset signal(s), ${removedAssets} disappearance(s), and ${checklist.length} security-checklist change(s). ${drift.narrative}`,
-    newAssets, removedAssets, importantChanges: important.length,
-    checklistImprovements: checklist.filter((event) => event.severity === "info").length,
-    checklistRegressions: checklist.filter((event) => event.severity !== "info").length,
-    openRecommendations: recommendations.filter((item) => item.status !== "resolved" && item.status !== "dismissed").length,
-    shadowAssets: current.metrics.shadowAssets, drift, reviewItems,
+    orgId: current.orgId,
+    target: current.target,
+    weekOf: startOfIsoWeek(now),
+    generatedAt: now.toISOString(),
+    headline: changeStatus.headline,
+    executiveSummary: `${changeSummarySentence(changeStatus)} ${drift.narrative}`,
+    changeStatus,
+    posture: { drift, shadowAssets: current.metrics.shadowAssets },
+    recommendations: cards,
+    openRecommendations: cards.total,
   };
 }
