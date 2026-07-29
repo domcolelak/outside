@@ -10,6 +10,7 @@ import { providerKey } from "@/lib/integrations/credential-context";
 import { saveProviderKey, __resetConnections } from "@/lib/integrations/connections";
 import { providerUsageSummary, __resetProviderUsage } from "./telemetry";
 import { hibpConfigured } from "@/lib/intel/providers";
+import { securityTrailsConfigured, passiveDnsEnabled } from "@/lib/discovery/passive-dns";
 
 const ORG_A = "org_a";
 const ORG_B = "org_b";
@@ -68,6 +69,19 @@ describe("withOrgProviderKeys", () => {
     });
   });
 
+  it("carries every connected provider, not just one, through the same mechanism", async () => {
+    await saveProviderKey(ORG_A, "hibp", "a".repeat(32), "user_1");
+    await saveProviderKey(ORG_A, "securitytrails", "st-key-abcdefghijkl", "user_1");
+    await withOrgProviderKeys(ORG_A, async () => {
+      expect(providerKey("HIBP_API_KEY")).toBe("a".repeat(32));
+      expect(providerKey("SECURITYTRAILS_API_KEY")).toBe("st-key-abcdefghijkl");
+      // Both discovery gates flip on from the organization's own credentials.
+      expect(hibpConfigured()).toBe(true);
+      expect(securityTrailsConfigured()).toBe(true);
+      expect(passiveDnsEnabled()).toBe(true);
+    });
+  });
+
   it("runs the scan unchanged for an anonymous (no organization) scan", async () => {
     vi.stubEnv("HIBP_API_KEY", "platform-key");
     await withOrgProviderKeys(null, async () => {
@@ -92,6 +106,17 @@ describe("recordScanProviderUsage", () => {
   it("does not meter a provider the organization has not connected (platform key ran it)", async () => {
     await recordScanProviderUsage(ORG_A, [{ provider: "HaveIBeenPwned", status: "ok" }]);
     expect(await providerUsageSummary(ORG_A, "hibp")).toMatchObject({ total: 0 });
+  });
+
+  it("meters each connected provider separately from one scan's runs", async () => {
+    await saveProviderKey(ORG_A, "hibp", "e".repeat(32), "user_1");
+    await saveProviderKey(ORG_A, "securitytrails", "st-key-abcdefghijkl", "user_1");
+    await recordScanProviderUsage(ORG_A, [
+      { provider: "HaveIBeenPwned", status: "ok" },
+      { provider: "SecurityTrails", status: "error" },
+    ]);
+    expect(await providerUsageSummary(ORG_A, "hibp")).toMatchObject({ total: 1, failures: 0 });
+    expect(await providerUsageSummary(ORG_A, "securitytrails")).toMatchObject({ total: 1, failures: 1 });
   });
 
   it("ignores providers that are not in the registry", async () => {
