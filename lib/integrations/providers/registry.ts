@@ -36,11 +36,13 @@ export function listProviders(): ProviderDefinition[] {
   return Object.values(REGISTRY);
 }
 
-/** Bring-your-own-key providers, as non-secret descriptors for the UI. */
+/**
+ * Bring-your-own-key providers, as non-secret descriptors for the UI. Every
+ * credential kind is included — a pair provider is still BYOK, it just collects
+ * two fields.
+ */
 export function listByokDescriptors() {
-  return listProviders()
-    .filter((p) => p.credentialKind === "api_key")
-    .map(toDescriptor);
+  return listProviders().map(toDescriptor);
 }
 
 export function isRegistered(id: string): id is IntegrationProvider {
