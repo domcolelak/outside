@@ -44,7 +44,7 @@ export async function loadOrgProviderKeys(orgId: string | null | undefined): Pro
 export async function withOrgProviderKeys<T>(orgId: string | null | undefined, run: () => Promise<T>): Promise<T> {
   const keys = await loadOrgProviderKeys(orgId);
   if (keys.size === 0) return run();
-  return withProviderKeys(keys, run);
+  return withProviderKeys(keys, run, orgId ?? undefined);
 }
 
 /**
@@ -71,8 +71,8 @@ export async function recordScanProviderUsage(
         orgId,
         provider: providerId,
         operation: "search",
-        ok: run.status !== "error",
-        errorCode: run.status === "error" ? "unavailable" : undefined,
+        ok: run.status === "ok",
+        errorCode: run.status === "ok" ? undefined : "unavailable",
       });
     } catch {
       // Telemetry must never affect the scan result.

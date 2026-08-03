@@ -7,6 +7,8 @@ import { recordApplied, activeRemediation, markRolledBack } from "@/lib/integrat
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { operationalLog } from "@/lib/observability/log";
+import { withConcurrency, CapacityError } from "@/lib/security/concurrency";
+import { normalizeDomain, registrableDomain, InvalidTargetError } from "@/lib/security/target";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,53 +77,88 @@ export async function POST(req: NextRequest) {
   }
 
   const orgId = String(body.orgId ?? "");
-  const target = String(body.target ?? "").trim().toLowerCase();
+  let target: string;
+  try {
+    // The DMARC record is written at the zone apex (_dmarc.<registrable>), so the
+    // zone root is the identity everything else must agree on: the ownership
+    // gate, the duplicate check, the stored handle, and the zone-coverage guard
+    // that keeps a rollback reachable. Recording a subdomain here would make the
+    // stored target unmatchable against Cloudflare zone names.
+    target = registrableDomain(normalizeDomain(String(body.target ?? "")));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof InvalidTargetError ? error.message : "Invalid domain." }, { status: 400 });
+  }
   const auth = await gate(orgId, target);
   if (auth.error) return auth.error;
 
-  if (await activeRemediation(orgId, PROVIDER, target, ACTION)) {
-    return NextResponse.json({ error: "A DMARC record applied by OUTSIDE is already in place for this domain." }, { status: 409 });
-  }
-
-  const token = await getConnectionToken(orgId, PROVIDER);
-  if (!token) return NextResponse.json({ error: "Connect your Cloudflare account first." }, { status: 400 });
-
-  let result;
   try {
-    result = await applyDmarcRemediation(target, { token, actorId: auth.ctx!.user.id });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Cloudflare rejected the change." }, { status: 400 });
-  }
-  if (!result.applied || !result.handle) {
-    return NextResponse.json({ error: result.summary }, { status: 400 });
-  }
+    return await withConcurrency(`remediation:cloudflare:${orgId}:${target}:${ACTION}`, 1, 120_000, async () => {
+      if (await activeRemediation(orgId, PROVIDER, target, ACTION)) {
+        return NextResponse.json({ error: "A DMARC record applied by OUTSIDE is already in place for this domain." }, { status: 409 });
+      }
 
-  const record = await recordApplied({ orgId, provider: PROVIDER, target, action: ACTION, handle: result.handle, appliedBy: auth.ctx!.user.id });
-  operationalLog("info", "integrations.remediation_applied_by_customer", { provider: PROVIDER, orgId, target, action: ACTION });
-  return NextResponse.json({ applied: true, summary: result.summary, remediation: { id: record.id, appliedAt: record.appliedAt } });
+      const token = await getConnectionToken(orgId, PROVIDER);
+      if (!token) return NextResponse.json({ error: "Connect your Cloudflare account first." }, { status: 400 });
+
+      const result = await applyDmarcRemediation(target, { token, actorId: auth.ctx!.user.id });
+      if (!result.applied || !result.handle) {
+        return NextResponse.json({ error: result.summary }, { status: 409 });
+      }
+
+      try {
+        const record = await recordApplied({ orgId, provider: PROVIDER, target, action: ACTION, handle: result.handle, appliedBy: auth.ctx!.user.id });
+        operationalLog("info", "integrations.remediation_applied_by_customer", { provider: PROVIDER, orgId, target, action: ACTION });
+        return NextResponse.json({ applied: true, summary: result.summary, remediation: { id: record.id, appliedAt: record.appliedAt } });
+      } catch (persistenceError) {
+        try {
+          await rollbackRemediation(result.handle, { token, actorId: auth.ctx!.user.id });
+          operationalLog("error", "integrations.remediation_persistence_compensated", { provider: PROVIDER, orgId, target, action: ACTION }, persistenceError);
+          return NextResponse.json({ error: "The change could not be recorded safely, so OUTSIDE rolled it back. Nothing remains applied." }, { status: 500 });
+        } catch (rollbackError) {
+          operationalLog("error", "integrations.remediation_compensation_failed", { provider: PROVIDER, orgId, target, action: ACTION, recordId: result.handle.recordId }, rollbackError);
+          return NextResponse.json({ error: "Cloudflare accepted the change, but OUTSIDE could not store its rollback record or compensate automatically. Contact support immediately." }, { status: 500 });
+        }
+      }
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof CapacityError ? "A change for this domain is already in progress." : error instanceof Error ? error.message : "Cloudflare rejected the change." },
+      { status: error instanceof CapacityError ? 409 : 400 },
+    );
+  }
 }
 
 /** Roll the record back — removes exactly what OUTSIDE created. */
 export async function DELETE(req: NextRequest) {
   const url = new URL(req.url);
   const orgId = url.searchParams.get("orgId") ?? "";
-  const target = (url.searchParams.get("target") ?? "").trim().toLowerCase();
+  let target: string;
+  try {
+    // Must resolve to the same zone root the record was applied and recorded under.
+    target = registrableDomain(normalizeDomain(url.searchParams.get("target") ?? ""));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof InvalidTargetError ? error.message : "Invalid domain." }, { status: 400 });
+  }
   const auth = await gate(orgId, target);
   if (auth.error) return auth.error;
 
-  const active = await activeRemediation(orgId, PROVIDER, target, ACTION);
-  if (!active) return NextResponse.json({ error: "Nothing to roll back for this domain." }, { status: 404 });
-
-  const token = await getConnectionToken(orgId, PROVIDER);
-  if (!token) return NextResponse.json({ error: "Connect your Cloudflare account first." }, { status: 400 });
-
   try {
-    await rollbackRemediation(active.handle, { token, actorId: auth.ctx!.user.id });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Cloudflare rejected the rollback." }, { status: 400 });
-  }
+    return await withConcurrency(`remediation:cloudflare:${orgId}:${target}:${ACTION}`, 1, 120_000, async () => {
+      const active = await activeRemediation(orgId, PROVIDER, target, ACTION);
+      if (!active) return NextResponse.json({ error: "Nothing to roll back for this domain." }, { status: 404 });
 
-  await markRolledBack(active.id);
-  operationalLog("info", "integrations.remediation_rolled_back_by_customer", { provider: PROVIDER, orgId, target });
-  return NextResponse.json({ rolledBack: true });
+      const token = await getConnectionToken(orgId, PROVIDER);
+      if (!token) return NextResponse.json({ error: "Connect your Cloudflare account first." }, { status: 400 });
+
+      await rollbackRemediation(active.handle, { token, actorId: auth.ctx!.user.id });
+      await markRolledBack(active.id);
+      operationalLog("info", "integrations.remediation_rolled_back_by_customer", { provider: PROVIDER, orgId, target });
+      return NextResponse.json({ rolledBack: true });
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof CapacityError ? "A change for this domain is already in progress." : error instanceof Error ? error.message : "Cloudflare rejected the rollback." },
+      { status: error instanceof CapacityError ? 409 : 400 },
+    );
+  }
 }

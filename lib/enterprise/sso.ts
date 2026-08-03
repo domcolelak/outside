@@ -3,6 +3,7 @@ import { APP_URL } from "@/lib/config/runtime";
 import { authSecret, authVerificationSecrets } from "@/lib/config/secrets";
 import { safeEnterpriseJson } from "./http";
 import { normalizeDomain } from "@/lib/security/target";
+import type { EnterpriseDirectoryUser } from "./types";
 
 export const ENTERPRISE_SSO_COOKIE = "outside_enterprise_sso";
 export interface OidcConfig { issuer: string; authorizationEndpoint: string; tokenEndpoint: string; jwksUri: string; clientId: string; clientSecret: string; scopes?: string; }
@@ -27,6 +28,24 @@ export function oidcAuthorizationUrl(config: OidcConfig, state: string): string 
 interface JwtHeader { alg?: string; kid?: string; typ?: string; crit?: string[] }
 interface IdClaims { iss?: string; aud?: string | string[]; azp?: string; exp?: number; iat?: number; nonce?: string; sub?: string; email?: string; email_verified?: boolean; name?: string }
 interface Jwk { kty: string; kid?: string; alg?: string; use?: string; n?: string; e?: string; x?: string; y?: string; crv?: string }
+
+/**
+ * An email address is not a stable OIDC identifier: it can be renamed or
+ * reassigned. The provider selected by the signed state pins the issuer, while
+ * this check pins the corresponding `sub`. Existing directory records without
+ * a subject binding fail closed instead of being silently linked by email.
+ */
+export function directoryUserMatchesOidcSubject(
+  user: Pick<EnterpriseDirectoryUser, "identityProviderId" | "externalId" | "attributes">,
+  providerId: string,
+  subject: string,
+): boolean {
+  if (user.identityProviderId !== providerId || !subject) return false;
+  const attributed = user.attributes.oidcSubject;
+  const boundSubject = typeof attributed === "string" && attributed ? attributed : user.externalId;
+  return typeof boundSubject === "string" && boundSubject === subject;
+}
+
 export async function exchangeEnterpriseCode(config: OidcConfig, code: string, expectedNonce: string): Promise<{ email: string; name: string; subject: string }> {
   const body = new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: `${APP_URL}/api/enterprise/sso/callback`, client_id: config.clientId, client_secret: config.clientSecret }).toString();
   const token = await safeEnterpriseJson<{ id_token?: string }>(config.tokenEndpoint, { method: "POST", body, headers: { "content-type": "application/x-www-form-urlencoded" } }); if (!token.id_token) throw new Error("Identity provider did not return an ID token.");

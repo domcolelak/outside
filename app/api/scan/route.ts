@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { runDemoScan, runPassiveScan, type Emit } from "@/lib/discovery/engine";
-import { findDemoOrg, isDemoDomain } from "@/lib/demo";
-import { InvalidTargetError, normalizeDomain } from "@/lib/security/target";
+import { findDemoOrg } from "@/lib/demo";
+import { InvalidTargetError } from "@/lib/security/target";
+import { canonicalScanTarget } from "@/lib/security/scan-target";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { getStore } from "@/lib/persistence";
 import { recordScan } from "@/lib/persistence/record";
 import { buildPosture } from "@/lib/aegis/recommendations";
@@ -30,9 +31,19 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const rawTarget = url.searchParams.get("target") ?? "";
   const mode = url.searchParams.get("mode") ?? "auto"; // "auto" | "demo"
+  const demoOrg = findDemoOrg(rawTarget) ?? (mode === "demo" ? findDemoOrg("northstar") : null);
+  let normalized: ReturnType<typeof canonicalScanTarget>;
+  try {
+    normalized = canonicalScanTarget(rawTarget, demoOrg?.domain);
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error instanceof InvalidTargetError ? error.message : "Invalid target" }), {
+      status: 422,
+      headers: { "content-type": "application/json" },
+    });
+  }
 
   const client = clientIdentity(req);
-  const targetBudget = createHash("sha256").update(rawTarget.trim().toLowerCase()).digest("hex").slice(0, 24);
+  const targetBudget = normalized.budgetKey;
   const limit = await requireBudgets([
     { key: "scan:global", limit: 240, windowMs: 60_000 },
     { key: `scan:client:${client}`, limit: Number(process.env.OUTSIDE_SCANS_PER_MINUTE ?? 12), windowMs: 60_000 },
@@ -63,11 +74,9 @@ export async function GET(req: NextRequest) {
         await withConcurrency("scan:global", 8, 60_000, () => withConcurrency(`scan:target:${targetBudget}`, 2, 60_000, async () => {
         // Demo path: explicit demo mode, a known demo slug, or a demo domain.
         // Demo scans carry a synthetic change story and are NOT persisted.
-        const demoOrg = findDemoOrg(rawTarget) ?? (mode === "demo" ? findDemoOrg("northstar") : null);
-        if (demoOrg || isDemoDomain(rawTarget)) {
+        if (demoOrg) {
           experience = "demo";
-          const org = demoOrg ?? findDemoOrg(rawTarget)!;
-          const result = await runDemoScan(org, scanId, emit);
+          const result = await runDemoScan(demoOrg, scanId, emit);
           // Aegis: derive the protection posture + correlate findings into incidents.
           result.posture = buildPosture(result);
           result.investigation = buildInvestigation(result);
@@ -75,7 +84,7 @@ export async function GET(req: NextRequest) {
           emit({ type: "result", result });
           outcome = "success";
         } else {
-          const domain = normalizeDomain(rawTarget);
+          const domain = normalized.target;
           const ctx = await getSessionContext();
           const orgId = await authorizedTargetOrg(ctx, domain, "viewer");
 

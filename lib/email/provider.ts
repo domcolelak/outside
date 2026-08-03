@@ -23,6 +23,9 @@ class ConsoleEmailProvider implements EmailProvider {
   readonly kind = "console" as const;
   async send(message: EmailMessage): Promise<void> {
     console.info(`[email:console] to=${message.to} subject=${JSON.stringify(message.subject)} (set RESEND_API_KEY to deliver)`);
+    // Zero-config development must still make verification and reset links
+    // usable. Never print signed email actions in a production process.
+    if (process.env.NODE_ENV !== "production") console.info(message.text);
   }
 }
 

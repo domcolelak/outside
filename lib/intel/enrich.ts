@@ -22,6 +22,7 @@ import {
 } from "./providers";
 
 const MAX_IPS = 16;
+const MAX_GREYNOISE_IPS = 5;
 const IP_CONCURRENCY = 4;
 const MAX_BREACH_NAMES = 12;
 
@@ -69,6 +70,13 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
           asset.attrs.threatIpSource = reputation.source;
           asset.attrs.threatIpReports = reputation.reports;
           if (reputation.lastReportedAt) asset.attrs.threatIpLastReported = reputation.lastReportedAt;
+          asset.evidence.push({
+            method: "threat_intel",
+            provider: reputation.source,
+            summary: `${reputation.ip} received an abuse-confidence score of ${reputation.score}/100.`,
+            detail: `${reputation.reports} report(s) in the provider response.`,
+            observedAt: new Date().toISOString(),
+          });
         }
         if (reputation.score > 0) flagged += 1;
       }
@@ -82,7 +90,7 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
   if (greyNoiseConfigured()) {
     const started = new Date().toISOString();
     const ipToAssets = mapIpsToAssets(assets);
-    const ips = [...ipToAssets.keys()].slice(0, MAX_IPS);
+    const ips = [...ipToAssets.keys()].slice(0, MAX_GREYNOISE_IPS);
     const errors: string[] = [];
     let flagged = 0;
     try {
@@ -98,6 +106,13 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
           asset.attrs.greynoiseRiot = verdict.riot;
           if (verdict.name) asset.attrs.greynoiseName = verdict.name;
           if (verdict.lastSeen) asset.attrs.greynoiseLastSeen = verdict.lastSeen;
+          asset.evidence.push({
+            method: "threat_intel",
+            provider: verdict.source,
+            summary: `${verdict.ip} was classified as ${verdict.classification}.`,
+            detail: `noise=${verdict.noise}; riot=${verdict.riot}${verdict.lastSeen ? `; last seen ${verdict.lastSeen}` : ""}`,
+            observedAt: new Date().toISOString(),
+          });
         }
         if (verdict.classification === "malicious") flagged += 1;
       }
@@ -118,6 +133,13 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
         root.attrs.breachCount = sorted.length;
         root.attrs.breachSource = exposure.source;
         root.attrs.breachNames = sorted.slice(0, MAX_BREACH_NAMES).map((breach) => breach.title);
+        root.evidence.push({
+          method: "threat_intel",
+          provider: exposure.source,
+          summary: `${sorted.length} distinct breach catalogue name(s) affect accounts on the verified domain.`,
+          detail: "Aliases were discarded after aggregation. Source: https://haveibeenpwned.com/",
+          observedAt: new Date().toISOString(),
+        });
         const latest = sorted.find((breach) => breach.breachDate)?.breachDate;
         if (latest) root.attrs.breachLatest = latest;
       }
@@ -139,6 +161,12 @@ export async function enrichThreatIntel(assets: Asset[], domain: string, options
         root.attrs.vtHarmless = reputation.harmless;
         root.attrs.vtReputation = reputation.reputation;
         root.attrs.vtSource = reputation.source;
+        root.evidence.push({
+          method: "threat_intel",
+          provider: reputation.source,
+          summary: `${reputation.malicious} malicious and ${reputation.suspicious} suspicious vendor verdict(s).`,
+          observedAt: new Date().toISOString(),
+        });
       }
       runs.push({ provider: "VirusTotal", method: "threat_intel", status: "ok", startedAt: started, finishedAt: new Date().toISOString(), observations: reputation ? reputation.malicious + reputation.suspicious : 0, errors: [] });
     } catch (error) {

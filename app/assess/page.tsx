@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 interface Check { id: string; version: string; title: string; category: string; rationale: string; remediation: string; references: string[] }
-interface CheckResult { check: Check; status: "pass" | "fail" | "not_evaluated"; severity: string | null; findingIds: string[] }
-interface Run { id: string; target: string; catalogueVersion: string; passed: number; failed: number; createdAt: string; results: CheckResult[] }
-interface RunSummary { id: string; passed: number; failed: number; createdAt: string }
-interface Diff { fixed: string[]; regressed: string[]; stillFailing: string[] }
+interface CheckResult { check: Check; status: "pass" | "fail" | "not_evaluated"; severity: string | null; findingIds: string[]; reason?: string }
+interface Run { id: string; target: string; catalogueVersion: string; passed: number; failed: number; notEvaluated: number; createdAt: string; results: CheckResult[] }
+interface RunSummary { id: string; passed: number; failed: number; notEvaluated: number; createdAt: string }
+interface Diff { fixed: string[]; regressed: string[]; stillFailing: string[]; newlyEvaluated: string[]; coverageLost: string[] }
 interface Status {
   catalogue: { version: string; checks: Check[] };
   target: string | null;
@@ -75,7 +75,8 @@ function AssessView() {
       <h1 className="mt-2 text-3xl font-semibold text-ink">Safe, verified security assessment</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
         A named, versioned checklist of non-destructive checks — TLS, security headers, mail authentication, known-vulnerability
-        correlation and more — run against a domain you have verified. Every check passes or reports the evidence that failed it.
+        correlation and more — run against a domain you have verified. Every check passes, reports the evidence that failed it,
+        or clearly says when a required observation could not be completed.
         No exploitation, ever.
       </p>
 
@@ -105,6 +106,7 @@ function AssessView() {
           <div className="mono mt-2 flex flex-wrap gap-x-6 text-xs">
             <span className="text-signal">{run.run.passed} passed</span>
             <span className={run.run.failed > 0 ? "text-risk-high" : "text-ink-faint"}>{run.run.failed} failed</span>
+            <span className={run.run.notEvaluated > 0 ? "text-risk-medium" : "text-ink-faint"}>{run.run.notEvaluated} not evaluated</span>
             {run.diff && (run.diff.fixed.length > 0 || run.diff.regressed.length > 0) && (
               <span className="text-ink-faint">
                 retest: {run.diff.fixed.length > 0 && <span className="text-signal">{run.diff.fixed.length} fixed</span>}
@@ -121,8 +123,8 @@ function AssessView() {
               return (
                 <li key={result.check.id} className="panel p-4">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className={`mono text-[11px] uppercase tracking-wide ${result.status === "pass" ? "text-signal" : SEVERITY_COLOR[result.severity ?? "medium"]}`}>
-                      {result.status === "pass" ? "✓ pass" : `✕ fail`}
+                    <span className={`mono text-[11px] uppercase tracking-wide ${result.status === "pass" ? "text-signal" : result.status === "not_evaluated" ? "text-risk-medium" : SEVERITY_COLOR[result.severity ?? "medium"]}`}>
+                      {result.status === "pass" ? "✓ pass" : result.status === "not_evaluated" ? "not evaluated" : "✕ fail"}
                     </span>
                     <span className="text-sm text-ink">{result.check.title}</span>
                     {result.status === "fail" && result.severity && <span className={`mono text-[10px] uppercase ${SEVERITY_COLOR[result.severity]}`}>{result.severity}</span>}
@@ -132,6 +134,9 @@ function AssessView() {
                   </div>
                   {result.status === "fail" && (
                     <p className="mt-2 text-xs leading-relaxed text-ink-soft"><span className="text-ink-faint">Remediation: </span>{result.check.remediation}</p>
+                  )}
+                  {result.status === "not_evaluated" && (
+                    <p className="mt-2 text-xs leading-relaxed text-risk-medium">{result.reason ?? "A required observation was unavailable."}</p>
                   )}
                 </li>
               );

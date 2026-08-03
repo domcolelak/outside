@@ -241,6 +241,11 @@ model Organization {
   ownedAgency             AgencyWorkspace?           @relation("AgencyOwnerOrganization")
   agencyClients           AgencyClient[]             @relation("AgencyClientOrganization")
   enterprise              EnterpriseWorkspace?
+  integrationConnections  IntegrationConnection[]
+  providerUsageEvents     ProviderUsageEvent[]
+  providerAuditEvents     ProviderAuditEvent[]
+  appliedRemediations     AppliedRemediation[]
+  assessmentRuns          AssessmentRun[]
 
   @@map("organizations")
 }
@@ -1271,11 +1276,13 @@ model EvolutionIncidentSignal {
  * the browser — only a summary (account hint + the zones it can act on).
  */
 model IntegrationConnection {
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId          String
   provider       String
   encryptedToken String
   accountHint    String
   zones          Json     @default("[]")
+  metadata       Json     @default("{}")
   createdBy      String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -1292,6 +1299,7 @@ model IntegrationConnection {
  */
 model ProviderUsageEvent {
   id        String   @id @default(cuid())
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId     String
   provider  String
   operation String
@@ -1302,6 +1310,7 @@ model ProviderUsageEvent {
   createdAt DateTime @default(now())
 
   @@index([orgId, provider, createdAt])
+  @@index([createdAt])
   @@map("provider_usage_events")
 }
 
@@ -1312,6 +1321,7 @@ model ProviderUsageEvent {
  */
 model ProviderAuditEvent {
   id        String   @id @default(cuid())
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId     String
   provider  String
   action    String
@@ -1330,6 +1340,7 @@ model ProviderAuditEvent {
  */
 model AppliedRemediation {
   id           String    @id @default(cuid())
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId        String
   provider     String
   target       String
@@ -1365,15 +1376,18 @@ model ScanOptOut {
  */
 model AssessmentRun {
   id               String   @id @default(cuid())
+  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId            String
   target           String
   catalogueVersion String
   passed           Int
   failed           Int
+  notEvaluated     Int      @default(0)
   results          Json
   createdBy        String
   createdAt        DateTime @default(now())
 
   @@index([orgId, target, createdAt])
+  @@index([createdAt])
   @@map("assessment_runs")
 }

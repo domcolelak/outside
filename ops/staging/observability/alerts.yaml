@@ -44,12 +44,23 @@ groups:
           action: Correlate affected routes with application logs and dependencies; stop rollout or drain the unhealthy instance.
 
       - alert: OutsideBackupMissing
-        expr: time() - outside_backup_last_success_unixtime > 93600
+        expr: absent(outside_backup_last_success_unixtime) or time() - outside_backup_last_success_unixtime > 93600
         for: 10m
         labels: { severity: critical, owner: database }
         annotations:
           summary: No successful encrypted logical backup in 26 hours
           action: Inspect backup logs and storage capacity, run a manual backup, verify its manifest, and escalate if the RPO is at risk.
+
+      - alert: OutsideBackupFailed
+        expr: |
+          (outside_backup_last_failure_unixtime unless outside_backup_last_success_unixtime)
+          or
+          outside_backup_last_failure_unixtime > outside_backup_last_success_unixtime
+        for: 1m
+        labels: { severity: critical, owner: database }
+        annotations:
+          summary: The latest encrypted logical backup attempt failed
+          action: Inspect backup logs, database reachability and storage capacity; run a manual backup and verify it before considering the failure resolved.
 
   - name: outside-warning
     rules:

@@ -12,6 +12,38 @@
 import type { ProviderErrorCode } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 12_000;
+const MAX_RESPONSE_BYTES = 1_000_000;
+
+async function limitedJson(res: Response): Promise<unknown> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
+    await res.body?.cancel().catch(() => {});
+    throw new Error("Provider response exceeded the allowed size.");
+  }
+  if (!res.body) return null;
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_RESPONSE_BYTES) throw new Error("Provider response exceeded the allowed size.");
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(combined);
+  return text ? JSON.parse(text) : null;
+}
 
 export interface ProviderResponse {
   status: number;
@@ -44,7 +76,7 @@ export async function providerGet(
   try {
     const res = await fetch(url, { headers: { accept: "application/json", ...headers }, signal: composed });
     const retryAfter = res.headers.get("retry-after");
-    const body = res.ok ? await res.json().catch(() => null) : null;
+    const body = res.ok ? await limitedJson(res) : null;
     return { status: res.status, body, retryAfter };
   } finally {
     clearTimeout(timer);

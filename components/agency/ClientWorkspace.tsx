@@ -1,23 +1,25 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type {
-  AgencyClient,
+  AgencyClientView,
   AgencyFindingShare,
   AgencyGroup,
   AgencyNote,
+  AgencyRole,
   AgencySlaEvent,
   AgencyWorkspace,
 } from "@/lib/agency/types";
+import { hasAgencyPermission } from "@/lib/agency/types";
 import type { GuardianOverview } from "@/lib/guardian/types";
 
 type Detail = {
   workspace: AgencyWorkspace;
-  client: AgencyClient;
+  client: AgencyClientView;
   guardian: GuardianOverview;
   notes: AgencyNote[];
   shares: AgencyFindingShare[];
   sla: AgencySlaEvent[];
-  role: string;
+  role: AgencyRole;
 };
 const input =
   "w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-sm outline-hidden focus:border-signal/40";
@@ -134,6 +136,8 @@ export function ClientWorkspace({
     return (
       <div className="panel p-8 text-ink-soft">Loading client workspace…</div>
     );
+  const canManageClients = hasAgencyPermission(data.role, "clients:manage");
+  const canManageBilling = hasAgencyPermission(data.role, "billing:manage");
   const shared = new Set(data.shares.map((item) => item.recommendationId));
   const routing = data.client.notificationRouting as {
     emails?: string[];
@@ -161,8 +165,10 @@ export function ClientWorkspace({
             </p>
           </div>
           <div className="mono text-[11px] text-ink-faint">
-            Portal: {data.client.portalMode} · Billing:{" "}
-            {data.client.billingMode}
+            Portal: {data.client.portalMode}
+            {canManageBilling && data.client.billingMode
+              ? ` · Billing: ${data.client.billingMode}`
+              : ""}
           </div>
         </div>
       </section>
@@ -179,32 +185,47 @@ export function ClientWorkspace({
           onSubmit={async (event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
-            await post(
-              "/api/agency/clients",
-              {
-                clientId,
-                status: form.get("status"),
-                portalMode: form.get("portalMode"),
-                groupId: form.get("groupId"),
-                serviceTier: form.get("serviceTier"),
-                slaResponseMinutes: form.get("sla"),
-                billingMode: form.get("billingMode"),
-                monthlyPriceCents: Math.round(Number(form.get("price")) * 100),
-                currency: form.get("currency"),
-                notificationRouting: {
-                  emails: String(form.get("emails") ?? "")
-                    .split(",")
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                  channelIds: String(form.get("channels") ?? "")
-                    .split(",")
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                  severities: form.getAll("severities"),
+            if (canManageClients) {
+              await post(
+                "/api/agency/clients",
+                {
+                  clientId,
+                  status: form.get("status"),
+                  portalMode: form.get("portalMode"),
+                  groupId: form.get("groupId"),
+                  serviceTier: form.get("serviceTier"),
+                  slaResponseMinutes: form.get("sla"),
+                  notificationRouting: {
+                    emails: String(form.get("emails") ?? "")
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                    channelIds: String(form.get("channels") ?? "")
+                      .split(",")
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                    severities: form.getAll("severities"),
+                  },
                 },
-              },
-              "PATCH",
-            );
+                "PATCH",
+              );
+            }
+            if (canManageBilling) {
+              await post(
+                "/api/agency/billing",
+                {
+                  clientId,
+                  billingMode: form.get("billingMode"),
+                  monthlyPriceCents: data.workspace.consultantMode
+                    ? (data.client.monthlyPriceCents ?? 0)
+                    : Math.round(Number(form.get("price")) * 100),
+                  currency: data.workspace.consultantMode
+                    ? data.client.currency
+                    : form.get("currency"),
+                },
+                "PATCH",
+              );
+            }
           }}
         >
           <h2 className="text-lg font-medium">Client configuration</h2>
@@ -214,6 +235,7 @@ export function ClientWorkspace({
               <select
                 name="status"
                 defaultValue={data.client.status}
+                disabled={!canManageClients}
                 className={`${input} mt-1`}
               >
                 <option>onboarding</option>
@@ -227,6 +249,7 @@ export function ClientWorkspace({
               <select
                 name="portalMode"
                 defaultValue={data.client.portalMode}
+                disabled={!canManageClients}
                 className={`${input} mt-1`}
               >
                 <option>disabled</option>
@@ -239,6 +262,7 @@ export function ClientWorkspace({
               <select
                 name="groupId"
                 defaultValue={data.client.groupId ?? ""}
+                disabled={!canManageClients}
                 className={`${input} mt-1`}
               >
                 <option value="">Ungrouped</option>
@@ -254,6 +278,7 @@ export function ClientWorkspace({
               <input
                 name="serviceTier"
                 defaultValue={data.client.serviceTier}
+                disabled={!canManageClients}
                 className={`${input} mt-1`}
               />
             </label>
@@ -264,43 +289,50 @@ export function ClientWorkspace({
                 type="number"
                 min="15"
                 defaultValue={data.client.slaResponseMinutes}
+                disabled={!canManageClients}
                 className={`${input} mt-1`}
               />
             </label>
-            <label className="text-xs text-ink-soft">
-              Billing mode
-              <select
-                name="billingMode"
-                defaultValue={data.client.billingMode}
-                className={`${input} mt-1`}
-              >
-                <option value="agency">Agency paid</option>
-                <option value="direct">Client direct</option>
-                <option value="reseller">Reseller</option>
-              </select>
-            </label>
-            {!data.workspace.consultantMode && (
+            {canManageBilling && (
               <>
                 <label className="text-xs text-ink-soft">
-                  Monthly price
-                  <input
-                    name="price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={(data.client.monthlyPriceCents ?? 0) / 100}
+                  Billing mode
+                  <select
+                    name="billingMode"
+                    defaultValue={data.client.billingMode}
                     className={`${input} mt-1`}
-                  />
+                  >
+                    <option value="agency">Agency paid</option>
+                    <option value="direct">Client direct</option>
+                    <option value="reseller">Reseller</option>
+                  </select>
                 </label>
-                <label className="text-xs text-ink-soft">
-                  Currency
-                  <input
-                    name="currency"
-                    maxLength={3}
-                    defaultValue={data.client.currency}
-                    className={`${input} mt-1`}
-                  />
-                </label>
+                {!data.workspace.consultantMode && (
+                  <>
+                    <label className="text-xs text-ink-soft">
+                      Monthly price
+                      <input
+                        name="price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={
+                          (data.client.monthlyPriceCents ?? 0) / 100
+                        }
+                        className={`${input} mt-1`}
+                      />
+                    </label>
+                    <label className="text-xs text-ink-soft">
+                      Currency
+                      <input
+                        name="currency"
+                        maxLength={3}
+                        defaultValue={data.client.currency}
+                        className={`${input} mt-1`}
+                      />
+                    </label>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -312,6 +344,7 @@ export function ClientWorkspace({
               Email recipients
               <input
                 name="emails"
+                disabled={!canManageClients}
                 defaultValue={(routing.emails ?? []).join(", ")}
                 placeholder="soc@client.com, ciso@client.com"
                 className={`${input} mt-1`}
@@ -321,6 +354,7 @@ export function ClientWorkspace({
               Guardian channel IDs
               <input
                 name="channels"
+                disabled={!canManageClients}
                 defaultValue={(routing.channelIds ?? []).join(", ")}
                 placeholder="Channel IDs, comma separated"
                 className={`${input} mt-1`}
@@ -333,6 +367,7 @@ export function ClientWorkspace({
                     type="checkbox"
                     name="severities"
                     value={severity}
+                    disabled={!canManageClients}
                     defaultChecked={(
                       routing.severities ?? ["critical", "high"]
                     ).includes(severity)}
@@ -343,9 +378,11 @@ export function ClientWorkspace({
               ))}
             </div>
           </div>
-          <button className="mt-5 rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950">
-            Save client
-          </button>
+          {(canManageClients || canManageBilling) && (
+            <button className="mt-5 rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950">
+              Save client
+            </button>
+          )}
         </form>
         <div className="space-y-6">
           <div className="panel p-5">

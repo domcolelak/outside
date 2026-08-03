@@ -60,6 +60,9 @@ function AuthForm() {
           {(["login", "signup"] as const).map((m) => (
             <button
               key={m}
+              type="button"
+              aria-label={m === "login" ? "Switch to sign in" : "Switch to account creation"}
+              aria-pressed={mode === m}
               onClick={() => { setMode(m); setError(null); }}
               className={`flex-1 rounded-md py-1.5 transition ${mode === m ? "bg-base-700 text-ink" : "text-ink-faint hover:text-ink-soft"}`}
             >

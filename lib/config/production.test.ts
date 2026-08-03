@@ -23,6 +23,18 @@ describe("production environment", () => {
   it("rejects localhost and ephemeral production", () => { validProduction(); process.env.APP_URL = "http://localhost:3000"; expect(() => validateProductionEnvironment()).toThrow(/canonical public HTTPS/); validProduction(); process.env.OUTSIDE_STORAGE_MODE = "memory"; expect(() => validateProductionEnvironment()).toThrow(/in-memory storage/); });
   it("rejects reused trust-boundary secrets", () => { validProduction(); process.env.OUTSIDE_VERIFY_SECRET = process.env.AUTH_SECRET; expect(() => validateProductionEnvironment()).toThrow(/independent/); });
   it("rejects partially configured billing", () => { validProduction(); process.env.STRIPE_SECRET_KEY = "sk_test_configured"; expect(() => validateProductionEnvironment()).toThrow(/STRIPE_WEBHOOK_SECRET/); });
+  it("requires an explicit commercial-use confirmation for proprietary provider keys", () => {
+    validProduction();
+    process.env.VIRUSTOTAL_API_KEY = "provider-key";
+    expect(() => validateProductionEnvironment()).toThrow(/VIRUSTOTAL_COMMERCIAL_USE_CONFIRMED=true/);
+    process.env.VIRUSTOTAL_COMMERCIAL_USE_CONFIRMED = "true";
+    expect(() => validateProductionEnvironment()).not.toThrow();
+
+    validProduction();
+    process.env.CENSYS_API_ID = "provider-id";
+    process.env.CENSYS_API_SECRET = "provider-secret";
+    expect(() => validateProductionEnvironment()).toThrow(/CENSYS_COMMERCIAL_USE_CONFIRMED=true/);
+  });
   it("rejects malformed or equivalent encryption keys", () => {
     validProduction();
     process.env.GUARDIAN_ENCRYPTION_KEY = "not-a-32-byte-key";
@@ -30,6 +42,16 @@ describe("production environment", () => {
     validProduction();
     process.env.GUARDIAN_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("hex");
     process.env.ENTERPRISE_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    expect(() => validateProductionEnvironment()).toThrow(/must be independent/);
+  });
+  it("validates previous Guardian keys and keeps trust boundaries independent during rotation", () => {
+    validProduction();
+    process.env.GUARDIAN_ENCRYPTION_KEY_PREVIOUS = "too-short";
+    expect(() => validateProductionEnvironment()).toThrow(/GUARDIAN_ENCRYPTION_KEY_PREVIOUS/);
+
+    validProduction();
+    process.env.GUARDIAN_ENCRYPTION_KEY_PREVIOUS = Buffer.alloc(32, 9).toString("base64");
+    process.env.ENTERPRISE_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString("hex");
     expect(() => validateProductionEnvironment()).toThrow(/must be independent/);
   });
 });

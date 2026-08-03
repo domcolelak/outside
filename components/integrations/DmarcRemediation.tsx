@@ -15,8 +15,8 @@ interface ZoneState {
 
 /**
  * The one remediation OUTSIDE can apply for you: a DMARC record in monitoring
- * mode (p=none). It turns reporting on, blocks no mail, and is removed again by
- * the rollback button. The exact record is shown before anything is written.
+ * mode (p=none). It blocks no mail and does not request reports without a
+ * destination. The exact record is shown before anything is written.
  */
 export function DmarcRemediation({ orgId }: { orgId: string }) {
   const [zones, setZones] = useState<ZoneState[] | null>(null);
@@ -40,6 +40,12 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
   }, [load]);
 
   async function act(target: string, apply: boolean) {
+    const confirmed = window.confirm(
+      apply
+        ? `Create the previewed DMARC policy for ${target}? This changes live DNS.`
+        : `Remove the DMARC policy OUTSIDE created for ${target}?`,
+    );
+    if (!confirmed) return;
     setBusy(target);
     setError(null);
     try {
@@ -69,9 +75,9 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
     <div className="mt-4 border-t border-line pt-3">
       <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Guided remediation · DMARC monitoring</div>
       <p className="mono mt-1 text-[11px] leading-5 text-ink-faint">
-        Adds a DMARC record in monitoring mode (<span className="text-ink-soft">p=none</span>). It enables reporting, blocks no mail, and can be rolled back here.
+        Adds a DMARC policy in monitor mode (<span className="text-ink-soft">p=none</span>). It blocks no mail and requests no reports because no report destination is configured. OUTSIDE first checks that no DMARC policy already exists, verifies the write, and keeps a rollback handle.
       </p>
-      {error && <p role="alert" className="mono mt-2 text-[11px] text-risk-high">{error}</p>}
+      {error && <p role="alert" aria-live="assertive" className="mono mt-2 text-[11px] text-risk-high">{error}</p>}
 
       <ul className="mt-3 space-y-2">
         {zones.map((zone) => (
@@ -90,7 +96,9 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                 {zone.verified && (
                   <button
                     onClick={() => setExpanded(expanded === zone.name ? null : zone.name)}
-                    className="mono rounded-md border border-line px-2 py-1 text-[11px] text-ink-soft hover:text-ink"
+                    aria-expanded={expanded === zone.name}
+                    aria-controls={`dmarc-preview-${zone.name}`}
+                    className="mono min-h-11 rounded-md border border-line px-3 py-2 text-xs text-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
                   >
                     {expanded === zone.name ? "Hide record" : "Preview record"}
                   </button>
@@ -99,7 +107,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                   <button
                     onClick={() => act(zone.name, true)}
                     disabled={busy === zone.name}
-                    className="mono rounded-md border border-signal/40 bg-signal/10 px-2 py-1 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50"
+                    className="mono min-h-11 rounded-md border border-signal/40 bg-signal/10 px-3 py-2 text-xs text-signal hover:bg-signal/15 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
                   >
                     {busy === zone.name ? "Applying…" : "Apply"}
                   </button>
@@ -108,7 +116,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                   <button
                     onClick={() => act(zone.name, false)}
                     disabled={busy === zone.name}
-                    className="mono rounded-md border border-line px-2 py-1 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50"
+                    className="mono min-h-11 rounded-md border border-risk-high/40 px-3 py-2 text-xs text-risk-high hover:bg-risk-high/5 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high"
                   >
                     {busy === zone.name ? "Rolling back…" : "Roll back"}
                   </button>
@@ -117,7 +125,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
             </div>
 
             {expanded === zone.name && (
-              <div className="mt-2 rounded-md border border-line bg-base-900 p-2">
+              <div id={`dmarc-preview-${zone.name}`} className="mt-2 rounded-md border border-line bg-base-900 p-2">
                 <div className="mono text-[11px] text-ink-faint">This exact record will be created:</div>
                 <pre className="mono mt-1 overflow-x-auto text-[11px] text-ink-soft">{zone.preview.record.type}  {zone.preview.record.name}
 {zone.preview.record.content}</pre>

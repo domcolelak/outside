@@ -112,7 +112,7 @@ export function generateIntelFindings(assets: Asset[], now: string): Finding[] {
       confidence: 0.7,
       assetId: root.id,
       category: "breach-exposure",
-      observation: `${source} records ${breachCount} public data breach(es) associated with ${root.label}${latest ? `, most recent dated ${latest}` : ""}${names.length ? `: ${names.slice(0, 5).join(", ")}${names.length > 5 ? "…" : ""}` : ""}.`,
+      observation: `${source} records ${breachCount} distinct breach catalogue entry/entries affecting accounts on the verified domain ${root.label}${latest ? `, most recent dated ${latest}` : ""}${names.length ? `: ${names.slice(0, 5).join(", ")}${names.length > 5 ? "…" : ""}` : ""}. Source: https://haveibeenpwned.com/`,
       inference: "Historical breaches raise the likelihood that employee or customer credentials for this domain have been exposed and may be reused against public login surfaces.",
       concern: "These are historical, publicly catalogued breaches — not evidence of a current compromise. Their value is prioritizing credential hygiene and monitoring of authentication surfaces.",
       reasoning: `Domain breach lookup against ${source}.`,

@@ -15,6 +15,7 @@ export interface AssessRunSummary {
   catalogueVersion: string;
   passed: number;
   failed: number;
+  notEvaluated: number;
   createdAt: string;
 }
 export interface AssessRunRecord extends AssessRunSummary {
@@ -26,6 +27,8 @@ export interface AssessDiff {
   fixed: string[]; // check ids that went fail -> pass
   regressed: string[]; // check ids that went pass -> fail
   stillFailing: string[];
+  newlyEvaluated: string[];
+  coverageLost: string[];
 }
 
 const g = globalThis as unknown as { __outsideAssessRuns?: (AssessRunRecord & { orgId: string })[] };
@@ -46,11 +49,20 @@ export async function recordRun(input: { orgId: string; target: string; createdB
         catalogueVersion: input.result.catalogueVersion,
         passed: input.result.summary.passed,
         failed: input.result.summary.failed,
+        notEvaluated: input.result.summary.notEvaluated,
         results: input.result.results as unknown as Prisma.InputJsonValue,
         createdBy: input.createdBy,
       },
     });
-    return { id: row.id, target: row.target, catalogueVersion: row.catalogueVersion, passed: row.passed, failed: row.failed, createdAt: row.createdAt.toISOString() };
+    return {
+      id: row.id,
+      target: row.target,
+      catalogueVersion: row.catalogueVersion,
+      passed: row.passed,
+      failed: row.failed,
+      notEvaluated: row.notEvaluated,
+      createdAt: row.createdAt.toISOString(),
+    };
   }
   const record = {
     id: crypto.randomUUID(),
@@ -59,13 +71,22 @@ export async function recordRun(input: { orgId: string; target: string; createdB
     catalogueVersion: input.result.catalogueVersion,
     passed: input.result.summary.passed,
     failed: input.result.summary.failed,
+    notEvaluated: input.result.summary.notEvaluated,
     results: input.result.results,
     createdAt: new Date().toISOString(),
   };
   mem().unshift(record);
   const { orgId, ...summary } = record;
   void orgId;
-  return { id: summary.id, target: summary.target, catalogueVersion: summary.catalogueVersion, passed: summary.passed, failed: summary.failed, createdAt: summary.createdAt };
+  return {
+    id: summary.id,
+    target: summary.target,
+    catalogueVersion: summary.catalogueVersion,
+    passed: summary.passed,
+    failed: summary.failed,
+    notEvaluated: summary.notEvaluated,
+    createdAt: summary.createdAt,
+  };
 }
 
 export async function listRuns(orgId: string, target?: string): Promise<AssessRunSummary[]> {
@@ -75,13 +96,21 @@ export async function listRuns(orgId: string, target?: string): Promise<AssessRu
       where: { orgId, ...(target ? { target } : {}) },
       orderBy: { createdAt: "desc" },
       take: 50,
-      select: { id: true, target: true, catalogueVersion: true, passed: true, failed: true, createdAt: true },
+      select: { id: true, target: true, catalogueVersion: true, passed: true, failed: true, notEvaluated: true, createdAt: true },
     });
     return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
   }
   return mem()
     .filter((run) => run.orgId === orgId && (!target || run.target === target))
-    .map(({ id, target: t, catalogueVersion, passed, failed, createdAt }) => ({ id, target: t, catalogueVersion, passed, failed, createdAt }));
+    .map(({ id, target: t, catalogueVersion, passed, failed, notEvaluated, createdAt }) => ({
+      id,
+      target: t,
+      catalogueVersion,
+      passed,
+      failed,
+      notEvaluated,
+      createdAt,
+    }));
 }
 
 /** A full run, only if it belongs to the org. */
@@ -90,7 +119,16 @@ export async function getRun(orgId: string, id: string): Promise<AssessRunRecord
   if (conn) {
     const row = await conn.assessmentRun.findFirst({ where: { id, orgId } });
     return row
-      ? { id: row.id, target: row.target, catalogueVersion: row.catalogueVersion, passed: row.passed, failed: row.failed, createdAt: row.createdAt.toISOString(), results: row.results as unknown as AssessCheckResult[] }
+      ? {
+          id: row.id,
+          target: row.target,
+          catalogueVersion: row.catalogueVersion,
+          passed: row.passed,
+          failed: row.failed,
+          notEvaluated: row.notEvaluated,
+          createdAt: row.createdAt.toISOString(),
+          results: row.results as unknown as AssessCheckResult[],
+        }
       : null;
   }
   const run = mem().find((candidate) => candidate.id === id && candidate.orgId === orgId);
@@ -109,7 +147,16 @@ export async function previousRun(orgId: string, target: string, beforeCreatedAt
       orderBy: { createdAt: "desc" },
     });
     return row
-      ? { id: row.id, target: row.target, catalogueVersion: row.catalogueVersion, passed: row.passed, failed: row.failed, createdAt: row.createdAt.toISOString(), results: row.results as unknown as AssessCheckResult[] }
+      ? {
+          id: row.id,
+          target: row.target,
+          catalogueVersion: row.catalogueVersion,
+          passed: row.passed,
+          failed: row.failed,
+          notEvaluated: row.notEvaluated,
+          createdAt: row.createdAt.toISOString(),
+          results: row.results as unknown as AssessCheckResult[],
+        }
       : null;
   }
   const run = mem().find((candidate) => candidate.orgId === orgId && candidate.target === target && candidate.createdAt < beforeCreatedAt);
@@ -125,13 +172,17 @@ export function diffRuns(baseline: AssessRunRecord, current: AssessRunRecord): A
   const fixed: string[] = [];
   const regressed: string[] = [];
   const stillFailing: string[] = [];
+  const newlyEvaluated: string[] = [];
+  const coverageLost: string[] = [];
   for (const result of current.results) {
     const before = was.get(result.check.id);
     if (result.status === "fail" && before === "pass") regressed.push(result.check.id);
     else if (result.status === "pass" && before === "fail") fixed.push(result.check.id);
     else if (result.status === "fail" && before === "fail") stillFailing.push(result.check.id);
+    if (before === "not_evaluated" && result.status !== "not_evaluated") newlyEvaluated.push(result.check.id);
+    if (before && before !== "not_evaluated" && result.status === "not_evaluated") coverageLost.push(result.check.id);
   }
-  return { fixed, regressed, stillFailing };
+  return { fixed, regressed, stillFailing, newlyEvaluated, coverageLost };
 }
 
 export function __resetAssessRuns(): void {
