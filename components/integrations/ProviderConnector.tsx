@@ -8,6 +8,8 @@ export interface ProviderDescriptor {
   summary: string;
   docsUrl: string;
   keyPlaceholder: string;
+  /** "id_secret" providers authenticate with a pair and collect two fields. */
+  credentialKind?: "api_key" | "id_secret";
   blocked?: { reason: string };
 }
 
@@ -84,6 +86,9 @@ export function ProviderConnector({
   );
   const [editing, setEditing] = useState(false);
   const [key, setKey] = useState("");
+  // Pair providers (Censys) collect a non-secret identifier alongside the secret.
+  const isPair = descriptor.credentialKind === "id_secret";
+  const [pairId, setPairId] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState<Busy>(descriptor.blocked ? "" : "load");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -140,11 +145,17 @@ export function ProviderConnector({
 
   async function connect() {
     if (busy) return;
-    const normalizedKey = key.trim();
-    if (!normalizedKey) {
-      setActionError("Enter an API key.");
+    const secret = key.trim();
+    if (!secret) {
+      setActionError(isPair ? "Enter the API secret." : "Enter an API key.");
       return;
     }
+    if (isPair && !pairId.trim()) {
+      setActionError("Enter the API ID.");
+      return;
+    }
+    // A pair is stored as one value; the adapter that understands it splits it back.
+    const normalizedKey = isPair ? `${pairId.trim()}:${secret}` : secret;
     setBusy("save");
     setActionError(null);
     try {
@@ -166,6 +177,7 @@ export function ProviderConnector({
       setLoadState("ready");
       setLoadError(null);
       setKey("");
+      setPairId("");
       setShowKey(false);
       setEditing(false);
       window.requestAnimationFrame(() => articleRef.current?.focus());
@@ -209,6 +221,7 @@ export function ProviderConnector({
       setLoadError(null);
       setEditing(false);
       setKey("");
+      setPairId("");
       setShowKey(false);
       window.requestAnimationFrame(() => articleRef.current?.focus());
     } catch (error) {
@@ -414,11 +427,36 @@ export function ProviderConnector({
           className="mt-4 rounded-lg border border-line bg-base-950/60 p-3"
           aria-describedby={describedBy}
         >
+          {isPair && (
+            <>
+              <label
+                htmlFor={`pair-id-${descriptor.id}`}
+                className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
+              >
+                API ID
+              </label>
+              <input
+                id={`pair-id-${descriptor.id}`}
+                type="text"
+                value={pairId}
+                onChange={(event) => {
+                  setPairId(event.target.value);
+                  setActionError(null);
+                }}
+                placeholder="API ID"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                aria-label={`${descriptor.name} API ID`}
+                className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+              />
+            </>
+          )}
           <label
             htmlFor={`key-${descriptor.id}`}
             className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
           >
-            API key
+            {isPair ? "API secret" : "API key"}
           </label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
@@ -490,6 +528,7 @@ export function ProviderConnector({
                 onClick={() => {
                   setEditing(false);
                   setKey("");
+                  setPairId("");
                   setShowKey(false);
                   setActionError(null);
                   window.requestAnimationFrame(() =>

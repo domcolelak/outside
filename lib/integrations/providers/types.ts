@@ -47,7 +47,12 @@ export interface ProviderValidationError {
 }
 export type ProviderValidation = ProviderValidationOk | ProviderValidationError;
 
-export type CredentialKind = "api_key";
+/**
+ * "api_key" is a single opaque secret. "id_secret" is a pair (an identifier plus
+ * a secret) that the provider needs together — stored as one encrypted value and
+ * split apart only by the adapter that understands it.
+ */
+export type CredentialKind = "api_key" | "id_secret";
 
 /**
  * Declarative description of a provider. Adding a provider is: write an adapter,
@@ -71,6 +76,13 @@ export interface ProviderDefinition {
    * to attribute post-scan usage back to the organization's credential.
    */
   runLabel: string;
+  /**
+   * Expand a stored credential into every environment variable the scan pipeline
+   * reads for this provider. Only needed when one credential backs more than one
+   * variable — a pair provider such as Censys, which authenticates with an id and
+   * a secret. Defaults to a single entry keyed by `envKey`.
+   */
+  expandEnv?(raw: string): Record<string, string>;
   /** Where a customer obtains the credential. */
   docsUrl: string;
   /** Placeholder shown in the key field. */
@@ -122,12 +134,15 @@ export interface ProviderDescriptor {
   summary: string;
   docsUrl: string;
   keyPlaceholder: string;
+  /** Tells the connector whether to collect one secret or an id/secret pair. */
+  credentialKind: CredentialKind;
   blocked?: { reason: string };
 }
 
 export function toDescriptor(def: ProviderDefinition): ProviderDescriptor {
   return {
     id: def.id,
+    credentialKind: def.credentialKind,
     name: def.name,
     category: def.category,
     summary: def.summary,

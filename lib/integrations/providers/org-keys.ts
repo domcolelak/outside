@@ -24,10 +24,16 @@ export async function loadOrgProviderKeys(orgId: string | null | undefined): Pro
   if (!orgId) return keys;
 
   for (const provider of listProviders()) {
-    if (provider.credentialKind !== "api_key" || provider.commercialGate) continue;
+    if (provider.commercialGate) continue;
     try {
       const token = await getConnectionToken(orgId, provider.id);
-      if (token) keys.set(provider.envKey, token);
+      if (!token) continue;
+      // A pair credential backs more than one variable, so the provider decides
+      // how its stored value maps onto the environment the scan reads.
+      const expanded = provider.expandEnv ? provider.expandEnv(token) : { [provider.envKey]: token };
+      for (const [name, value] of Object.entries(expanded)) {
+        if (value) keys.set(name, value);
+      }
     } catch (error) {
       // A single unreadable credential must not stop the scan or the other providers.
       operationalLog("warn", "integrations.org_key_unavailable", { orgId, provider: provider.id }, error);

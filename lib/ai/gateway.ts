@@ -13,6 +13,7 @@
  */
 
 import { operationalLog } from "@/lib/observability/log";
+import { providerKey } from "@/lib/integrations/credential-context";
 import { isTransientHttp, retryTransient, Semaphore } from "./resilience";
 
 // Bounds concurrent hosted-model calls across the whole process.
@@ -58,7 +59,7 @@ export class ModelBudgetError extends Error {
 }
 
 export function gatewayConfigured(): boolean {
-  return !!process.env.OPENAI_API_KEY?.trim();
+  return !!providerKey("OPENAI_API_KEY");
 }
 
 /** Strip secret- and PII-shaped substrings before any text can leave the process. */
@@ -82,7 +83,10 @@ export function estimateMaxCostUsd(model: string, promptChars: number, maxTokens
 
 /** The single gateway through which every hosted-model call flows. */
 export async function executeModelCall(req: ModelRequest): Promise<ModelResult> {
-  const key = req.apiKey ?? process.env.OPENAI_API_KEY?.trim();
+  // An explicit per-request key wins; otherwise the organization's own connected
+  // key, falling back to the platform key. Whose key pays for the call never
+  // affects the redaction below — nothing extra may leave the process either way.
+  const key = req.apiKey ?? providerKey("OPENAI_API_KEY");
   if (!key) throw new Error("LLM gateway is not configured (no model provider key).");
   const model = req.model ?? process.env.OUTSIDE_OPENAI_MODEL ?? "gpt-4o-mini";
 

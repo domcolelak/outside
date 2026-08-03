@@ -15,6 +15,7 @@ import { executeModelCall } from "./gateway";
 import { executiveSummaryPrompt, findingExplanationPrompt } from "./constitution";
 import { ConstitutionViolation, findConstitutionViolations } from "./guardrails";
 import { operationalLog } from "@/lib/observability/log";
+import { providerKey } from "@/lib/integrations/credential-context";
 
 /** Prompt identity for audit/reproducibility through the gateway. */
 const EXPLAINER_PROMPT_VERSION = "explainer-v1";
@@ -126,8 +127,11 @@ export class OpenAIExplainer implements Explainer {
   }
 }
 
-/** The hosted explainer when OPENAI_API_KEY is set, else the deterministic template. */
+/**
+ * The hosted explainer when a model key is available — the organization's own
+ * connected key first, then the platform key — else the deterministic template.
+ */
 export function getExplainer(): Explainer {
-  const key = process.env.OPENAI_API_KEY;
+  const key = providerKey("OPENAI_API_KEY");
   return key ? new OpenAIExplainer(key) : new TemplateExplainer();
 }
