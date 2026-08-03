@@ -1,3 +1,20 @@
+configs:
+  blackbox-public:
+    content: |
+      modules:
+        outside_https:
+          prober: http
+          timeout: 5s
+          http:
+            method: GET
+            valid_status_codes: [200]
+            preferred_ip_protocol: ip4
+            headers:
+              Host: ${STAGING_DOMAIN:?Set STAGING_DOMAIN to the public hostname}
+            tls_config:
+              server_name: ${STAGING_DOMAIN:?Set STAGING_DOMAIN to the public hostname}
+              insecure_skip_verify: false
+
 services:
   caddy:
     ports: !override
@@ -10,5 +27,7 @@ services:
       - caddy-config:/config
 
   blackbox-exporter:
-    volumes:
-      - ./observability/blackbox.public.yaml:/etc/blackbox_exporter/config.yaml:ro
+    volumes: !reset []
+    configs:
+      - source: blackbox-public
+        target: /etc/blackbox_exporter/config.yaml

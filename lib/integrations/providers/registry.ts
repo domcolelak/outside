@@ -12,6 +12,7 @@ import { securityTrailsProvider } from "./securitytrails";
 import { shodanProvider } from "./shodan";
 import { abuseIpdbProvider } from "./abuseipdb";
 import { greyNoiseProvider } from "./greynoise";
+import { virusTotalProvider } from "./virustotal";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
@@ -19,6 +20,7 @@ const REGISTRY: Record<string, ProviderDefinition> = {
   [shodanProvider.id]: shodanProvider,
   [abuseIpdbProvider.id]: abuseIpdbProvider,
   [greyNoiseProvider.id]: greyNoiseProvider,
+  [virusTotalProvider.id]: virusTotalProvider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */

@@ -15,9 +15,10 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * is just `process.env.X` → `providerKey("X")`.
  */
 const store = new AsyncLocalStorage<Map<string, string>>();
+const organizationStore = new AsyncLocalStorage<string>();
 
-export function withProviderKeys<T>(keys: Map<string, string>, fn: () => T): T {
-  return store.run(keys, fn);
+export function withProviderKeys<T>(keys: Map<string, string>, fn: () => T, orgId?: string): T {
+  return store.run(keys, () => orgId ? organizationStore.run(orgId, fn) : fn());
 }
 
 /** The effective value of a provider env var: org-supplied first, then server env. */
@@ -26,4 +27,12 @@ export function providerKey(envName: string): string | undefined {
   if (scoped) return scoped;
   const env = process.env[envName]?.trim();
   return env || undefined;
+}
+
+export function providerKeyIsOrgSupplied(envName: string): boolean {
+  return store.getStore()?.has(envName) ?? false;
+}
+
+export function providerOrganizationId(): string | undefined {
+  return organizationStore.getStore();
 }

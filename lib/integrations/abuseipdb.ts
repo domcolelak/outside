@@ -8,6 +8,8 @@
  * cheapest real request — a check of a well-known public resolver — which costs
  * one of the plan's daily requests. The remaining daily allowance is reported
  * back from the rate-limit headers, which is also how capability is detected.
+ * The provider definition rejects Free/Individual limits because AbuseIPDB's
+ * terms prohibit those plans from commercial use.
  *
  * The key is passed in explicitly (from the organization's encrypted credential)
  * and is never logged, returned, or placed in an error message.

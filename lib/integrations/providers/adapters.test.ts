@@ -3,6 +3,8 @@ import { verifyKey as shodanVerify, looksLikeShodanKey } from "@/lib/integration
 import { verifyKey as abuseVerify, looksLikeAbuseIpdbKey } from "@/lib/integrations/abuseipdb";
 import { verifyKey as greyVerify, looksLikeGreyNoiseKey } from "@/lib/integrations/greynoise";
 import { listProviders, getProvider } from "./registry";
+import { abuseIpdbProvider } from "./abuseipdb";
+import { shodanProvider } from "./shodan";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -41,6 +43,11 @@ describe("Shodan adapter", () => {
     const result = await shodanVerify("super-secret-shodan-key");
     if (!result.ok) expect(result.message).not.toContain("super-secret-shodan-key");
   });
+
+  it("rejects academic and research plans in the commercial connector", async () => {
+    stub(200, { plan: "academic", query_credits: 100, scan_credits: 10 });
+    expect(await shodanProvider.validate("k")).toMatchObject({ ok: false, code: "forbidden" });
+  });
 });
 
 describe("AbuseIPDB adapter", () => {
@@ -61,6 +68,21 @@ describe("AbuseIPDB adapter", () => {
   it("maps an invalid key", async () => {
     stub(401, null);
     expect(await abuseVerify("k")).toMatchObject({ ok: false, code: "invalid_key" });
+  });
+
+  it("rejects a Free/Individual key for commercial use", async () => {
+    stub(200, { data: {} }, { "x-ratelimit-remaining": "993", "x-ratelimit-limit": "1000" });
+    expect(await abuseIpdbProvider.validate("k")).toMatchObject({ ok: false, code: "forbidden" });
+  });
+
+  it("accepts a Basic-or-higher paid-plan limit", async () => {
+    stub(200, { data: {} }, { "x-ratelimit-remaining": "9993", "x-ratelimit-limit": "10000" });
+    expect(await abuseIpdbProvider.validate("k")).toMatchObject({ ok: true, accountLabel: "10000 checks/day" });
+  });
+
+  it("fails closed when the commercial plan cannot be established", async () => {
+    stub(200, { data: {} });
+    expect(await abuseIpdbProvider.validate("k")).toMatchObject({ ok: false, code: "forbidden" });
   });
 });
 

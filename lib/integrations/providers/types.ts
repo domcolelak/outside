@@ -99,8 +99,17 @@ export interface ProviderStatus {
   accountHint?: string;
   accountLabel?: string;
   connectedAt?: string;
+  lastValidatedAt?: string;
   capabilities?: ProviderCapability[];
-  usage?: { total: number; failures: number; lastUsedAt?: string; lastErrorCode?: string };
+  usage?: {
+    /** OUTSIDE lifecycle/test/scan events, not a provider's raw HTTP request count. */
+    total: number;
+    failures: number;
+    lastUsedAt?: string;
+    lastErrorCode?: string;
+    scanRuns: number;
+    lastScanAt?: string;
+  };
   blocked?: { reason: string };
   error?: { code: ProviderErrorCode; message: string; retryAfterSeconds?: number };
 }

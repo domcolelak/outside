@@ -75,26 +75,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Assessment requires a verified target and organization admin access. Verify ownership of this domain first." }, { status: 403 });
   }
 
-  let findings;
+  let scanResult;
   try {
-    const result = await withOrgProviderKeys(orgId, () =>
+    scanResult = await withOrgProviderKeys(orgId, () =>
       runPassiveScan(target, `assess_${randomUUID()}`, () => {}, {
         activeObservation: true,
         signal: AbortSignal.timeout(55_000),
       }),
     );
-    await recordScanProviderUsage(orgId, result.providerRuns ?? []);
-    findings = result.findings;
+    await recordScanProviderUsage(orgId, scanResult.providerRuns ?? []);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error && error.name === "TimeoutError" ? "The assessment timed out. Try again." : "The assessment could not complete — the target may be unreachable." }, { status: 502 });
   }
 
-  const assessment = assess(findings);
+  const assessment = assess(scanResult.findings, { providerRuns: scanResult.providerRuns ?? [] });
   const run = await recordRun({ orgId, target, createdBy: ctx.user.id, result: assessment });
   const full = await getRun(orgId, run.id);
   const baseline = await previousRun(orgId, target, run.createdAt);
   const diff = baseline && full ? diffRuns(baseline, full) : null;
 
-  operationalLog("info", "assess.run", { orgId, target, passed: assessment.summary.passed, failed: assessment.summary.failed });
+  operationalLog("info", "assess.run", {
+    orgId,
+    target,
+    passed: assessment.summary.passed,
+    failed: assessment.summary.failed,
+    notEvaluated: assessment.summary.notEvaluated,
+  });
   return NextResponse.json({ run: full, diff });
 }

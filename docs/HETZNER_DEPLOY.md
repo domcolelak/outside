@@ -40,7 +40,8 @@ Edit `.env.staging`:
 - `APP_URL` — `https://app.yourdomain.com`
 - `HTTPS_PORT` — `443`
 - `OUTSIDE_IMAGE`, `OUTSIDE_MIGRATOR_IMAGE`, `OUTSIDE_BACKUP_IMAGE` — leave the
-  defaults; the stack builds them locally with `--build`.
+  repositories at their defaults for a source-based pilot. The deploy helper
+  creates unique commit-scoped app/migrator tags instead of overwriting them.
 - All secrets — use independent random values (see the operator handoff for a
   generated set). `POSTGRES_PASSWORD`, `AUTH_SECRET`, `OUTSIDE_VERIFY_SECRET`,
   `CRON_SECRET`, `GUARDIAN_ENCRYPTION_KEY`, `ENTERPRISE_ENCRYPTION_KEY`,
@@ -52,26 +53,20 @@ Generate the backup encryption identity once and store it **outside** the server
 
 ```bash
 docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
-docker run --rm --entrypoint age-keygen outside-staging-backup
+docker compose --env-file .env.staging -f ops/staging/compose.yaml \
+  run --rm --entrypoint age-keygen backup
 # copy the AGE-SECRET-KEY-1... line into BACKUP_ENCRYPTION_KEY
 ```
 
 ## 3. Deploy
 
 ```bash
-docker compose --env-file .env.staging \
-  -f ops/staging/compose.yaml \
-  -f ops/staging/compose.public.yaml \
-  config --quiet   # validate
-
-docker compose --env-file .env.staging \
-  -f ops/staging/compose.yaml \
-  -f ops/staging/compose.public.yaml \
-  up --detach --build
+ops/staging/deploy.sh --no-pull
 ```
 
-The `migrate` service applies the schema before the app starts; Caddy obtains a
-Let's Encrypt certificate automatically on first request.
+The helper builds app and migrator images from the same clean commit, applies
+the schema before starting the app, validates readiness/release identity, and
+Caddy obtains a Let's Encrypt certificate automatically on first request.
 
 ## 4. Verify
 

@@ -61,13 +61,15 @@ describe("connectProvider — save only after live validation", () => {
   });
 
   it("stores on success and reports capabilities, telemetry and audit", async () => {
-    const def = makeDef(okValidate);
+    const validate = vi.fn(okValidate);
+    const def = makeDef(validate);
     const result = await connectProvider(def, ORG, "goodkey", ACTOR);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.status).toMatchObject({ connected: true, accountLabel: "Plan X" });
       expect(result.status.capabilities?.[0]).toMatchObject({ id: "cap", available: true });
     }
+    expect(validate).toHaveBeenCalledTimes(1);
     expect(await getConnectionToken(ORG, "hibp")).toBe("goodkey");
     const trail = await providerAuditTrail(ORG, "hibp");
     expect(trail.map((e) => e.action)).toEqual(expect.arrayContaining(["validated", "connected"]));
@@ -88,13 +90,17 @@ describe("providerStatus", () => {
     expect(await providerStatus(def, ORG)).toMatchObject({ stored: false, connected: false });
   });
 
-  it("re-validates a stored key and surfaces a live failure without deleting it", async () => {
+  it("uses cached health on load and only re-validates after an explicit refresh", async () => {
     let good = true;
-    const def = makeDef(async () => (good ? okValidate() : badValidate()));
+    const validate = vi.fn(async () => (good ? okValidate() : badValidate()));
+    const def = makeDef(validate);
     await connectProvider(def, ORG, "goodkey", ACTOR);
     good = false;
-    const status = await providerStatus(def, ORG);
+    expect(await providerStatus(def, ORG)).toMatchObject({ stored: true, connected: true });
+    expect(validate).toHaveBeenCalledTimes(1);
+    const status = await providerStatus(def, ORG, { refresh: true });
     expect(status).toMatchObject({ stored: true, connected: false, error: { code: "invalid_key" } });
+    expect(validate).toHaveBeenCalledTimes(2);
     // The key is retained — a transient provider failure must not silently disconnect the customer.
     expect(await getConnectionToken(ORG, "hibp")).toBe("goodkey");
   });

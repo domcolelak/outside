@@ -74,7 +74,7 @@ export function Summary({
           <span className="font-medium">
             {result.coverage.discoveryComplete ? "Enrichment incomplete." : "Discovery incomplete — this surface may be missing assets."}
           </span>{" "}
-          {result.coverage.failed.length} source{result.coverage.failed.length === 1 ? "" : "s"} failed: {result.coverage.failed.map((f) => f.provider).join(", ")}. Results below reflect only what was successfully observed.
+          {result.coverage.failed.length} source{result.coverage.failed.length === 1 ? "" : "s"} incomplete: {result.coverage.failed.map((f) => f.provider).join(", ")}. Results below reflect only what was successfully observed.
         </div>
       )}
 

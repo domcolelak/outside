@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { makeSsoState, verifySsoState } from "./sso";
+import { directoryUserMatchesOidcSubject, makeSsoState, verifySsoState } from "./sso";
+import type { EnterpriseDirectoryUser } from "./types";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -49,5 +50,32 @@ describe("enterprise SSO state (CSRF + open-redirect defense)", () => {
     expect(verifySsoState(state, state)).not.toBeNull();
     vi.advanceTimersByTime(601_000); // past the 600s window
     expect(verifySsoState(state, state)).toBeNull();
+  });
+});
+
+describe("enterprise SSO stable subject binding", () => {
+  const directoryUser = {
+    identityProviderId: "idp-1",
+    externalId: "subject-a",
+    attributes: {},
+  } satisfies Pick<EnterpriseDirectoryUser, "identityProviderId" | "externalId" | "attributes">;
+
+  it("accepts the subject already bound to the selected identity provider", () => {
+    expect(directoryUserMatchesOidcSubject(directoryUser, "idp-1", "subject-a")).toBe(true);
+  });
+
+  it("rejects an email match carrying a different OIDC subject", () => {
+    expect(directoryUserMatchesOidcSubject(directoryUser, "idp-1", "subject-b")).toBe(false);
+  });
+
+  it("fails closed for unbound records and a different provider", () => {
+    expect(directoryUserMatchesOidcSubject({ ...directoryUser, externalId: null }, "idp-1", "subject-a")).toBe(false);
+    expect(directoryUserMatchesOidcSubject(directoryUser, "idp-2", "subject-a")).toBe(false);
+  });
+
+  it("uses an explicit oidcSubject attribute when one is present", () => {
+    const migrated = { ...directoryUser, externalId: "scim-object-id", attributes: { oidcSubject: "subject-a" } };
+    expect(directoryUserMatchesOidcSubject(migrated, "idp-1", "subject-a")).toBe(true);
+    expect(directoryUserMatchesOidcSubject(migrated, "idp-1", "scim-object-id")).toBe(false);
   });
 });

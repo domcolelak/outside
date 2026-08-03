@@ -2,7 +2,7 @@
 
 **Live demo: [outsideguardian.eu](https://outsideguardian.eu)** — run an anonymous external snapshot with no sign-up (`/scan?target=northstar&mode=demo`).
 
-OUTSIDE is a defensive external-surface discovery and monitoring application. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and a protection-posture score, and tracks change for verified organizations.
+OUTSIDE is evidence-first external attack surface management for teams and agencies. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and a protection-posture score, verifies assessment coverage, and tracks change for verified organizations.
 
 OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe. Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP, and technology history for every persisted finding.
 
@@ -16,10 +16,10 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 | **Landing** — passive, public sources only; no login required for an external snapshot. | **Live discovery graph** — deterministic classification, protection posture, and Aegis incident correlation. |
 | ![Attacker View](docs/media/outside-attacker-view.png) | ![Guardian dashboard](docs/media/outside-guardian.png) |
 | **Attacker View** — an evidence-backed replay of how each hostname became publicly observable. Discovery only, never exploitation. | **Guardian** — continuous change intelligence, Exposure Drift, and traceable recommendations after every scheduled scan. |
-| ![Findings and posture](docs/media/outside-findings.png) | |
-| **Findings & posture** — protection posture with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. | |
+| ![Integrations](docs/media/outside-integrations.png) | ![Findings and posture](docs/media/outside-findings.png) |
+| **Integrations** — organization-scoped, encrypted BYOK onboarding with provider-specific setup links, connection checks, and an explicitly separated write-capable Cloudflare workflow. | **Findings & posture** — protection posture with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. |
 
-> Screenshots are regenerated from the live demo with `node scripts/capture-screenshots.mjs`.
+> Screenshots use deterministic synthetic data and a synthetic local workspace—never customer data. Public demo captures can be regenerated with `node scripts/capture-screenshots.mjs [baseUrl]`; authenticated Guardian and Integrations captures require a disposable verified test workspace.
 
 ## Capability boundary
 
@@ -30,9 +30,9 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 - Misconfiguration findings are derived from the passive HTTP/TLS observation the scan already captured — missing security headers, HTTPS→HTTP downgrade redirects, and certificate / domain-registration expiry — with no additional requests.
 - Optional passive-DNS discovery expansion (SecurityTrails, Shodan) surfaces subdomains that never appeared on a public certificate; every returned hostname is validated to be a real subdomain of the target. Verified targets only.
 - Optional Censys service discovery reports non-web services (SSH, databases, RDP, message brokers) observed on resolved public addresses — exposure the HTTPS-only path never sees.
-- Optional third-party threat-intelligence enrichment — IP reputation (AbuseIPDB), breach exposure (HaveIBeenPwned), IP classification (GreyNoise), and domain reputation (VirusTotal) — runs only on verified targets and only when an operator has configured a provider key; it degrades to nothing when unconfigured.
-- Every enrichment provider is env-gated, bounded, and isolated: a provider failure is captured and never fails the scan, and a scan reports its own completeness so a partial discovery is never presented as whole.
-- Aegis change proposals are validated previews. The connector registry detects configured credentials but does not execute, verify, or roll back provider changes.
+- Optional third-party threat-intelligence enrichment — IP reputation (AbuseIPDB), breach exposure (HaveIBeenPwned), IP classification (GreyNoise), and domain reputation (VirusTotal) — runs only on verified targets. Organization administrators can connect encrypted BYOK credentials under `/integrations`; explicitly licensed platform keys remain an operator fallback.
+- Every enrichment provider is bounded and isolated: a provider failure is captured and never fails the scan, cached connection status does not silently consume quota, and a scan reports its own completeness so partial discovery is never presented as whole. Commercial-use gates reject or disable keys whose entitlement cannot be established safely.
+- Aegis change proposals remain validated previews. The Cloudflare connector is the deliberately narrow write-capable exception: an administrator can apply a DMARC TXT record only when no DMARC record exists, OUTSIDE verifies the exact write, audits it, and retains an idempotent rollback handle. Concurrent duplicate changes and disconnects with active remediations are blocked.
 - AI is optional (OpenAI) and read-only over deterministic scan results. It cannot add assets, findings, or scores, and degrades to a deterministic template.
 - Demo data is synthetic and explicitly identified as such.
 

@@ -33,9 +33,20 @@ describe("computeScanCoverage", () => {
     expect(c.failed).toHaveLength(2);
   });
 
-  it("does not count partial/skipped provider runs as failures", () => {
-    const c = computeScanCoverage([run("RDAP", "domain_registration", "partial"), run("DoH", "dns", "ok")]);
-    expect(c.complete).toBe(true);
+  it("marks a partial provider result incomplete but still ignores skipped providers", () => {
+    const c = computeScanCoverage([
+      run("RDAP", "domain_registration", "partial"),
+      run("DoH", "dns", "ok"),
+      run("Censys", "service_observation", "skipped"),
+    ]);
+    expect(c.complete).toBe(false);
     expect(c.discoveryComplete).toBe(true);
+    expect(c.failed).toEqual([{ provider: "RDAP", method: "domain_registration", error: "partial result" }]);
+  });
+
+  it("marks partial discovery as an incomplete surface", () => {
+    const c = computeScanCoverage([run("Cloudflare DoH", "dns", "partial", "one lookup timed out")]);
+    expect(c.complete).toBe(false);
+    expect(c.discoveryComplete).toBe(false);
   });
 });

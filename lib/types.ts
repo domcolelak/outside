@@ -190,11 +190,11 @@ export interface ScanStats {
 }
 
 export interface ScanCoverage {
-  /** Every provider that ran succeeded. */
+  /** Every provider that ran completed without an error or partial result. */
   complete: boolean;
-  /** No discovery-stage provider failed, so the discovered asset surface is trustworthy even if enrichment is partial. */
+  /** No discovery-stage provider errored or returned a partial result. */
   discoveryComplete: boolean;
-  /** Providers that errored, with the method they served and a short reason. */
+  /** Providers that errored or returned partial data, with a short reason. */
   failed: Array<{ provider: string; method: DiscoveryMethod; error: string }>;
 }
 

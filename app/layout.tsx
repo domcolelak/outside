@@ -4,7 +4,7 @@ import "./globals.css";
 
 const SITE_URL = APP_URL;
 const DESCRIPTION =
-  "OUTSIDE maps your publicly observable digital footprint and reveals forgotten, unexpected, and changing external assets — using passive, safe, public data sources.";
+  "Evidence-first external attack surface management: passive discovery, verified assessments, continuous Guardian monitoring, BYOK intelligence, and reversible remediation.";
 
 // A per-request CSP nonce cannot be embedded in statically generated HTML.
 // Dynamic rendering lets Next.js apply the middleware nonce to every script.

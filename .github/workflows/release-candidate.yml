@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
-          go-version: "1.23.x"
+          go-version-file: terraform-provider-outside/go.mod
           cache: false
 
       - name: Resolve immutable release identity

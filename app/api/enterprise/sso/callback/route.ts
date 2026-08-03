@@ -8,7 +8,7 @@ import { decryptEnterpriseSecret } from "@/lib/enterprise/crypto";
 import { featureEnabled } from "@/lib/enterprise/permissions";
 import { workspaceInRegion } from "@/lib/enterprise/residency";
 import { getEnterpriseStore } from "@/lib/enterprise/store";
-import { ENTERPRISE_SSO_COOKIE, exchangeEnterpriseCode, verifySsoState, type OidcConfig } from "@/lib/enterprise/sso";
+import { directoryUserMatchesOidcSubject, ENTERPRISE_SSO_COOKIE, exchangeEnterpriseCode, verifySsoState, type OidcConfig } from "@/lib/enterprise/sso";
 import type { EnterpriseDirectoryUser } from "@/lib/enterprise/types";
 
 export const runtime = "nodejs";
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     const auth = await getAuthStore();
     const directory = await store.list<EnterpriseDirectoryUser>(workspace.id, "directoryUsers");
     let directoryUser = directory.find((item) => item.userName === profile.email && item.identityProviderId === provider.id);
+    if (directoryUser && !directoryUserMatchesOidcSubject(directoryUser, provider.id, profile.subject)) return failure();
     let user = await auth.findUserByEmail(profile.email);
     const needsProvisioning = !directoryUser || !user || !directoryUser.userId;
     if (needsProvisioning && !provider.jitProvisioning) return failure();

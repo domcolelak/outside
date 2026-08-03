@@ -107,7 +107,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ r
     if (current.userId) await (await getAuthStore()).setProvisionedMembershipActive(current.userId, access.workspace.orgId, access.provider.id, false);
     const groups = (await store.list<EnterpriseDirectoryGroup>(access.workspace.id, "directoryGroups")).filter((item) => item.identityProviderId === access.provider.id && item.memberIds.includes(id));
     for (const group of groups) await store.update<EnterpriseDirectoryGroup>(access.workspace.id, "directoryGroups", group.id, { memberIds: group.memberIds.filter((memberId) => memberId !== id), lastSyncedAt: new Date().toISOString() });
-    const bindings = (await store.list(access.workspace.id, "bindings")).filter((item) => item.principalType === "user" && item.principalId === id);
+    const bindings = current.userId
+      ? (await store.list(access.workspace.id, "bindings")).filter((item) => item.principalType === "user" && item.principalId === current.userId)
+      : [];
     for (const binding of bindings) await store.remove(access.workspace.id, "bindings", binding.id);
     await store.removeAudited(access.workspace.id, "directoryUsers", id, { actorType: "scim", actorId: access.provider.id, action: "enterprise.scim.user.deleted", resourceType: "directory_user", requestId: req.headers.get("x-request-id"), ipHash: null, detail: { removedRoleBindings: bindings.length, updatedGroups: groups.length } });
     return new NextResponse(null, { status: 204 });

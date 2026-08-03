@@ -20,6 +20,12 @@ function encryptionKey(name: string, value: string): Buffer {
   return key;
 }
 
+function requireCommercialConfirmation(keyName: string, confirmationName: string): void {
+  if (process.env[keyName]?.trim() && process.env[confirmationName]?.trim() !== "true") {
+    throw new Error(`${confirmationName}=true is required when ${keyName} is configured in production.`);
+  }
+}
+
 /** Fail before serving traffic when the production trust boundary is incomplete. */
 export function validateProductionEnvironment(): void {
   if (process.env.NODE_ENV !== "production") return;
@@ -35,6 +41,17 @@ export function validateProductionEnvironment(): void {
   if (new Set([auth, verify, cron, email]).size !== 4) throw new Error("Authentication, verification, cron, and email secrets must be independent.");
 
   paired("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET");
+  for (const [keyName, confirmationName] of [
+    ["ABUSEIPDB_API_KEY", "ABUSEIPDB_COMMERCIAL_USE_CONFIRMED"],
+    ["HIBP_API_KEY", "HIBP_COMMERCIAL_USE_CONFIRMED"],
+    ["GREYNOISE_API_KEY", "GREYNOISE_COMMERCIAL_USE_CONFIRMED"],
+    ["VIRUSTOTAL_API_KEY", "VIRUSTOTAL_COMMERCIAL_USE_CONFIRMED"],
+    ["SECURITYTRAILS_API_KEY", "SECURITYTRAILS_COMMERCIAL_USE_CONFIRMED"],
+    ["SHODAN_API_KEY", "SHODAN_COMMERCIAL_USE_CONFIRMED"],
+    ["CENSYS_API_ID", "CENSYS_COMMERCIAL_USE_CONFIRMED"],
+  ] as const) {
+    requireCommercialConfirmation(keyName, confirmationName);
+  }
   if (process.env.STRIPE_SECRET_KEY?.trim()) {
     required("STRIPE_WEBHOOK_SECRET", 16);
     required("STRIPE_PRICE_PROFESSIONAL", 8);
@@ -50,10 +67,16 @@ export function validateProductionEnvironment(): void {
     if ([auth, verify, cron, email].includes(encryption)) throw new Error("ENTERPRISE_ENCRYPTION_KEY must be independent from other production secrets.");
   }
   const enterprisePrevious = (process.env.ENTERPRISE_ENCRYPTION_KEY_PREVIOUS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
-  for (const value of enterprisePrevious) encryptionKey("ENTERPRISE_ENCRYPTION_KEY_PREVIOUS", value);
+  const enterprisePreviousKeys = enterprisePrevious.map((value) => encryptionKey("ENTERPRISE_ENCRYPTION_KEY_PREVIOUS", value));
+  const guardianPrevious = (process.env.GUARDIAN_ENCRYPTION_KEY_PREVIOUS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  const guardianPreviousKeys = guardianPrevious.map((value) => encryptionKey("GUARDIAN_ENCRYPTION_KEY_PREVIOUS", value));
   const guardianValue = process.env.GUARDIAN_ENCRYPTION_KEY?.trim();
   const enterpriseValue = process.env.ENTERPRISE_ENCRYPTION_KEY?.trim();
   const guardian = guardianValue ? encryptionKey("GUARDIAN_ENCRYPTION_KEY", guardianValue) : null;
   const enterprise = enterpriseValue ? encryptionKey("ENTERPRISE_ENCRYPTION_KEY", enterpriseValue) : null;
-  if (guardian && enterprise && guardian.equals(enterprise)) throw new Error("Guardian and Enterprise encryption keys must be independent.");
+  const guardianKeys = [...(guardian ? [guardian] : []), ...guardianPreviousKeys];
+  const enterpriseKeys = [...(enterprise ? [enterprise] : []), ...enterprisePreviousKeys];
+  if (guardianKeys.some((guardianKey) => enterpriseKeys.some((enterpriseKey) => guardianKey.equals(enterpriseKey)))) {
+    throw new Error("Guardian and Enterprise encryption keys must be independent.");
+  }
 }
