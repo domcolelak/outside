@@ -47,8 +47,9 @@ export async function recordProviderAudit(input: {
     } else {
       mem().push({ ...input, createdAt: new Date().toISOString() });
     }
-  } catch {
-    // Audit persistence failure must not break the request; the log line below still fires.
+  } catch (error) {
+    operationalLog("error", `integrations.${input.provider}_${input.action}_audit_failed`, { orgId: input.orgId, actorId: input.actorId }, error);
+    throw error;
   }
   operationalLog("info", `integrations.${input.provider}_${input.action}`, { orgId: input.orgId, actorId: input.actorId, detail: input.detail });
 }

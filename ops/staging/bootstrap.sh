@@ -34,7 +34,10 @@ ufw --force enable >/dev/null
 
 echo "==> Fetching the application"
 if [ -d "${APP_DIR}/.git" ]; then
-  git -C "${APP_DIR}" fetch --depth 1 origin master && git -C "${APP_DIR}" reset --hard origin/master
+  git -C "${APP_DIR}" fetch --depth 1 --no-tags origin master
+  fetched_commit="$(git -C "${APP_DIR}" rev-parse --verify 'FETCH_HEAD^{commit}')"
+  git -C "${APP_DIR}" update-ref refs/outside/bootstrap-master "${fetched_commit}"
+  git -C "${APP_DIR}" reset --hard refs/outside/bootstrap-master
 else
   git clone --depth 1 "${REPO}" "${APP_DIR}"
 fi
@@ -48,7 +51,7 @@ Next steps (see docs/HETZNER_DEPLOY.md):
   3. Edit .env.staging: set STAGING_DOMAIN, APP_URL, HTTPS_PORT=443, and every secret.
      Generate the backup key once:
        docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
-       docker run --rm --entrypoint age-keygen outside-staging-backup   # -> BACKUP_ENCRYPTION_KEY
-  4. docker compose --env-file .env.staging -f ops/staging/compose.yaml -f ops/staging/compose.public.yaml up --detach --build
+       docker compose --env-file .env.staging -f ops/staging/compose.yaml run --rm --entrypoint age-keygen backup
+  4. ops/staging/deploy.sh --no-pull
   5. curl --fail https://<STAGING_DOMAIN>/api/readyz
 EOF

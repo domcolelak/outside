@@ -19,8 +19,8 @@
 import type { ProviderRun } from "@/lib/types";
 import { registrableDomain } from "@/lib/security/target";
 import { providerKey } from "@/lib/integrations/credential-context";
+import { providerGet } from "@/lib/integrations/providers/http";
 
-const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HOSTNAMES = 500;
 const LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
 const FQDN_RE = new RegExp(`^(?:${LABEL}\\.)+[a-z]{2,63}$`, "i");
@@ -38,16 +38,9 @@ export function passiveDnsEnabled(): boolean {
 }
 
 async function getJson(url: string, headers: Record<string, string>, signal?: AbortSignal): Promise<unknown> {
-  const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(new Error("Passive-DNS request timed out.")), FETCH_TIMEOUT_MS);
-  const composed = signal ? AbortSignal.any([signal, timeout.signal]) : timeout.signal;
-  try {
-    const res = await fetch(url, { headers: { accept: "application/json", ...headers }, signal: composed });
-    if (!res.ok) throw new Error(`${new URL(url).host} returned ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
+  const response = await providerGet(url, headers, signal, 10_000);
+  if (response.status < 200 || response.status >= 300) throw new Error(`${new URL(url).host} returned ${response.status}`);
+  return response.body;
 }
 
 /** Provider results are subdomain prefixes; build FQDNs and keep only valid ones under the target. */
@@ -69,25 +62,38 @@ export function normalizeSubdomains(labels: unknown, domain: string): string[] {
   return [...out];
 }
 
-async function securityTrails(domain: string, signal?: AbortSignal): Promise<string[]> {
-  const key = providerKey("SECURITYTRAILS_API_KEY");
-  if (!key) return [];
-  const body = await getJson(`https://api.securitytrails.com/v1/domain/${encodeURIComponent(domain)}/subdomains?children_only=false`, { apikey: key }, signal);
-  const subdomains = body && typeof body === "object" ? (body as { subdomains?: unknown }).subdomains : undefined;
-  return normalizeSubdomains(subdomains, domain);
+interface PassiveLookup {
+  hosts: string[];
+  partial: boolean;
+  warning?: string;
 }
 
-async function shodan(domain: string, signal?: AbortSignal): Promise<string[]> {
-  const key = providerKey("SHODAN_API_KEY");
-  if (!key) return [];
-  const body = await getJson(`https://api.shodan.io/dns/domain/${encodeURIComponent(domain)}?key=${encodeURIComponent(key)}`, {}, signal);
+async function securityTrails(domain: string, signal?: AbortSignal): Promise<PassiveLookup> {
+  const key = providerKey("SECURITYTRAILS_API_KEY");
+  if (!key) return { hosts: [], partial: false };
+  const body = await getJson(`https://api.securitytrails.com/v1/domain/${encodeURIComponent(domain)}/subdomains?children_only=false`, { apikey: key }, signal);
   const subdomains = body && typeof body === "object" ? (body as { subdomains?: unknown }).subdomains : undefined;
-  return normalizeSubdomains(subdomains, domain);
+  return { hosts: normalizeSubdomains(subdomains, domain), partial: false };
+}
+
+async function shodan(domain: string, signal?: AbortSignal): Promise<PassiveLookup> {
+  const key = providerKey("SHODAN_API_KEY");
+  if (!key) return { hosts: [], partial: false };
+  // One bounded page = one documented query credit. Surface `more` as partial
+  // coverage rather than silently spending additional credits.
+  const body = await getJson(`https://api.shodan.io/dns/domain/${encodeURIComponent(domain)}?key=${encodeURIComponent(key)}&page=1`, {}, signal);
+  const subdomains = body && typeof body === "object" ? (body as { subdomains?: unknown }).subdomains : undefined;
+  const more = typeof body === "object" && body !== null && (body as { more?: unknown }).more === true;
+  return {
+    hosts: normalizeSubdomains(subdomains, domain),
+    partial: more,
+    warning: more ? "Shodan has additional pages; OUTSIDE stopped after one page to cap this scan at one query credit." : undefined,
+  };
 }
 
 /** Query every configured passive-DNS provider; returns merged hostnames + a ProviderRun each. */
 export async function discoverPassiveHostnames(domain: string, options: { signal?: AbortSignal } = {}): Promise<{ hostnames: string[]; runs: ProviderRun[] }> {
-  const providers: Array<{ name: string; run: () => Promise<string[]> }> = [];
+  const providers: Array<{ name: string; run: () => Promise<PassiveLookup> }> = [];
   if (securityTrailsConfigured()) providers.push({ name: "SecurityTrails", run: () => securityTrails(domain, options.signal) });
   if (shodanConfigured()) providers.push({ name: "Shodan", run: () => shodan(domain, options.signal) });
 
@@ -96,14 +102,22 @@ export async function discoverPassiveHostnames(domain: string, options: { signal
   await Promise.all(providers.map(async ({ name, run }) => {
     const started = new Date().toISOString();
     try {
-      const hosts = await run();
-      for (const host of hosts) hostnames.add(host);
-      runs.push({ provider: name, method: "passive_subdomain", status: "ok", startedAt: started, finishedAt: new Date().toISOString(), observations: hosts.length, errors: [] });
+      const result = await run();
+      for (const host of result.hosts) hostnames.add(host);
+      runs.push({
+        provider: name,
+        method: "passive_subdomain",
+        status: result.partial ? "partial" : "ok",
+        startedAt: started,
+        finishedAt: new Date().toISOString(),
+        observations: result.hosts.length,
+        errors: result.warning ? [result.warning] : [],
+      });
     } catch (error) {
       if (options.signal?.aborted) throw error;
       runs.push({ provider: name, method: "passive_subdomain", status: "error", startedAt: started, finishedAt: new Date().toISOString(), observations: 0, errors: [(error as Error).message] });
     }
   }));
 
-  return { hostnames: [...hostnames].slice(0, MAX_HOSTNAMES), runs };
+  return { hostnames: [...hostnames].sort().slice(0, MAX_HOSTNAMES), runs };
 }

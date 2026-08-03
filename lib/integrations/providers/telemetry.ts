@@ -13,10 +13,13 @@ import type { ProviderErrorCode } from "./types";
 export type ProviderOperation = "validate" | "connect" | "replace" | "disconnect" | "status" | "search";
 
 export interface ProviderUsageSummary {
+  /** Lifecycle/test/scan activity events recorded by OUTSIDE, not raw upstream calls. */
   total: number;
   failures: number;
   lastUsedAt?: string;
   lastErrorCode?: string;
+  scanRuns: number;
+  lastScanAt?: string;
 }
 
 interface UsageRow {
@@ -72,16 +75,20 @@ export async function recordProviderUsage(input: {
 export async function providerUsageSummary(orgId: string, provider: IntegrationProvider): Promise<ProviderUsageSummary> {
   const conn = db();
   if (conn) {
-    const [total, failures, last] = await Promise.all([
+    const [total, failures, last, scanRuns, lastScan] = await Promise.all([
       conn.providerUsageEvent.count({ where: { orgId, provider } }),
       conn.providerUsageEvent.count({ where: { orgId, provider, ok: false } }),
       conn.providerUsageEvent.findFirst({ where: { orgId, provider }, orderBy: { createdAt: "desc" } }),
+      conn.providerUsageEvent.count({ where: { orgId, provider, operation: "search" } }),
+      conn.providerUsageEvent.findFirst({ where: { orgId, provider, operation: "search" }, orderBy: { createdAt: "desc" } }),
     ]);
     return {
       total,
       failures,
       lastUsedAt: last?.createdAt.toISOString(),
       lastErrorCode: last?.errorCode ?? undefined,
+      scanRuns,
+      lastScanAt: lastScan?.createdAt.toISOString(),
     };
   }
   const rows = mem().filter((r) => r.orgId === orgId && r.provider === provider);
@@ -91,6 +98,8 @@ export async function providerUsageSummary(orgId: string, provider: IntegrationP
     failures: rows.filter((r) => !r.ok).length,
     lastUsedAt: last?.createdAt,
     lastErrorCode: last?.errorCode,
+    scanRuns: rows.filter((row) => row.operation === "search").length,
+    lastScanAt: [...rows].reverse().find((row) => row.operation === "search")?.createdAt,
   };
 }
 

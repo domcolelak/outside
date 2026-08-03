@@ -18,18 +18,25 @@ try {
 
   // Demo scan — auto-runs from the deep link; wait for the cinematic scan to settle.
   await page.goto(`${BASE}/scan?target=northstar&mode=demo`, { waitUntil: "domcontentloaded" });
-  await page.getByText("Exposure posture").first().waitFor({ timeout: 60_000 });
+  await page.getByText("Protection posture", { exact: true }).first().waitFor({ timeout: 60_000 });
   // Wait for a new-feature finding to render so the screenshot proves them.
   await page.getByText(/Heartbleed|Internet-exposed|expiring/i).first().waitFor({ timeout: 60_000 });
   await page.waitForTimeout(1500);
   await page.screenshot({ path: join(OUT, "outside-scan-graph.png") });
 
   // Findings panel close-up (the summary column, identified by its score header).
-  const panel = page.locator(".scroll-thin").filter({ hasText: "Exposure posture" }).first();
+  const panel = page.locator('[data-tour="intelligence"]');
   if (await panel.count()) {
     await panel.scrollIntoViewIfNeeded();
     await panel.screenshot({ path: join(OUT, "outside-findings.png") });
   }
+
+  // Attacker View — wait for the deterministic 24-second replay to finish so
+  // the graph, evidence timeline, and final public-asset count are all visible.
+  await page.locator('[data-tour="attacker"]').click();
+  await page.getByRole("heading", { name: /public assets\. One domain\. 24 seconds\./i })
+    .waitFor({ timeout: 35_000 });
+  await page.screenshot({ path: join(OUT, "outside-attacker-view.png") });
 
   console.log("Captured screenshots into docs/media/");
 } finally {

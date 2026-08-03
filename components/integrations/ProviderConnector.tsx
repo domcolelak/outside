@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface ProviderDescriptor {
   id: string;
@@ -11,158 +11,520 @@ export interface ProviderDescriptor {
   blocked?: { reason: string };
 }
 
-interface Capability { id: string; label: string; available: boolean; detail?: string }
-interface Usage { total: number; failures: number; lastUsedAt?: string; lastErrorCode?: string }
+interface Capability {
+  id: string;
+  label: string;
+  available: boolean;
+  detail?: string;
+}
+interface Usage {
+  total: number;
+  failures: number;
+  lastUsedAt?: string;
+  lastErrorCode?: string;
+  scanRuns: number;
+  lastScanAt?: string;
+}
 interface Status {
   stored: boolean;
   connected: boolean;
   accountHint?: string;
   accountLabel?: string;
   connectedAt?: string;
+  lastValidatedAt?: string;
   capabilities?: Capability[];
   usage?: Usage;
   blocked?: { reason: string };
   error?: { code: string; message: string; retryAfterSeconds?: number };
 }
 
+type Busy = "" | "load" | "save" | "delete";
+type LoadState = "loading" | "ready" | "error";
+
+async function responseError(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  try {
+    const data = (await response.json()) as { error?: unknown };
+    return typeof data.error === "string" && data.error.trim()
+      ? data.error
+      : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /**
- * One connector UI for every BYOK provider. Driven entirely by the descriptor
- * and the live status from /api/integrations/<id>. A stored key is only shown
- * "Connected" after a live server-side validation; the key is entered once,
- * masked thereafter, and never returned to the browser.
+ * One connector UI for every BYOK provider. A stored key is never returned to
+ * the browser. Initial status loading is read-only; an explicit connection test
+ * asks the server to refresh provider health.
  */
-export function ProviderConnector({ descriptor, orgId }: { descriptor: ProviderDescriptor; orgId: string }) {
-  const [status, setStatus] = useState<Status | null>(descriptor.blocked ? { stored: false, connected: false, blocked: descriptor.blocked } : null);
+export function ProviderConnector({
+  descriptor,
+  orgId,
+}: {
+  descriptor: ProviderDescriptor;
+  orgId: string;
+}) {
+  const titleId = `provider-${descriptor.id}-title`;
+  const helpId = `provider-${descriptor.id}-help`;
+  const loadErrorId = `provider-${descriptor.id}-load-error`;
+  const actionErrorId = `provider-${descriptor.id}-action-error`;
+  const initialStatus = descriptor.blocked
+    ? {
+        stored: false,
+        connected: false,
+        blocked: descriptor.blocked,
+      }
+    : null;
+  const [status, setStatus] = useState<Status | null>(initialStatus);
+  const [loadState, setLoadState] = useState<LoadState>(
+    descriptor.blocked ? "ready" : "loading",
+  );
   const [editing, setEditing] = useState(false);
   const [key, setKey] = useState("");
-  const [busy, setBusy] = useState<"" | "load" | "save" | "delete">(descriptor.blocked ? "" : "load");
-  const [error, setError] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [busy, setBusy] = useState<Busy>(descriptor.blocked ? "" : "load");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const articleRef = useRef<HTMLElement>(null);
+  const keyInputRef = useRef<HTMLInputElement>(null);
+  const replaceButtonRef = useRef<HTMLButtonElement>(null);
   const api = `/api/integrations/${encodeURIComponent(descriptor.id)}`;
 
-  const load = useCallback(async () => {
-    setBusy("load");
-    try {
-      const res = await fetch(`${api}?orgId=${encodeURIComponent(orgId)}`, { credentials: "include" });
-      if (res.ok) setStatus(await res.json());
-    } catch { /* keep prior state */ }
-    setBusy("");
-  }, [api, orgId]);
+  const load = useCallback(
+    async (refresh = false) => {
+      setBusy("load");
+      setLoadError(null);
+      setActionError(null);
+      try {
+        const query = new URLSearchParams({ orgId });
+        if (refresh) query.set("refresh", "1");
+        const response = await fetch(`${api}?${query.toString()}`, {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error(
+            await responseError(
+              response,
+              `Could not check ${descriptor.name}.`,
+            ),
+          );
+        }
+        setStatus((await response.json()) as Status);
+        setLoadState("ready");
+      } catch (error) {
+        setLoadState("error");
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : `Could not check ${descriptor.name}.`,
+        );
+      } finally {
+        setBusy("");
+      }
+    },
+    [api, descriptor.name, orgId],
+  );
 
   useEffect(() => {
     if (descriptor.blocked) return;
-    const timer = window.setTimeout(() => void load(), 0);
+    const timer = window.setTimeout(() => void load(false), 0);
     return () => window.clearTimeout(timer);
   }, [load, descriptor.blocked]);
 
+  useEffect(() => {
+    if (editing) keyInputRef.current?.focus();
+  }, [editing]);
+
   async function connect() {
     if (busy) return;
+    const normalizedKey = key.trim();
+    if (!normalizedKey) {
+      setActionError("Enter an API key.");
+      return;
+    }
     setBusy("save");
-    setError(null);
+    setActionError(null);
     try {
-      const res = await fetch(api, {
+      const response = await fetch(api, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ orgId, key: key.trim() }),
+        body: JSON.stringify({ orgId, key: normalizedKey }),
       });
-      const data = await res.json();
-      if (!res.ok) setError(data.error ?? "Could not connect.");
-      else { setStatus(data); setKey(""); setEditing(false); }
-    } catch {
-      setError("Network error. Nothing was saved.");
+      if (!response.ok) {
+        throw new Error(
+          await responseError(
+            response,
+            `Could not connect ${descriptor.name}.`,
+          ),
+        );
+      }
+      setStatus((await response.json()) as Status);
+      setLoadState("ready");
+      setLoadError(null);
+      setKey("");
+      setShowKey(false);
+      setEditing(false);
+      window.requestAnimationFrame(() => articleRef.current?.focus());
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Network error. Nothing was saved.",
+      );
+    } finally {
+      setBusy("");
     }
-    setBusy("");
   }
 
   async function disconnect() {
     if (busy) return;
+    if (
+      !window.confirm(
+        `Disconnect ${descriptor.name}? OUTSIDE will stop using this organization’s key until you reconnect it.`,
+      )
+    ) {
+      return;
+    }
     setBusy("delete");
+    setActionError(null);
     try {
-      const res = await fetch(`${api}?orgId=${encodeURIComponent(orgId)}`, { method: "DELETE", credentials: "include" });
-      if (res.ok) setStatus(await res.json());
-    } catch { /* leave as-is */ }
-    setBusy("");
+      const response = await fetch(
+        `${api}?orgId=${encodeURIComponent(orgId)}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await responseError(
+            response,
+            `Could not disconnect ${descriptor.name}.`,
+          ),
+        );
+      }
+      setStatus((await response.json()) as Status);
+      setLoadState("ready");
+      setLoadError(null);
+      setEditing(false);
+      setKey("");
+      setShowKey(false);
+      window.requestAnimationFrame(() => articleRef.current?.focus());
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Network error. The connection was not removed.",
+      );
+    } finally {
+      setBusy("");
+    }
   }
 
   const blocked = status?.blocked ?? descriptor.blocked;
-  const showForm = !blocked && (editing || (status != null && !status.stored));
-  const badge = busy === "load" ? "Checking…" : blocked ? "Unavailable" : status?.connected ? "Connected" : status?.stored ? "Attention" : "Not connected";
-  const badgeClass = blocked
-    ? "border-line text-ink-faint"
-    : status?.connected
-      ? "border-signal/30 bg-signal/10 text-signal"
-      : status?.stored
-        ? "border-risk-medium/40 text-risk-medium"
-        : "border-line text-ink-faint";
+  const capabilityNeedsSetup =
+    status?.connected &&
+    status.capabilities?.some((capability) => !capability.available);
+  const showForm =
+    !blocked && loadState !== "loading" && (editing || !status?.stored);
+  const badge =
+    busy === "load" || loadState === "loading"
+      ? "Checking…"
+      : loadState === "error"
+        ? "Status unknown"
+        : blocked
+          ? "Unavailable"
+          : capabilityNeedsSetup
+            ? "Setup needed"
+            : status?.connected
+              ? "Connected"
+              : status?.stored
+                ? "Attention"
+                : "Not connected";
+  const badgeClass =
+    blocked || loadState === "error"
+      ? "border-line text-ink-faint"
+      : status?.connected && !capabilityNeedsSetup
+        ? "border-signal/30 bg-signal/10 text-signal"
+        : status?.stored || capabilityNeedsSetup
+          ? "border-risk-medium/40 bg-risk-medium/5 text-risk-medium"
+          : "border-line text-ink-faint";
+  const describedBy = [
+    helpId,
+    loadError ? loadErrorId : null,
+    actionError ? actionErrorId : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div className="panel p-4">
+    <article
+      ref={articleRef}
+      tabIndex={-1}
+      aria-labelledby={titleId}
+      aria-busy={busy !== ""}
+      className="panel p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+    >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-ink">{descriptor.name}</div>
-          <p className="mt-1 text-sm leading-relaxed text-ink-soft">{descriptor.summary}</p>
+        <div className="min-w-0">
+          <h4 id={titleId} className="text-ink">
+            {descriptor.name}
+          </h4>
+          <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+            {descriptor.summary}
+          </p>
         </div>
-        <span className={`mono shrink-0 rounded-md border px-2 py-0.5 text-[11px] uppercase tracking-wide ${badgeClass}`}>{badge}</span>
+        <span
+          role="status"
+          aria-live="polite"
+          className={`mono shrink-0 rounded-md border px-2 py-1 text-[11px] uppercase tracking-wide ${badgeClass}`}
+        >
+          {badge}
+        </span>
       </div>
 
       {blocked && (
-        <div className="mono mt-3 rounded-md border border-line bg-base-900 px-2.5 py-2 text-[11px] leading-5 text-ink-faint">{blocked.reason}</div>
+        <div className="mono mt-3 rounded-md border border-line bg-base-900 px-3 py-2 text-[12px] leading-5 text-ink-faint">
+          {blocked.reason}
+        </div>
+      )}
+
+      {loadError && (
+        <div
+          id={loadErrorId}
+          role="alert"
+          className="mt-3 rounded-lg border border-risk-medium/30 bg-risk-medium/5 p-3"
+        >
+          <p className="text-sm text-risk-medium">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void load(false)}
+            disabled={busy !== ""}
+            className="mt-3 min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
+          >
+            Retry status check
+          </button>
+        </div>
       )}
 
       {!blocked && status?.stored && !showForm && (
-        <div className="mt-3 space-y-2">
-          <div className="mono flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
-            <span>Key {status.accountHint}</span>
-            {status.connected && status.accountLabel && <span className="text-ink-soft">{status.accountLabel}</span>}
+        <div className="mt-4 space-y-3">
+          <div className="mono flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-faint">
+            {status.accountHint && <span>Key {status.accountHint}</span>}
+            {status.connected && status.accountLabel && (
+              <span className="text-ink-soft">{status.accountLabel}</span>
+            )}
+            {status.lastValidatedAt && (
+              <span>
+                Last verified{" "}
+                {new Date(status.lastValidatedAt).toLocaleString()}
+              </span>
+            )}
           </div>
 
           {status.connected && status.capabilities?.length ? (
-            <ul className="space-y-1">
-              {status.capabilities.map((cap) => (
-                <li key={cap.id} className="mono text-[11px] text-ink-faint">
-                  {cap.label}:{" "}
-                  {cap.available
-                    ? <span className="text-signal">available{cap.detail ? ` — ${cap.detail}` : ""}</span>
-                    : <span className="text-risk-medium">{cap.detail ?? "not available"}</span>}
+            <ul className="space-y-1.5">
+              {status.capabilities.map((capability) => (
+                <li
+                  key={capability.id}
+                  className="mono text-[12px] leading-5 text-ink-faint"
+                >
+                  {capability.label}:{" "}
+                  {capability.available ? (
+                    <span className="text-signal">
+                      available
+                      {capability.detail ? ` — ${capability.detail}` : ""}
+                    </span>
+                  ) : (
+                    <span className="text-risk-medium">
+                      {capability.detail ?? "not available"}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           ) : null}
 
           {!status.connected && (
-            <div className="mono rounded-md border border-risk-medium/30 bg-risk-medium/5 px-2 py-1 text-[11px] text-risk-medium">
-              {status.error?.message ?? "The stored key did not pass a live check."}
+            <div className="mono rounded-md border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[12px] leading-5 text-risk-medium">
+              {status.error?.message ??
+                "The stored key did not pass its latest connection check."}
             </div>
           )}
 
           {status.usage && status.usage.total > 0 && (
-            <div className="mono text-[11px] text-ink-faint">
-              Usage: {status.usage.total} call{status.usage.total === 1 ? "" : "s"}
-              {status.usage.failures > 0 && <span className="text-risk-medium"> · {status.usage.failures} failed</span>}
-              {status.usage.lastUsedAt && <span> · last {new Date(status.usage.lastUsedAt).toLocaleString()}</span>}
+            <div className="mono text-[12px] leading-5 text-ink-faint">
+              Used in {status.usage.scanRuns} scan
+              {status.usage.scanRuns === 1 ? "" : "s"}
+              {status.usage.failures > 0 && (
+                <span className="text-risk-medium">
+                  {" "}
+                  · {status.usage.failures} failed
+                </span>
+              )}
+              {status.usage.lastScanAt && (
+                <span>
+                  {" "}
+                  · latest scan {new Date(status.usage.lastScanAt).toLocaleString()}
+                </span>
+              )}
             </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button onClick={() => void load()} disabled={!!busy} className="mono rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50">Test connection</button>
-            <button onClick={() => { setEditing(true); setError(null); }} disabled={!!busy} className="mono rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50">Replace key</button>
-            <button onClick={disconnect} disabled={!!busy} className="mono rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:text-ink disabled:opacity-50">{busy === "delete" ? "Disconnecting…" : "Disconnect"}</button>
+            <button
+              ref={replaceButtonRef}
+              type="button"
+              onClick={() => void load(true)}
+              disabled={busy !== ""}
+              className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
+            >
+              {busy === "load" ? "Testing…" : "Test connection"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(true);
+                setActionError(null);
+              }}
+              disabled={busy !== ""}
+              className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
+            >
+              Replace key
+            </button>
+            <button
+              type="button"
+              onClick={() => void disconnect()}
+              disabled={busy !== ""}
+              className="min-h-11 rounded-lg border border-risk-high/30 px-3 text-sm text-risk-high transition hover:bg-risk-high/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high disabled:opacity-50"
+            >
+              {busy === "delete" ? "Disconnecting…" : "Disconnect"}
+            </button>
           </div>
         </div>
       )}
 
       {showForm && (
-        <form onSubmit={(e) => { e.preventDefault(); void connect(); }} className="mt-3 rounded-lg border border-line bg-base-950/60 p-3">
-          <label htmlFor={`key-${descriptor.id}`} className="mono block text-[11px] uppercase tracking-wide text-ink-faint">API key</label>
-          <input id={`key-${descriptor.id}`} type="password" value={key} onChange={(e) => { setKey(e.target.value); setError(null); }} placeholder={descriptor.keyPlaceholder} autoComplete="off" spellCheck={false} className="mono mt-1.5 w-full rounded-md border border-line bg-base-900 px-2.5 py-2 text-[12px] text-ink placeholder:text-ink-faint focus:outline-hidden" />
-          <p className="mono mt-2 text-[11px] leading-5 text-ink-faint">Get a key at <a href={descriptor.docsUrl} target="_blank" rel="noreferrer noopener" className="text-ink-soft underline hover:text-ink">{descriptor.docsUrl.replace(/^https?:\/\//, "")}</a>. We verify it, store it encrypted, and never show it again.</p>
-          {error && <p role="alert" className="mono mt-2 text-[11px] text-risk-high">{error}</p>}
-          <div className="mt-3 flex items-center gap-2">
-            <button type="submit" disabled={!!busy || key.trim().length === 0} className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[11px] text-signal hover:bg-signal/15 disabled:opacity-50">{busy === "save" ? "Verifying…" : "Connect"}</button>
-            {status?.stored && <button type="button" onClick={() => { setEditing(false); setKey(""); setError(null); }} className="mono rounded-md border border-line px-2.5 py-1.5 text-[11px] text-ink-soft hover:text-ink">Cancel</button>}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void connect();
+          }}
+          className="mt-4 rounded-lg border border-line bg-base-950/60 p-3"
+          aria-describedby={describedBy}
+        >
+          <label
+            htmlFor={`key-${descriptor.id}`}
+            className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
+          >
+            API key
+          </label>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              ref={keyInputRef}
+              id={`key-${descriptor.id}`}
+              type={showKey ? "text" : "password"}
+              value={key}
+              onChange={(event) => {
+                setKey(event.target.value);
+                setActionError(null);
+              }}
+              placeholder={descriptor.keyPlaceholder}
+              autoComplete="off"
+              spellCheck={false}
+              required
+              aria-label={`${descriptor.name} API key`}
+              aria-invalid={actionError ? true : undefined}
+              className="mono min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey((visible) => !visible)}
+              aria-pressed={showKey}
+              aria-label={`${showKey ? "Hide" : "Show"} ${descriptor.name} API key`}
+              className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+            >
+              {showKey ? "Hide key" : "Show key"}
+            </button>
+          </div>
+          <p id={helpId} className="mt-2 text-xs leading-5 text-ink-faint">
+            <a
+              href={descriptor.docsUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium text-ink-soft underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+            >
+              Open {descriptor.name} key setup
+            </a>
+            . OUTSIDE verifies the key server-side, stores it encrypted, and
+            never shows it again.
+            {loadState === "error" &&
+              " Current connection status is unknown; saving a key may replace an existing one."}
+          </p>
+          {actionError && (
+            <p
+              id={actionErrorId}
+              role="alert"
+              className="mt-2 text-sm text-risk-high"
+            >
+              {actionError}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="submit"
+              aria-label={`${status?.stored ? "Verify and replace" : "Verify and connect"} ${descriptor.name}`}
+              disabled={busy !== "" || key.trim().length === 0}
+              className="min-h-11 rounded-lg border border-signal/40 bg-signal/10 px-4 text-sm font-medium text-signal transition hover:bg-signal/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
+            >
+              {busy === "save"
+                ? "Verifying…"
+                : status?.stored
+                  ? "Verify and replace"
+                  : "Verify and connect"}
+            </button>
+            {status?.stored && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  setKey("");
+                  setShowKey(false);
+                  setActionError(null);
+                  window.requestAnimationFrame(() =>
+                    replaceButtonRef.current?.focus(),
+                  );
+                }}
+                disabled={busy !== ""}
+                className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       )}
-    </div>
+
+      {actionError && !showForm && (
+        <p
+          id={actionErrorId}
+          role="alert"
+          className="mt-3 text-sm text-risk-high"
+        >
+          {actionError}
+        </p>
+      )}
+
+      {busy !== "" && (
+        <span className="sr-only" role="status" aria-live="polite">
+          {busy === "load"
+            ? `Checking ${descriptor.name}`
+            : busy === "save"
+              ? `Saving ${descriptor.name}`
+              : `Disconnecting ${descriptor.name}`}
+        </span>
+      )}
+    </article>
   );
 }

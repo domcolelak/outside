@@ -53,11 +53,15 @@ const DISCOVERY_METHODS = new Set<DiscoveryMethod>(["certificate_transparency", 
 
 /** Derive a completeness signal from the provider runs so a partial scan is never presented as whole. */
 export function computeScanCoverage(runs: ProviderRun[]): ScanCoverage {
-  const failed = runs.filter((r) => r.status === "error");
+  const failed = runs.filter((r) => r.status === "error" || r.status === "partial");
   return {
     complete: failed.length === 0,
     discoveryComplete: !failed.some((r) => DISCOVERY_METHODS.has(r.method)),
-    failed: failed.map((r) => ({ provider: r.provider, method: r.method, error: r.errors[0] ?? "failed" })),
+    failed: failed.map((r) => ({
+      provider: r.provider,
+      method: r.method,
+      error: r.errors[0] ?? (r.status === "partial" ? "partial result" : "failed"),
+    })),
   };
 }
 
@@ -301,8 +305,20 @@ export async function runPassiveScan(
   }
 
   const passiveHostSet = new Set(passiveHosts);
-  const candidateSet = new Set([...ctByHost.keys(), ...passiveHosts].filter((host) => host !== domain));
-  const candidates = [...candidateSet].slice(0, MAX_HOSTS);
+  const ctCandidates = [...ctByHost.keys()].filter((host) => host !== domain).sort();
+  const passiveCandidates = [...passiveHostSet].filter((host) => host !== domain).sort();
+  // Round-robin independent sources so a full CT result cannot discard all
+  // customer-paid passive-DNS observations at the global responsibility cap.
+  const candidates: string[] = [];
+  const selected = new Set<string>();
+  for (let index = 0; candidates.length < MAX_HOSTS && (index < ctCandidates.length || index < passiveCandidates.length); index += 1) {
+    for (const host of [passiveCandidates[index], ctCandidates[index]]) {
+      if (!host || selected.has(host)) continue;
+      selected.add(host);
+      candidates.push(host);
+      if (candidates.length >= MAX_HOSTS) break;
+    }
+  }
 
   await stage(emit, "dns", async () => {
     const started = new Date();

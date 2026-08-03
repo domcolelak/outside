@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
-# Deploy the current repository state to the running OUTSIDE staging stack.
+# Deploy a clean repository revision to the running OUTSIDE staging stack.
 #
-# Builds the application image with real build provenance (git SHA + build time,
-# surfaced by /api/readyz and OpenTelemetry) and recreates the app container.
-# App/migrator images are `image:`-only in compose (never built by compose), so
-# they are built and tagged here first. Idempotent and safe to re-run.
+# Builds SHA-scoped local application and migrator images with real provenance,
+# applies every pending migration, and only then recreates the app container.
+# Configured release tags/digests are used as repository names but are never
+# overwritten by a source build.
 #
-#   ops/staging/deploy.sh                 # app only, from origin/master
-#   ops/staging/deploy.sh --migrate       # also rebuild + run the migrator
+#   ops/staging/deploy.sh                 # master, migrations always included
 #   ops/staging/deploy.sh --ref <git-ref> # deploy a specific ref
-#   ops/staging/deploy.sh --no-pull       # deploy the working tree as-is
+#   ops/staging/deploy.sh --no-pull       # deploy the clean checked-out commit
+#   ops/staging/deploy.sh --migrate       # accepted for backwards compatibility
 set -euo pipefail
 
 APP_DIR="${OUTSIDE_DIR:-/opt/outside}"
 ENV_FILE="${OUTSIDE_ENV_FILE:-$APP_DIR/.env.staging}"
-REF="origin/master"
-MIGRATE=0
+REF="master"
 PULL=1
 
-while [ $# -gt 0 ]; do
+while [ "$#" -gt 0 ]; do
   case "$1" in
-    --migrate) MIGRATE=1 ;;
+    --migrate) ;; # Migrations are mandatory for every deployment.
     --no-pull) PULL=0 ;;
-    --ref) REF="$2"; shift ;;
+    --ref)
+      [ "$#" -ge 2 ] || { echo "--ref requires a git ref" >&2; exit 2; }
+      REF="$2"
+      shift
+      ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -31,58 +34,86 @@ done
 cd "$APP_DIR"
 [ -f "$ENV_FILE" ] || { echo "Missing env file: $ENV_FILE" >&2; exit 1; }
 
-# Image tags come from the env file so they stay consistent with compose.
-APP_IMAGE="$(grep -E '^OUTSIDE_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
-MIGRATOR_IMAGE="$(grep -E '^OUTSIDE_MIGRATOR_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
-# Parse the version straight from package.json — the deploy host has Docker but
-# not necessarily Node, so never depend on a node binary here.
-APP_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -1)"
-APP_VERSION="${APP_VERSION:-0.0.0}"
-: "${APP_IMAGE:?OUTSIDE_IMAGE must be set in $ENV_FILE}"
-: "${MIGRATOR_IMAGE:?OUTSIDE_MIGRATOR_IMAGE must be set in $ENV_FILE}"
-
 if [ "$PULL" -eq 1 ]; then
-  echo "==> Fetching ${REF}"
-  git fetch --depth 1 origin "${REF#origin/}"
-  git reset --hard "$REF"
+  remote_ref="${REF#origin/}"
+  if ! git check-ref-format "refs/outside/input/${remote_ref}" >/dev/null 2>&1; then
+    echo "Invalid deployment ref: ${REF}" >&2
+    exit 2
+  fi
+  echo "==> Fetching ${remote_ref}"
+  git fetch --depth 1 --no-tags origin "$remote_ref"
+  fetched_commit="$(git rev-parse --verify 'FETCH_HEAD^{commit}')"
+  deploy_ref="refs/outside/deploy-candidate"
+  git update-ref "$deploy_ref" "$fetched_commit"
+  git reset --hard "$deploy_ref"
+fi
+
+if [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+  echo "Refusing to build a dirty working tree because its contents would not match the release commit." >&2
+  git status --short >&2
+  exit 1
 fi
 
 GIT_SHA="$(git rev-parse HEAD)"
-BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "==> Deploying ${GIT_SHA} (built ${BUILD_TIME})"
+BUILD_TIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
-BUILD_ARGS=(--build-arg "APP_VERSION=$APP_VERSION" --build-arg "GIT_SHA=$GIT_SHA" --build-arg "BUILD_TIME=$BUILD_TIME")
+# Read version and image configuration only after the exact source revision is
+# checked out, otherwise the embedded version can describe the previous commit.
+APP_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' package.json | head -1)"
+APP_VERSION="${APP_VERSION:-0.0.0}"
+CONFIGURED_APP_IMAGE="$(grep -E '^OUTSIDE_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
+CONFIGURED_MIGRATOR_IMAGE="$(grep -E '^OUTSIDE_MIGRATOR_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
+: "${CONFIGURED_APP_IMAGE:?OUTSIDE_IMAGE must be set in $ENV_FILE}"
+: "${CONFIGURED_MIGRATOR_IMAGE:?OUTSIDE_MIGRATOR_IMAGE must be set in $ENV_FILE}"
+
+image_repository() {
+  local reference="${1%@*}"
+  local final_component="${reference##*/}"
+  if [[ "$final_component" == *:* ]]; then reference="${reference%:*}"; fi
+  printf '%s\n' "$reference"
+}
+
+safe_version="$(printf '%s' "$APP_VERSION" | tr -c 'A-Za-z0-9_.-' '-')"
+local_tag="${safe_version}-local-${GIT_SHA:0:12}"
+OUTSIDE_IMAGE="$(image_repository "$CONFIGURED_APP_IMAGE"):${local_tag}"
+OUTSIDE_MIGRATOR_IMAGE="$(image_repository "$CONFIGURED_MIGRATOR_IMAGE"):${local_tag}"
+export OUTSIDE_IMAGE OUTSIDE_MIGRATOR_IMAGE
+
+echo "==> Deploying ${GIT_SHA} (built ${BUILD_TIME})"
+echo "==> Source-build images: ${OUTSIDE_IMAGE}, ${OUTSIDE_MIGRATOR_IMAGE}"
+
+BUILD_ARGS=(
+  --build-arg "APP_VERSION=$APP_VERSION"
+  --build-arg "GIT_SHA=$GIT_SHA"
+  --build-arg "BUILD_TIME=$BUILD_TIME"
+)
 
 COMPOSE=(docker compose --env-file "$ENV_FILE" -f ops/staging/compose.yaml)
 [ -f ops/staging/compose.public.yaml ] && COMPOSE+=(-f ops/staging/compose.public.yaml)
 
-echo "==> Building app image ${APP_IMAGE}"
-docker build --target runner "${BUILD_ARGS[@]}" -t "$APP_IMAGE" .
-
-if [ "$MIGRATE" -eq 1 ]; then
-  echo "==> Building migrator image ${MIGRATOR_IMAGE}"
-  docker build --target migrator "${BUILD_ARGS[@]}" -t "$MIGRATOR_IMAGE" .
-  echo "==> Recreating migrate + app"
-  "${COMPOSE[@]}" up -d --force-recreate migrate app
-else
-  echo "==> Recreating app"
-  "${COMPOSE[@]}" up -d --force-recreate app
-fi
+echo "==> Building app and migrator from the same commit"
+docker build --target runner "${BUILD_ARGS[@]}" -t "$OUTSIDE_IMAGE" .
+docker build --target migrator "${BUILD_ARGS[@]}" -t "$OUTSIDE_MIGRATOR_IMAGE" .
+"${COMPOSE[@]}" config --quiet
+echo "==> Applying migrations before recreating the app"
+"${COMPOSE[@]}" up -d --force-recreate migrate app
 
 # The app port is not published on the host (it sits behind the reverse proxy),
-# so poll the container's own HEALTHCHECK — which probes /api/readyz inside the
-# container — rather than assuming a host-reachable port.
+# so use its liveness HEALTHCHECK and then require database readiness plus exact
+# release identity from inside the container.
 echo "==> Waiting for readiness"
 APP_CID="$("${COMPOSE[@]}" ps -q app)"
 for _ in $(seq 1 30); do
   status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$APP_CID" 2>/dev/null || echo missing)"
   if [ "$status" = "healthy" ]; then
-    echo "==> App is healthy. Release:"
-    docker exec "$APP_CID" node -e "fetch('http://127.0.0.1:3000/api/readyz').then(r=>r.text()).then(t=>console.log(t))" 2>/dev/null || true
-    exit 0
+    if docker exec -e "EXPECTED_GIT_SHA=${GIT_SHA}" "$APP_CID" node -e \
+      "fetch('http://127.0.0.1:3000/api/readyz').then(async r=>{const body=await r.json();console.log(JSON.stringify(body));if(!r.ok||body.status!=='ready'||body.release?.commit!==process.env.EXPECTED_GIT_SHA)process.exit(1)}).catch(()=>process.exit(1))"; then
+      echo "==> App is ready with the expected release identity."
+      exit 0
+    fi
   fi
   [ "$status" = "unhealthy" ] && { echo "!! App reported unhealthy" >&2; exit 1; }
   sleep 3
 done
-echo "!! App did not become healthy in time" >&2
+echo "!! App did not become ready in time" >&2
 exit 1

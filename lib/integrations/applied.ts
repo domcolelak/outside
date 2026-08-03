@@ -90,6 +90,29 @@ export async function activeRemediation(orgId: string, provider: string, target:
   return mem().find((r) => r.orgId === orgId && r.provider === provider && r.target === target && r.action === action && !r.rolledBackAt) ?? null;
 }
 
+/** All provider changes that still require the connected credential for rollback. */
+export async function listActiveRemediations(orgId: string, provider: string): Promise<AppliedRemediationRecord[]> {
+  const conn = db();
+  if (conn) {
+    const rows = await conn.appliedRemediation.findMany({
+      where: { orgId, provider, rolledBackAt: null },
+      orderBy: { appliedAt: "desc" },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      orgId: row.orgId,
+      provider: row.provider,
+      target: row.target,
+      action: row.action,
+      handle: row.handle as unknown as DnsRecordHandle,
+      appliedBy: row.appliedBy,
+      appliedAt: row.appliedAt.toISOString(),
+      rolledBackAt: null,
+    }));
+  }
+  return mem().filter((record) => record.orgId === orgId && record.provider === provider && !record.rolledBackAt);
+}
+
 export async function markRolledBack(id: string): Promise<void> {
   const conn = db();
   if (conn) {

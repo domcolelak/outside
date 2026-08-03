@@ -40,5 +40,7 @@ describe("assess store", () => {
     expect(diff.fixed).toEqual(["http-security-headers"]); // headers finding went away
     expect(diff.regressed).toEqual(["known-vulnerability-correlation"]); // new vuln finding
     expect(diff.stillFailing).toEqual(["mail-authentication"]); // mail still failing
+    expect(diff.newlyEvaluated).toEqual([]);
+    expect(diff.coverageLost).toEqual([]);
   });
 });

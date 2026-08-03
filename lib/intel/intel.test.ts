@@ -41,14 +41,19 @@ describe("threat-intel providers", () => {
     expect(rep).toMatchObject({ ip: "203.0.113.10", source: "AbuseIPDB", score: 88, reports: 12 });
   });
 
-  it("parses HaveIBeenPwned domain breaches and treats 404 as none", async () => {
+  it("uses HIBP subscribed-domain search, discards aliases, de-duplicates breaches, and treats 404 as none", async () => {
     vi.stubEnv("HIBP_API_KEY", "k");
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([
-      { Name: "Acme2019", Title: "Acme 2019", BreachDate: "2019-03-01" },
-    ]), { status: 200 })));
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({
+      alice: ["Adobe", "LinkedIn"],
+      bob: ["Adobe"],
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
     const exposure = await checkDomainBreaches("acme.com");
-    expect(exposure?.breaches).toHaveLength(1);
-    expect(exposure?.breaches[0]).toMatchObject({ name: "Acme2019", breachDate: "2019-03-01" });
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/breacheddomain/acme.com");
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("/breaches?");
+    expect(exposure?.breaches.map((breach) => breach.name)).toEqual(["Adobe", "LinkedIn"]);
+    expect(JSON.stringify(exposure)).not.toContain("alice");
+    expect(JSON.stringify(exposure)).not.toContain("bob");
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 404 })));
     const none = await checkDomainBreaches("clean.com");
@@ -95,7 +100,7 @@ describe("threat-intel enrichment", () => {
         const score = ip === "8.8.8.8" ? 90 : 10;
         return new Response(JSON.stringify({ data: { abuseConfidenceScore: score, totalReports: 3 } }), { status: 200 });
       }
-      return new Response(JSON.stringify([{ Name: "B", Title: "Breach", BreachDate: "2020-01-01" }]), { status: 200 });
+      return new Response(JSON.stringify({ employee: ["Breach"] }), { status: 200 });
     }));
 
     // Genuinely public addresses; documentation/private ranges are filtered out.
@@ -107,7 +112,7 @@ describe("threat-intel enrichment", () => {
     expect(root.attrs.threatIpScore).toBe(90); // worst across its two addresses
     expect(web.attrs.threatIpScore).toBe(10);
     expect(root.attrs.breachCount).toBe(1);
-    expect(root.attrs.breachLatest).toBe("2020-01-01");
+    expect(root.attrs.breachLatest).toBeUndefined();
   });
 
   it("skips private addresses", async () => {
@@ -160,7 +165,8 @@ describe("threat-intel findings", () => {
     const findings = generateIntelFindings([root], "now");
     expect(findings).toHaveLength(1);
     expect(findings[0]!.category).toBe("breach-exposure");
-    expect(findings[0]!.observation).toContain("2 public data breach(es)");
+    expect(findings[0]!.observation).toContain("2 distinct breach catalogue");
+    expect(findings[0]!.observation).toContain("https://haveibeenpwned.com/");
     expect(findings[0]!.concern).toMatch(/not evidence of a current compromise/i);
   });
 

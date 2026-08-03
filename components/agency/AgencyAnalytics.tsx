@@ -25,7 +25,7 @@ type Data = {
     reports: number;
     apiCalls: number;
   };
-  billing: {
+  billing?: {
     revenueByCurrency: Record<string, number>;
     clientCountByMode: Record<string, number>;
     clients: BillingClient[];
@@ -132,39 +132,52 @@ export function AgencyAnalytics({
           </div>
         </div>
       </div>
-      <div className="panel p-5">
-        <h2 className="text-lg font-medium">Billing hierarchy</h2>
-        <div className="mt-4 space-y-2">
-          {Object.entries(data.billing.revenueByCurrency).map(
-            ([currency, cents]) => (
-              <div
-                key={currency}
-                className="flex justify-between rounded-sm border border-line p-3 text-sm"
-              >
-                <span>Managed MRR</span>
-                <b>
-                  {(cents / 100).toLocaleString()} {currency}
-                </b>
-              </div>
-            ),
-          )}
-        </div>
-        <div className="mt-4 text-xs text-ink-soft">
-          {data.reseller.parent
-            ? `Resold by ${data.reseller.parent.name}`
-            : "Direct agency workspace"}{" "}
-          · {data.reseller.children.length} downstream reseller workspace(s)
-        </div>
-        {canManageBilling && (
+      {canManageBilling && data.billing ? (
+        <div className="panel p-5">
+          <h2 className="text-lg font-medium">Billing hierarchy</h2>
+          <div className="mt-4 space-y-2">
+            {Object.entries(data.billing.revenueByCurrency).map(
+              ([currency, cents]) => (
+                <div
+                  key={currency}
+                  className="flex justify-between rounded-sm border border-line p-3 text-sm"
+                >
+                  <span>Managed MRR</span>
+                  <b>
+                    {(cents / 100).toLocaleString()} {currency}
+                  </b>
+                </div>
+              ),
+            )}
+          </div>
+          <div className="mt-4 text-xs text-ink-soft">
+            {data.reseller.parent
+              ? `Resold by ${data.reseller.parent.name}`
+              : "Direct agency workspace"}{" "}
+            · {data.reseller.children.length} downstream reseller workspace(s)
+          </div>
           <a
             href={`/api/agency/billing/export?agencyId=${agencyId}`}
             className="mt-5 inline-block rounded-sm border border-signal/30 px-3 py-2 text-xs text-signal"
           >
             Export billing CSV
           </a>
-        )}
-      </div>
-      {canManageBilling && (
+        </div>
+      ) : (
+        <div className="panel p-5">
+          <h2 className="text-lg font-medium">Workspace hierarchy</h2>
+          <p className="mt-2 text-sm text-ink-soft">
+            Commercial billing data is restricted to billing roles.
+          </p>
+          <div className="mt-4 text-xs text-ink-soft">
+            {data.reseller.parent
+              ? `Resold by ${data.reseller.parent.name}`
+              : "Direct agency workspace"}{" "}
+            · {data.reseller.children.length} downstream reseller workspace(s)
+          </div>
+        </div>
+      )}
+      {canManageBilling && data.billing && (
         <div className="panel p-5 xl:col-span-2">
           <h2 className="text-lg font-medium">Client billing management</h2>
           <div className="mt-4 grid gap-2">

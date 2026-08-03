@@ -203,7 +203,9 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
       }
       const groups = (await tx.enterpriseDirectoryGroup.findMany({ where: { workspaceId: input.workspaceId, identityProviderId: input.providerId, memberIds: { has: input.id } } })).map((group) => record<import("./types").EnterpriseDirectoryGroup>(group));
       for (const group of groups) await tx.enterpriseDirectoryGroup.updateMany({ where: { id: group.id, workspaceId: input.workspaceId }, data: { memberIds: group.memberIds.filter((memberId: string) => memberId !== input.id), lastSyncedAt: new Date() } });
-      const bindings = await tx.enterpriseRoleBinding.deleteMany({ where: { workspaceId: input.workspaceId, principalType: "user", principalId: input.id } });
+      const bindings = item.userId
+        ? await tx.enterpriseRoleBinding.deleteMany({ where: { workspaceId: input.workspaceId, principalType: "user", principalId: item.userId } })
+        : { count: 0 };
       await tx.enterpriseDirectoryUser.deleteMany({ where: { id: input.id, workspaceId: input.workspaceId } });
       await appendAuditTx(transaction, { ...audit, workspaceId: input.workspaceId, resourceId: input.id, detail: { ...audit.detail, removedRoleBindings: bindings.count, updatedGroups: groups.length } });
       return { removed: true, groups: groups.length, bindings: bindings.count };

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { assess, ASSESS_CHECKS } from "./checks";
-import type { Finding } from "@/lib/types";
+import type { Finding, ProviderRun, DiscoveryMethod } from "@/lib/types";
 
 function finding(category: string, priority: Finding["priority"] = "medium", id = `f-${category}`): Finding {
   return { id, category, priority, title: category, confidence: 0.9, assetId: "a1", observation: "", concern: "", reasoning: "", recommendation: "", evidence: [], discoveryMethod: "dns", createdAt: "2026-07-25" } as Finding;
+}
+
+function run(method: DiscoveryMethod, status: ProviderRun["status"] = "ok"): ProviderRun {
+  return { provider: method, method, status, startedAt: "", finishedAt: "", observations: 1, errors: [] };
 }
 
 describe("Assess catalogue", () => {
@@ -35,6 +39,31 @@ describe("assess()", () => {
     expect(result.summary.failed).toBe(0);
     expect(result.summary.passed).toBe(ASSESS_CHECKS.length);
     expect(result.results.every((r) => r.status === "pass")).toBe(true);
+  });
+
+  it("never reports a pass when a required provider was absent or incomplete", () => {
+    const result = assess([], {
+      providerRuns: [
+        run("certificate_transparency"),
+        run("dns"),
+        run("dns_mx"),
+        run("http_observation", "partial"),
+        run("domain_registration", "error"),
+      ],
+    });
+    expect(result.results.find((item) => item.check.id === "http-security-headers")).toMatchObject({
+      status: "not_evaluated",
+      reason: expect.stringContaining("http_observation"),
+    });
+    expect(result.results.find((item) => item.check.id === "domain-registration")?.status).toBe("not_evaluated");
+    expect(result.results.find((item) => item.check.id === "exposed-services")?.status).toBe("not_evaluated");
+    expect(result.summary.notEvaluated).toBeGreaterThan(0);
+    expect(result.summary.passed + result.summary.failed + result.summary.notEvaluated).toBe(result.summary.total);
+  });
+
+  it("can still fail a check when evidence exists despite partial coverage", () => {
+    const result = assess([finding("security-headers", "high")], { providerRuns: [run("http_observation", "partial")] });
+    expect(result.results.find((item) => item.check.id === "http-security-headers")?.status).toBe("fail");
   });
 
   it("takes the worst severity when a check has several findings", () => {

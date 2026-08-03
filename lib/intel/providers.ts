@@ -16,7 +16,9 @@
  * target's current systems.
  */
 
-import { providerKey } from "@/lib/integrations/credential-context";
+import { providerKey, providerKeyIsOrgSupplied, providerOrganizationId } from "@/lib/integrations/credential-context";
+import { searchDomain } from "@/lib/integrations/hibp";
+import { rateLimit } from "@/lib/security/ratelimit";
 
 const FETCH_TIMEOUT_MS = 8_000;
 
@@ -120,29 +122,33 @@ export async function checkIpReputation(ip: string, options: { signal?: AbortSig
   };
 }
 
-/** HaveIBeenPwned breaches recorded against an organization's domain. */
+/**
+ * Have I Been Pwned breaches affecting accounts on an organization's verified
+ * domain. The domain-search endpoint returns aliases mapped to breach names; we
+ * deliberately discard the aliases here and retain only the distinct breach
+ * catalogue names needed for aggregate reporting.
+ */
 export async function checkDomainBreaches(domain: string, options: { signal?: AbortSignal } = {}): Promise<BreachExposure | null> {
   const key = providerKey("HIBP_API_KEY");
   if (!key) return null;
-  const url = `https://haveibeenpwned.com/api/v3/breaches?domain=${encodeURIComponent(domain)}`;
-  const userAgent = process.env.HIBP_USER_AGENT?.trim() || "OUTSIDE-Guardian";
-  const body = await getJson(url, { "hibp-api-key": key, "user-agent": userAgent }, options.signal);
-  if (!Array.isArray(body)) return { source: "HaveIBeenPwned", breaches: [] };
-  const breaches: DomainBreach[] = [];
-  for (const entry of body) {
-    if (!entry || typeof entry !== "object") continue;
-    const e = entry as Record<string, unknown>;
-    const name = str(e.Name);
-    if (!name) continue;
-    breaches.push({ name, title: str(e.Title) || name, breachDate: str(e.BreachDate) || undefined });
-  }
-  return { source: "HaveIBeenPwned", breaches };
+  const result = await searchDomain(key, domain, options.signal);
+  if (!result.ok) throw new Error(`HaveIBeenPwned domain search failed: ${result.code}`);
+  const names = new Set(result.accounts.flatMap((account) => account.breaches).map((name) => name.trim()).filter(Boolean));
+  return {
+    source: "HaveIBeenPwned",
+    breaches: [...names].sort((a, b) => a.localeCompare(b)).map((name) => ({ name, title: name })),
+  };
 }
 
 /** GreyNoise Community classification for a single IP. A 404 (never observed) reads as no signal. */
 export async function checkIpGreyNoise(ip: string, options: { signal?: AbortSignal } = {}): Promise<IpClassification | null> {
   const key = providerKey("GREYNOISE_API_KEY");
   if (!key) return null;
+  const orgId = providerOrganizationId();
+  if (orgId && providerKeyIsOrgSupplied("GREYNOISE_API_KEY")) {
+    const budget = await rateLimit(`provider:greynoise:community:${orgId}`, 45, 7 * 24 * 60 * 60_000);
+    if (!budget.ok) throw new Error("GreyNoise Community weekly lookup budget reached.");
+  }
   const body = await getJson(`https://api.greynoise.io/v3/community/${encodeURIComponent(ip)}`, { key }, options.signal);
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;

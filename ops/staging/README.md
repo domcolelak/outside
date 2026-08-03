@@ -4,7 +4,7 @@ This stack exercises the production application and migration images with Postgr
 
 ## Prerequisites
 
-- A dedicated Linux VM with Docker Engine and Compose v2.
+- A dedicated Linux VM with Docker Engine and Docker Compose 2.24.4 or newer.
 - At least 4 vCPU, 8 GB RAM, and 40 GB durable storage for a small pilot staging environment.
 - For public staging: a dedicated hostname whose A/AAAA records point to the VM, ports 80/443 reachable for ACME, and no production credentials or customer data.
 - The exact application and migrator images produced by the release-candidate workflow.
@@ -62,17 +62,20 @@ The default Alertmanager receiver writes bounded, actionable alert summaries to 
 
 ## Deployment and update
 
-For an existing single-host staging deploy, `ops/staging/deploy.sh` performs the
-app build + recreate with real build provenance (git SHA + build time stamped
-into the image and surfaced by `/api/readyz`):
+For an existing single-host source-based staging deploy, `ops/staging/deploy.sh`
+fetches one explicit revision, refuses a dirty tree, creates unique SHA-scoped
+local app and migrator tags, applies migrations, and only then recreates the app.
+It verifies `/api/readyz` reports the exact deployed commit:
 
 ```bash
-ops/staging/deploy.sh              # app only, from origin/master
-ops/staging/deploy.sh --migrate    # also rebuild + run the migrator
+ops/staging/deploy.sh              # master; migrations are mandatory
 ops/staging/deploy.sh --ref v0.2.0-rc.1
+ops/staging/deploy.sh --no-pull    # the current clean commit
 ```
 
-For a first bring-up or a controlled release, follow the manual steps below.
+The helper never overwrites the configured release tag or digest with a local
+build. For a controlled release, do not source-build: load/pull the exact
+release-candidate artifacts and follow the manual steps below.
 
 1. Record the current commit, image IDs/digests, schema head, and backup restore point.
 2. Pull or load the exact release artifacts; never rebuild a tagged release on the host.

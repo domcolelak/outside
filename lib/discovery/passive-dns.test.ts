@@ -99,6 +99,17 @@ describe("discoverPassiveHostnames", () => {
     expect(ok?.status).toBe("ok");
   });
 
+  it("caps Shodan at one documented query-credit page and reports additional data as partial", async () => {
+    vi.stubEnv("SHODAN_API_KEY", "sh");
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ subdomains: ["vpn"], more: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { hostnames, runs } = await discoverPassiveHostnames("acme.com");
+    expect(hostnames).toEqual(["vpn.acme.com"]);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("page=1");
+    expect(runs[0]).toMatchObject({ provider: "Shodan", status: "partial", observations: 1 });
+    expect(runs[0]?.errors[0]).toContain("one query credit");
+  });
+
   it("propagates caller abort rather than swallowing it", async () => {
     vi.stubEnv("SHODAN_API_KEY", "sh");
     const controller = new AbortController();

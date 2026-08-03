@@ -115,7 +115,9 @@ export function useScan(target: string | null, mode: "auto" | "demo") {
 
   useEffect(() => {
     // A timeout, not requestAnimationFrame: rAF never fires in a background tab,
-    // so a scan opened in one would never start at all.
+    // so a scan opened in one would never start at all. Deferring also ensures
+    // React Strict Mode cancels its development-only throwaway effect before a
+    // provider stream is opened.
     const timer = window.setTimeout(start, 0);
     return () => {
       window.clearTimeout(timer);

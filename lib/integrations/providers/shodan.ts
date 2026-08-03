@@ -12,6 +12,13 @@ async function validate(raw: string, signal?: AbortSignal): Promise<ProviderVali
     return { ok: false, code: verification.code, message: verification.message, status: verification.status, retryAfterSeconds: verification.retryAfterSeconds };
   }
   const { plan, queryCredits } = verification.plan;
+  if (plan && /academic|research|education|student/i.test(plan)) {
+    return {
+      ok: false,
+      code: "forbidden",
+      message: "Shodan academic and research access cannot be connected to this commercial service.",
+    };
+  }
   return {
     ok: true,
     accountLabel: plan ? `${plan} plan` : "Connected",
@@ -35,7 +42,7 @@ export const shodanProvider: ProviderDefinition = {
   id: "shodan",
   name: "Shodan",
   category: "attack_surface",
-  summary: "Adds subdomains and exposed-service context from internet-wide scanning, using your own Shodan API key.",
+  summary: "Adds one page of proprietary DNS context per scan (one documented query credit). Additional pages are reported as partial instead of fetched automatically.",
   credentialKind: "api_key",
   envKey: "SHODAN_API_KEY",
   runLabel: "Shodan",

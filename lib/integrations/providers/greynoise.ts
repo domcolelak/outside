@@ -29,7 +29,7 @@ export const greyNoiseProvider: ProviderDefinition = {
   id: "greynoise",
   name: "GreyNoise",
   category: "reputation",
-  summary: "Tells opportunistic internet background noise apart from traffic that matters, using your own GreyNoise key.",
+  summary: "Tells opportunistic internet background noise apart from traffic that matters, using a commercially licensed GreyNoise key.",
   credentialKind: "api_key",
   envKey: "GREYNOISE_API_KEY",
   runLabel: "GreyNoise",
@@ -38,4 +38,12 @@ export const greyNoiseProvider: ProviderDefinition = {
   looksValid: looksLikeGreyNoiseKey,
   formatHint: "A GreyNoise API key is a long alphanumeric string.",
   validate,
+  ...(process.env.OUTSIDE_GREYNOISE_BYOK_COMMERCIAL_ALLOWED === "true"
+    ? {}
+    : {
+        commercialGate: {
+          reason:
+            "GreyNoise Community access is non-commercial. This connector stays disabled until the operator confirms a GreyNoise agreement that permits customer-facing BYOK use.",
+        },
+      }),
 };

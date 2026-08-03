@@ -3,7 +3,11 @@ import type { AgencyClient, PortfolioClientHealth } from "./types";
 
 const severityRank: Record<string, number> = { critical: 5, high: 4, medium: 3, low: 2, info: 1 };
 
-export function clientHealth(client: AgencyClient, guardian: GuardianOverview | null, now = new Date()): PortfolioClientHealth {
+export function clientHealth(
+  client: AgencyClient,
+  guardian: GuardianOverview | null,
+  now = new Date(),
+): Omit<PortfolioClientHealth, "client"> & { client: AgencyClient } {
   const snapshots = guardian?.targets.map((target) => target.latest) ?? [];
   const recommendations = guardian?.recommendations.filter((item) => !["resolved", "dismissed"].includes(item.status)) ?? [];
   const events = guardian?.recentEvents ?? [];
