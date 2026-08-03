@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { verifyKey as shodanVerify, looksLikeShodanKey } from "@/lib/integrations/shodan";
 import { verifyKey as abuseVerify, looksLikeAbuseIpdbKey } from "@/lib/integrations/abuseipdb";
 import { verifyKey as greyVerify, looksLikeGreyNoiseKey } from "@/lib/integrations/greynoise";
-import { listProviders, getProvider } from "./registry";
+import { listProviders, getProvider, listByokDescriptors } from "./registry";
 import { abuseIpdbProvider } from "./abuseipdb";
 import { shodanProvider } from "./shodan";
 
@@ -108,6 +108,17 @@ describe("GreyNoise adapter", () => {
 });
 
 describe("provider registry invariants", () => {
+  it("every registered provider is offered in the UI", () => {
+    // A provider that is routable but never rendered is connectable only by
+    // hand-crafting a request — which is how Censys shipped invisible once.
+    expect(listByokDescriptors().map((d) => d.id).sort()).toEqual(listProviders().map((p) => p.id).sort());
+  });
+
+  it("carries the credential kind through to the connector", () => {
+    const censys = listByokDescriptors().find((d) => d.id === "censys");
+    expect(censys?.credentialKind).toBe("id_secret");
+  });
+
   it("every provider is reachable by its own id", () => {
     for (const provider of listProviders()) {
       expect(getProvider(provider.id)?.id).toBe(provider.id);
