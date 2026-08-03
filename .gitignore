@@ -37,6 +37,7 @@ terraform-provider-outside/.terraform/
 terraform-provider-outside/*.tfstate*
 .env.production
 .env.staging
+.env.staging.bak.*
 
 # typescript
 *.tsbuildinfo
