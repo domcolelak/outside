@@ -50,6 +50,21 @@ export async function GET(req: NextRequest) {
       const identity = await verifyToken(token);
       if (!identity.valid) return NextResponse.json({ error: "Cloudflare reports this token is not active." }, { status: 409 });
       const zones = await listZones(token);
+
+      // The same rollback-safety rule POST enforces. Without it, narrowing the
+      // token's scope in the Cloudflare dashboard and pressing Refresh would
+      // silently shrink the stored zones: the DMARC panel is rendered from them,
+      // so a zone holding an applied remediation would lose its Roll back button
+      // while DELETE kept refusing to disconnect until it was rolled back.
+      const active = await listActiveRemediations(orgId, PROVIDER);
+      const zoneNames = new Set(zones.map((zone) => zone.name));
+      const unreachable = active.map((record) => record.target).filter((target) => !zoneNames.has(target));
+      if (unreachable.length > 0) {
+        return NextResponse.json({
+          error: `This token can no longer access active remediation zone(s): ${unreachable.join(", ")}. The saved connection was kept so those changes stay reversible.`,
+        }, { status: 409 });
+      }
+
       const refreshed = await saveConnection({ orgId, provider: PROVIDER, token, zones, createdBy: auth.ctx!.user.id });
       await recordProviderAudit({
         orgId,
@@ -117,7 +132,10 @@ export async function POST(req: NextRequest) {
   }
 
   const previousSummary = await getConnectionSummary(orgId, PROVIDER);
-  const previousToken = previousSummary ? await getConnectionToken(orgId, PROVIDER) : null;
+  // Best-effort: used only to restore the previous token if the audit write
+  // fails. An undecryptable credential (normal mid key-rotation) must never
+  // block replacing or disconnecting it.
+  const previousToken = previousSummary ? await getConnectionToken(orgId, PROVIDER).catch(() => null) : null;
   try {
     await recordProviderAudit({
       orgId,
@@ -170,7 +188,10 @@ export async function DELETE(req: NextRequest) {
   }
 
   const previousSummary = await getConnectionSummary(orgId, PROVIDER);
-  const previousToken = previousSummary ? await getConnectionToken(orgId, PROVIDER) : null;
+  // Best-effort: used only to restore the previous token if the audit write
+  // fails. An undecryptable credential (normal mid key-rotation) must never
+  // block replacing or disconnecting it.
+  const previousToken = previousSummary ? await getConnectionToken(orgId, PROVIDER).catch(() => null) : null;
   await deleteConnection(orgId, PROVIDER);
   try {
     await recordProviderAudit({ orgId, provider: PROVIDER, action: "disconnected", actorId: auth.ctx!.user.id });

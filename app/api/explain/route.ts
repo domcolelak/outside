@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext } from "@/lib/auth";
 import { targetEntitlement } from "@/lib/auth/entitlements";
 import { getExplainer } from "@/lib/ai/explainer";
@@ -9,6 +9,7 @@ import { normalizeDomain } from "@/lib/security/target";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { recordUsage } from "@/lib/usage/record";
+import { withOrgProviderKeys } from "@/lib/integrations/providers/org-keys";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,16 +33,29 @@ export async function POST(req: NextRequest) {
   }
   if ((!finding && !result) || !target) return json({ error: finding ? "Invalid finding" : "Invalid scan result" }, 422);
 
+  // The organization has to be resolved BEFORE the explainer is chosen: which
+  // explainer is available depends on whether this organization has connected
+  // its own model key, and that key is only in scope inside its credential
+  // context. Prefer a paid membership, exactly as the paid-first lookup did.
+  const entitlement =
+    (await targetEntitlement(ctx, target, { paid: true, allowDemo: true })) ??
+    (await targetEntitlement(ctx, target, { allowDemo: true }));
+  if (!entitlement) return json({ error: "Verified target access is required" }, 403);
+
+  // Narrowed values are passed in explicitly: a closure would lose the null checks above.
+  const entitled = entitlement;
+  const session = ctx;
+
+  return withOrgProviderKeys(entitled.orgId, async () => {
   const explainer = getExplainer();
   // The hosted OpenAI explainer is a paid capability; the template is free.
   const hosted = explainer.kind !== "template";
-  const entitlement = await targetEntitlement(ctx, target, { paid: hosted, allowDemo: true });
-  if (!entitlement) return json({ error: hosted ? "A verified paid organization is required" : "Verified target access is required" }, 403);
+  if (hosted && entitled.plan === "free") return json({ error: "A verified paid organization is required" }, 403);
   const limit = await requireBudgets([
     { key: "ai:global", limit: 120, windowMs: 60_000 },
     { key: `ai:client:${clientIdentity(req)}`, limit: 15, windowMs: 60_000 },
-    { key: `ai:user:${ctx.user.id}`, limit: 50, windowMs: 24 * 60 * 60_000 },
-    { key: `ai:org:${entitlement.orgId}`, limit: entitlement.plan === "agency" ? 1_000 : 250, windowMs: 30 * 24 * 60 * 60_000 },
+    { key: `ai:user:${session.user.id}`, limit: 50, windowMs: 24 * 60 * 60_000 },
+    { key: `ai:org:${entitled.orgId}`, limit: entitled.plan === "agency" ? 1_000 : 250, windowMs: 30 * 24 * 60 * 60_000 },
   ]);
   if (!limit.ok) return json({ error: "AI usage limit exceeded", retryAfter: limit.retryAfter }, 429);
 
@@ -51,7 +65,7 @@ export async function POST(req: NextRequest) {
         const explanation = await explainer.explainFinding(finding, target);
         await Promise.all([
           saveAnalysis({ target, scanId: finding.id, kind: "finding", source: explainer.kind, text: explanation }),
-          recordUsage(entitlement.orgId, ctx.user.id, "ai"),
+          recordUsage(entitled.orgId, session.user.id, "ai"),
         ]);
         return json({ explanation, source: explainer.kind });
       }
@@ -59,7 +73,7 @@ export async function POST(req: NextRequest) {
       const summary = await explainer.executiveSummary(result);
       await Promise.all([
         saveAnalysis({ target, scanId: result.scanId, kind: "summary", source: explainer.kind, text: summary }),
-        recordUsage(entitlement.orgId, ctx.user.id, "ai"),
+        recordUsage(entitled.orgId, session.user.id, "ai"),
       ]);
       return json({ summary, source: explainer.kind });
     });
@@ -68,4 +82,5 @@ export async function POST(req: NextRequest) {
     console.error("[ai] explanation failed", error);
     return json({ error: "Explanation failed" }, 502);
   }
+  });
 }
