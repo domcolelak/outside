@@ -137,7 +137,11 @@ export async function connectProvider(def: ProviderDefinition, orgId: string, ra
     return { ok: false, httpStatus: 400, error: v.message, code: v.code };
   }
 
-  const previousToken = wasStored ? await getConnectionToken(orgId, def.id) : null;
+  // Best-effort: this token exists only to restore the previous credential if the
+  // audit write fails. A credential that can no longer be decrypted — the normal
+  // state mid key-rotation — must not block replacing or removing it, or the
+  // organization would be stuck with a dead connection and no way out.
+  const previousToken = wasStored ? await getConnectionToken(orgId, def.id).catch(() => null) : null;
   await saveProviderKey(orgId, def.id, rawKey, actorId, {
     accountLabel: v.accountLabel,
     capabilities: v.capabilities,
@@ -161,7 +165,8 @@ export async function connectProvider(def: ProviderDefinition, orgId: string, ra
 /** Remove a stored credential and audit it. */
 export async function disconnectProvider(def: ProviderDefinition, orgId: string, actorId: string): Promise<ProviderStatus> {
   const previousSummary = await getConnectionSummary(orgId, def.id);
-  const previousToken = previousSummary ? await getConnectionToken(orgId, def.id) : null;
+  // Same rule as connect: an undecryptable credential must still be removable.
+  const previousToken = previousSummary ? await getConnectionToken(orgId, def.id).catch(() => null) : null;
   await deleteConnection(orgId, def.id);
   await recordProviderUsage({ orgId, provider: def.id, operation: "disconnect", ok: true });
   try {
