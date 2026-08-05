@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { validateGuardianChannelConfig } from "@/lib/guardian/channel-config";
-import { encryptGuardianConfig } from "@/lib/guardian/crypto";
+import { encryptGuardianConfig, channelAssociatedData } from "@/lib/guardian/crypto";
 import { getGuardianStore } from "@/lib/guardian/store";
 import type { GuardianChannelType } from "@/lib/guardian/types";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
   if (!name || name.length > 80) return NextResponse.json({ error: "Channel name must be between 1 and 80 characters" }, { status: 422 });
   try {
     const validated = validateGuardianChannelConfig(type, body.config);
-    const channel = await (await getGuardianStore()).createChannel({ orgId, type, name, destinationHint: validated.destinationHint, encryptedConfig: encryptGuardianConfig(validated.config) });
+    // Sealed to the owning organization, so the stored row cannot be replayed
+    // into another tenant even with database access.
+    const channel = await (await getGuardianStore()).createChannel({ orgId, type, name, destinationHint: validated.destinationHint, encryptedConfig: encryptGuardianConfig(validated.config, channelAssociatedData(orgId)) });
     return NextResponse.json({ channel }, { status: 201 });
   } catch (error) {
     const status = /GUARDIAN_ENCRYPTION_KEY/.test((error as Error).message) ? 503 : 422;

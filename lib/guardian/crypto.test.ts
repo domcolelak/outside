@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { decryptGuardianConfig, decryptGuardianConfigDetailed, encryptGuardianConfig } from "./crypto";
+import { decryptGuardianConfig, decryptGuardianConfigDetailed, encryptGuardianConfig, channelAssociatedData } from "./crypto";
 
 const current = Buffer.alloc(32, 1).toString("base64");
 const previous = Buffer.alloc(32, 2).toString("hex");
@@ -56,6 +56,24 @@ describe("Guardian credential encryption rotation", () => {
     const legacy = encryptGuardianConfig("secret");
     expect(legacy).toMatch(/^v1\./);
     expect(decryptGuardianConfig(legacy, "outside.integration:[\"org_1\",\"hibp\"]")).toBe("secret");
+  });
+});
+
+describe("channel configurations are bound to their tenant", () => {
+  it("refuses to open a config row replayed into another organization", () => {
+    vi.stubEnv("GUARDIAN_ENCRYPTION_KEY", current);
+    const sealed = encryptGuardianConfig({ url: "https://hooks.example/abc" }, channelAssociatedData("org_a"));
+    expect(sealed).toMatch(/^v2\./);
+    expect(decryptGuardianConfig(sealed, channelAssociatedData("org_a"))).toEqual({ url: "https://hooks.example/abc" });
+    expect(() => decryptGuardianConfig(sealed, channelAssociatedData("org_b"))).toThrow(/cannot be decrypted/);
+  });
+
+  it("still opens rows written before the binding existed", () => {
+    // Existing channels are unbound v1; they must keep working after deploy.
+    vi.stubEnv("GUARDIAN_ENCRYPTION_KEY", current);
+    const legacy = encryptGuardianConfig({ url: "https://hooks.example/old" });
+    expect(legacy).toMatch(/^v1\./);
+    expect(decryptGuardianConfig(legacy, channelAssociatedData("org_a"))).toEqual({ url: "https://hooks.example/old" });
   });
 });
 
