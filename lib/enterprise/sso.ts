@@ -35,15 +35,39 @@ interface Jwk { kty: string; kid?: string; alg?: string; use?: string; n?: strin
  * this check pins the corresponding `sub`. Existing directory records without
  * a subject binding fail closed instead of being silently linked by email.
  */
+/**
+ * Whether a directory user is bound to the OIDC subject presenting itself.
+ *
+ * "unbound" is the case a plain boolean could not express and which locked
+ * people out: a user provisioned through SCIM has no recorded oidcSubject —
+ * that attribute is only ever written by the SSO path — and its externalId is
+ * the SCIM external identifier, which an IdP is not required to make equal to
+ * the OIDC subject. Treating that as a mismatch permanently refused the first
+ * SSO login of every SCIM-provisioned account, with no way to recover.
+ */
+export type OidcSubjectBinding = "match" | "mismatch" | "unbound";
+
+export function oidcSubjectBinding(
+  user: Pick<EnterpriseDirectoryUser, "identityProviderId" | "externalId" | "attributes">,
+  providerId: string,
+  subject: string,
+): OidcSubjectBinding {
+  if (user.identityProviderId !== providerId || !subject) return "mismatch";
+  const attributed = user.attributes.oidcSubject;
+  // An explicitly recorded subject is proof, in both directions.
+  if (typeof attributed === "string" && attributed) return attributed === subject ? "match" : "mismatch";
+  // Some IdPs do use the same value for both, which is proof too.
+  if (user.externalId === subject) return "match";
+  return "unbound";
+}
+
+/** True only when the account is positively bound to this subject. */
 export function directoryUserMatchesOidcSubject(
   user: Pick<EnterpriseDirectoryUser, "identityProviderId" | "externalId" | "attributes">,
   providerId: string,
   subject: string,
 ): boolean {
-  if (user.identityProviderId !== providerId || !subject) return false;
-  const attributed = user.attributes.oidcSubject;
-  const boundSubject = typeof attributed === "string" && attributed ? attributed : user.externalId;
-  return typeof boundSubject === "string" && boundSubject === subject;
+  return oidcSubjectBinding(user, providerId, subject) === "match";
 }
 
 export async function exchangeEnterpriseCode(config: OidcConfig, code: string, expectedNonce: string): Promise<{ email: string; name: string; subject: string }> {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { directoryUserMatchesOidcSubject, makeSsoState, verifySsoState } from "./sso";
+import { directoryUserMatchesOidcSubject, oidcSubjectBinding, makeSsoState, verifySsoState } from "./sso";
 import type { EnterpriseDirectoryUser } from "./types";
 
 afterEach(() => {
@@ -77,5 +77,40 @@ describe("enterprise SSO stable subject binding", () => {
     const migrated = { ...directoryUser, externalId: "scim-object-id", attributes: { oidcSubject: "subject-a" } };
     expect(directoryUserMatchesOidcSubject(migrated, "idp-1", "subject-a")).toBe(true);
     expect(directoryUserMatchesOidcSubject(migrated, "idp-1", "scim-object-id")).toBe(false);
+  });
+});
+
+describe("binding state a SCIM-provisioned account depends on", () => {
+  const scimProvisioned = {
+    identityProviderId: "idp-1",
+    // SCIM writes its own external identifier here; an IdP is not required to
+    // make it equal the OIDC subject, and the SSO path is the only writer of
+    // attributes.oidcSubject.
+    externalId: "scim-object-id",
+    attributes: {},
+  } satisfies Pick<EnterpriseDirectoryUser, "identityProviderId" | "externalId" | "attributes">;
+
+  it("reports a SCIM-provisioned account as unbound, not as a mismatch", () => {
+    // Treating this as a mismatch refused the first SSO sign-in of every
+    // SCIM-provisioned account, permanently and with no way to recover.
+    expect(oidcSubjectBinding(scimProvisioned, "idp-1", "subject-a")).toBe("unbound");
+  });
+
+  it("still refuses a recorded subject that disagrees", () => {
+    const bound = { ...scimProvisioned, attributes: { oidcSubject: "subject-a" } };
+    expect(oidcSubjectBinding(bound, "idp-1", "subject-b")).toBe("mismatch");
+    expect(oidcSubjectBinding(bound, "idp-1", "subject-a")).toBe("match");
+  });
+
+  it("accepts an externalId that already equals the subject as proof", () => {
+    expect(oidcSubjectBinding({ ...scimProvisioned, externalId: "subject-a" }, "idp-1", "subject-a")).toBe("match");
+  });
+
+  it("never treats another provider's record as bindable", () => {
+    expect(oidcSubjectBinding(scimProvisioned, "idp-2", "subject-a")).toBe("mismatch");
+  });
+
+  it("refuses an empty subject rather than binding to nothing", () => {
+    expect(oidcSubjectBinding(scimProvisioned, "idp-1", "")).toBe("mismatch");
   });
 });
