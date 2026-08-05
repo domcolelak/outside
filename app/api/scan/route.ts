@@ -36,9 +36,17 @@ export async function GET(req: NextRequest) {
   try {
     normalized = canonicalScanTarget(rawTarget, demoOrg?.domain);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error instanceof InvalidTargetError ? error.message : "Invalid target" }), {
-      status: 422,
-      headers: { "content-type": "application/json" },
+    // The only consumer is an EventSource, which cannot read the body of a
+    // non-2xx response — it fires onerror with no detail. Answering 422 with
+    // JSON therefore replaced a specific, actionable message ("that is not a
+    // domain we can scan") with a generic failure. Deliver it as the error
+    // event the client already knows how to render.
+    return new Response(sse({ type: "error", message: error instanceof InvalidTargetError ? error.message : "Invalid target" }), {
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        "x-accel-buffering": "no",
+      },
     });
   }
 
