@@ -284,7 +284,14 @@ export async function runPassiveScan(
       if (registration.expiresAt) root.attrs.domainExpiresAt = registration.expiresAt;
       if (typeof registration.daysToExpiry === "number") root.attrs.domainDaysToExpiry = registration.daysToExpiry;
       if (registration.registrar) root.attrs.registrar = registration.registrar;
-      providerRuns.push({ provider: "RDAP bootstrap", method: "domain_registration", status: registration.expiresAt ? "ok" : "partial", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: registration.expiresAt ? 1 : 0, errors: [] });
+      // A registry that publishes no expiry date is not an incomplete
+      // observation — the lookup succeeded and the field simply does not exist
+      // for that TLD (most ccTLDs, .sk among them). Reporting it as partial lit
+      // a permanent "Enrichment incomplete" banner the customer could never
+      // action, which teaches people to ignore a signal that has to stay
+      // trustworthy. The absent expiry is already visible as a missing
+      // attribute; it is not a coverage failure.
+      providerRuns.push({ provider: "RDAP bootstrap", method: "domain_registration", status: "ok", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: registration.expiresAt ? 1 : 0, errors: [] });
     } else {
       providerRuns.push({ provider: "RDAP bootstrap", method: "domain_registration", status: "error", startedAt: started.toISOString(), finishedAt: new Date().toISOString(), observations: 0, errors: [(registrationResult.reason as Error).message] });
     }

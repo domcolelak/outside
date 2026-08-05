@@ -22,15 +22,23 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
   const [zones, setZones] = useState<ZoneState[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    // A failure here must never be rendered as "no zones": that hides the whole
+    // panel, including the Roll back control for a change already written to
+    // live DNS. Say what went wrong and offer a retry instead.
+    setLoadError(null);
     try {
       const res = await fetch(`/api/integrations/cloudflare/dmarc?orgId=${encodeURIComponent(orgId)}`, { credentials: "include" });
-      if (res.ok) setZones((await res.json()).zones ?? []);
-      else setZones([]);
-    } catch {
-      setZones([]);
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(typeof detail?.error === "string" ? detail.error : "Could not load your Cloudflare zones.");
+      }
+      setZones((await res.json()).zones ?? []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Could not load your Cloudflare zones.");
     }
   }, [orgId]);
 
@@ -68,6 +76,20 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
     setBusy(null);
   }
 
+  if (loadError) {
+    return (
+      <div role="alert" className="mono mt-3 rounded-md border border-risk-medium/30 bg-risk-medium/5 px-2.5 py-2 text-[11px] leading-5 text-risk-medium">
+        {loadError}{" "}
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
   if (!zones) return <div className="mono mt-3 text-[11px] text-ink-faint">Loading domains…</div>;
   if (zones.length === 0) return null;
 
