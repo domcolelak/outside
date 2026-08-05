@@ -1,14 +1,26 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { recordRun, listRuns, getRun, previousRun, diffRuns, __resetAssessRuns } from "./store";
-import { assess } from "./checks";
-import type { Finding } from "@/lib/types";
+import { assess, ASSESS_CHECKS } from "./checks";
+import type { Finding, ProviderRun } from "@/lib/types";
 
 beforeEach(() => __resetAssessRuns());
 
 function finding(category: string): Finding {
   return { id: `f-${category}`, category, priority: "high", title: category, confidence: 0.9, assetId: "a1", observation: "", concern: "", reasoning: "", recommendation: "", evidence: [], discoveryMethod: "dns", createdAt: "2026-07-25" } as Finding;
 }
-const run = (categories: string[]) => assess(categories.map(finding));
+/** Store behaviour is about persistence and diffing, so every run here is a fully
+ * observed scan — otherwise unmatched checks would come back not_evaluated and the
+ * fixed/regressed expectations would be testing coverage, not the store. */
+const providerRuns: ProviderRun[] = Array.from(new Set(ASSESS_CHECKS.flatMap((check) => check.requires))).map((method) => ({
+  provider: method,
+  method,
+  status: "ok",
+  startedAt: "",
+  finishedAt: "",
+  observations: 1,
+  errors: [],
+}));
+const run = (categories: string[]) => assess(categories.map(finding), { providerRuns });
 
 describe("assess store", () => {
   it("records and reads back a run only for the owning org", async () => {

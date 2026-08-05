@@ -10,6 +10,14 @@ function run(method: DiscoveryMethod, status: ProviderRun["status"] = "ok"): Pro
   return { provider: method, method, status, startedAt: "", finishedAt: "", observations: 1, errors: [] };
 }
 
+/** A fully observed scan — every method the catalogue requires ran cleanly, so an
+ * absent finding really does mean the check passed. Derived from the catalogue so
+ * a new check with a new requirement can't silently leave these cases uncovered. */
+function fullCoverage(): { providerRuns: ProviderRun[] } {
+  const methods = Array.from(new Set(ASSESS_CHECKS.flatMap((check) => check.requires)));
+  return { providerRuns: methods.map((method) => run(method)) };
+}
+
 describe("Assess catalogue", () => {
   it("contains only safe verified checks — no exploit capability", () => {
     for (const check of ASSESS_CHECKS) {
@@ -24,7 +32,7 @@ describe("Assess catalogue", () => {
 
 describe("assess()", () => {
   it("passes a check with no matching finding and fails one that has findings", () => {
-    const result = assess([finding("security-headers", "high")]);
+    const result = assess([finding("security-headers", "high")], fullCoverage());
     const headers = result.results.find((r) => r.check.category === "security-headers")!;
     const mail = result.results.find((r) => r.check.category === "mail-security")!;
     expect(headers.status).toBe("fail");
@@ -35,7 +43,7 @@ describe("assess()", () => {
   });
 
   it("passes every check on a clean surface", () => {
-    const result = assess([]);
+    const result = assess([], fullCoverage());
     expect(result.summary.failed).toBe(0);
     expect(result.summary.passed).toBe(ASSESS_CHECKS.length);
     expect(result.results.every((r) => r.status === "pass")).toBe(true);
@@ -67,22 +75,22 @@ describe("assess()", () => {
   });
 
   it("takes the worst severity when a check has several findings", () => {
-    const result = assess([finding("known-vulnerability", "low", "a"), finding("known-vulnerability", "critical", "b"), finding("known-vulnerability", "medium", "c")]);
+    const result = assess([finding("known-vulnerability", "low", "a"), finding("known-vulnerability", "critical", "b"), finding("known-vulnerability", "medium", "c")], fullCoverage());
     const vuln = result.results.find((r) => r.check.category === "known-vulnerability")!;
     expect(vuln.severity).toBe("critical");
     expect(vuln.findingIds).toEqual(["a", "b", "c"]);
   });
 
   it("summarises pass/fail counts and failures by severity", () => {
-    const result = assess([finding("security-headers", "medium"), finding("mail-security", "high"), finding("certificate-expiry", "high")]);
+    const result = assess([finding("security-headers", "medium"), finding("mail-security", "high"), finding("certificate-expiry", "high")], fullCoverage());
     expect(result.summary.failed).toBe(3);
     expect(result.summary.passed).toBe(ASSESS_CHECKS.length - 3);
     expect(result.summary.failedBySeverity).toEqual({ medium: 1, high: 2 });
   });
 
   it("is deterministic and records the catalogue version", () => {
-    const a = assess([finding("shadow-asset")]);
-    const b = assess([finding("shadow-asset")]);
+    const a = assess([finding("shadow-asset")], fullCoverage());
+    const b = assess([finding("shadow-asset")], fullCoverage());
     expect(a).toEqual(b);
     expect(a.catalogueVersion).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
