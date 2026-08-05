@@ -8,7 +8,7 @@ import { decryptEnterpriseSecret } from "@/lib/enterprise/crypto";
 import { featureEnabled } from "@/lib/enterprise/permissions";
 import { workspaceInRegion } from "@/lib/enterprise/residency";
 import { getEnterpriseStore } from "@/lib/enterprise/store";
-import { directoryUserMatchesOidcSubject, ENTERPRISE_SSO_COOKIE, exchangeEnterpriseCode, verifySsoState, type OidcConfig } from "@/lib/enterprise/sso";
+import { oidcSubjectBinding, ENTERPRISE_SSO_COOKIE, exchangeEnterpriseCode, verifySsoState, type OidcConfig } from "@/lib/enterprise/sso";
 import type { EnterpriseDirectoryUser } from "@/lib/enterprise/types";
 
 export const runtime = "nodejs";
@@ -34,8 +34,17 @@ export async function GET(req: NextRequest) {
 
     const auth = await getAuthStore();
     const directory = await store.list<EnterpriseDirectoryUser>(workspace.id, "directoryUsers");
-    let directoryUser = directory.find((item) => item.userName === profile.email && item.identityProviderId === provider.id);
-    if (directoryUser && !directoryUserMatchesOidcSubject(directoryUser, provider.id, profile.subject)) return failure();
+    // The subject is the stable identity; the email is not. Matching on the
+    // subject first means an IdP-side email rename updates the existing record
+    // instead of silently creating a second directory user for one person.
+    let directoryUser =
+      directory.find((item) => oidcSubjectBinding(item, provider.id, profile.subject) === "match") ??
+      directory.find((item) => item.userName === profile.email && item.identityProviderId === provider.id);
+    const binding = directoryUser ? oidcSubjectBinding(directoryUser, provider.id, profile.subject) : "unbound";
+    // A recorded subject that disagrees is an account takeover attempt. A record
+    // with no subject yet is a SCIM-provisioned account signing in for the first
+    // time: bind it below rather than refusing it forever.
+    if (binding === "mismatch") return failure();
     let user = await auth.findUserByEmail(profile.email);
     const needsProvisioning = !directoryUser || !user || !directoryUser.userId;
     if (needsProvisioning && !provider.jitProvisioning) return failure();
@@ -58,6 +67,17 @@ export async function GET(req: NextRequest) {
       }
     }
     if (!user || !directoryUser?.active) return failure();
+
+    // Record the binding on first sign-in, and follow an email rename. From here
+    // on any other subject presenting this account is rejected as a mismatch.
+    if (binding === "unbound" || directoryUser.userName !== profile.email) {
+      directoryUser =
+        (await store.update<EnterpriseDirectoryUser>(workspace.id, "directoryUsers", directoryUser.id, {
+          userName: profile.email,
+          attributes: { ...directoryUser.attributes, oidcSubject: profile.subject },
+          lastSyncedAt: new Date().toISOString(),
+        })) ?? directoryUser;
+    }
     const membership = await auth.getMembership(user.id, workspace.orgId);
     if (!membership?.active || membership.provisionedBy !== provider.id) return failure();
 

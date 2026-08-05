@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { getAuthStore } from "@/lib/auth";
 import { getEmailProvider } from "@/lib/email/provider";
-import { decryptGuardianConfig } from "./crypto";
+import { decryptGuardianConfig, channelAssociatedData } from "./crypto";
 import { safeGuardianPost, type GuardianHttpRequest } from "./transport";
 import type { GuardianStore } from "./store-model";
 import type { GuardianAnalysis, GuardianChannelType, GuardianDigest, GuardianEvent } from "./types";
@@ -156,7 +156,9 @@ export async function deliverGuardianBatch(store: GuardianStore, limit = 20): Pr
       if (job.channelType === "email") await getEmailProvider().send(job.payload as EmailPayload);
       else {
         if (!job.encryptedConfig) throw new Error("Integration is disabled or its configuration is unavailable.");
-        const config = decryptGuardianConfig<Config>(job.encryptedConfig);
+        // Bound to the owning organization: a config row lifted into another
+        // tenant will not open. Rows written before v2 are unbound and still do.
+        const config = decryptGuardianConfig<Config>(job.encryptedConfig, channelAssociatedData(job.orgId));
         await safeGuardianPost(requestFor(job.channelType, config, job.payload as EventPayload | DigestPayload), AbortSignal.timeout(12_000));
       }
       await store.completeDelivery(job.id, job.leaseId, new Date());

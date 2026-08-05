@@ -140,7 +140,14 @@ export interface AssessResult {
  * because Assess runs on a verified, actively-observed scan where every detector
  * executes.
  */
-export function assess(findings: Finding[], context?: { providerRuns: ProviderRun[] }): AssessResult {
+/**
+ * `context` is required. Without the provider runs there is no way to tell "this
+ * check passed" from "this check could not be judged", and the function would
+ * fall back to treating the absence of a finding as a pass — the unsound premise
+ * the not_evaluated status exists to remove. Pass an empty run list explicitly if
+ * a caller genuinely has none.
+ */
+export function assess(findings: Finding[], context: { providerRuns: ProviderRun[] }): AssessResult {
   const failedBySeverity: Record<string, number> = {};
   let passed = 0;
   let failed = 0;
@@ -148,12 +155,13 @@ export function assess(findings: Finding[], context?: { providerRuns: ProviderRu
 
   const results = ASSESS_CHECKS.map<AssessCheckResult>((check) => {
     const matched = findings.filter((finding) => finding.category === check.category);
-    const unavailable = context
-      ? check.requires.filter((method) => {
-          const runs = context.providerRuns.filter((run) => run.method === method);
-          return runs.length === 0 || runs.some((run) => run.status !== "ok");
-        })
-      : [];
+    // A method counts as unavailable if it never ran, or if any of its runs was
+    // short of a clean result. Failing closed is deliberate: a check that could
+    // not be judged must never be reported as a pass.
+    const unavailable = check.requires.filter((method) => {
+      const runs = context.providerRuns.filter((run) => run.method === method);
+      return runs.length === 0 || runs.some((run) => run.status !== "ok");
+    });
     if (matched.length === 0 && unavailable.length > 0) {
       notEvaluated += 1;
       return {

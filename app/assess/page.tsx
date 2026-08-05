@@ -107,11 +107,16 @@ function AssessView() {
             <span className="text-signal">{run.run.passed} passed</span>
             <span className={run.run.failed > 0 ? "text-risk-high" : "text-ink-faint"}>{run.run.failed} failed</span>
             <span className={run.run.notEvaluated > 0 ? "text-risk-medium" : "text-ink-faint"}>{run.run.notEvaluated} not evaluated</span>
-            {run.diff && (run.diff.fixed.length > 0 || run.diff.regressed.length > 0) && (
-              <span className="text-ink-faint">
-                retest: {run.diff.fixed.length > 0 && <span className="text-signal">{run.diff.fixed.length} fixed</span>}
-                {run.diff.fixed.length > 0 && run.diff.regressed.length > 0 && " · "}
+            {run.diff && (run.diff.fixed.length > 0 || run.diff.regressed.length > 0 || run.diff.coverageLost.length > 0 || run.diff.newlyEvaluated.length > 0) && (
+              <span className="flex flex-wrap items-center gap-x-2 text-ink-faint">
+                <span>retest:</span>
+                {run.diff.fixed.length > 0 && <span className="text-signal">{run.diff.fixed.length} fixed</span>}
                 {run.diff.regressed.length > 0 && <span className="text-risk-high">{run.diff.regressed.length} regressed</span>}
+                {/* Losing the ability to judge a check is its own event: the result
+                    did not improve, it stopped being knowable. Silently dropping
+                    it out of the failed count would read as progress. */}
+                {run.diff.coverageLost.length > 0 && <span className="text-risk-medium">{run.diff.coverageLost.length} lost coverage</span>}
+                {run.diff.newlyEvaluated.length > 0 && <span className="text-ink-soft">{run.diff.newlyEvaluated.length} newly covered</span>}
               </span>
             )}
           </div>
@@ -120,6 +125,8 @@ function AssessView() {
             {results.map((result) => {
               const regressed = run.diff?.regressed.includes(result.check.id);
               const fixed = run.diff?.fixed.includes(result.check.id);
+              const coverageLost = run.diff?.coverageLost.includes(result.check.id);
+              const newlyEvaluated = run.diff?.newlyEvaluated.includes(result.check.id);
               return (
                 <li key={result.check.id} className="panel p-4">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -130,6 +137,8 @@ function AssessView() {
                     {result.status === "fail" && result.severity && <span className={`mono text-[10px] uppercase ${SEVERITY_COLOR[result.severity]}`}>{result.severity}</span>}
                     {fixed && <span className="mono text-[10px] uppercase text-signal">newly fixed</span>}
                     {regressed && <span className="mono text-[10px] uppercase text-risk-high">regressed</span>}
+                    {coverageLost && <span className="mono text-[10px] uppercase text-risk-medium">lost coverage</span>}
+                    {newlyEvaluated && <span className="mono text-[10px] uppercase text-ink-soft">newly covered</span>}
                     <span className="mono ml-auto text-[10px] text-ink-faint">v{result.check.version}</span>
                   </div>
                   {result.status === "fail" && (

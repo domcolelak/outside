@@ -33,6 +33,16 @@ export function encryptGuardianConfig(value: unknown, associatedData?: string): 
   return `${version}.${iv.toString("base64url")}.${cipher.getAuthTag().toString("base64url")}.${encrypted.toString("base64url")}`;
 }
 
+/**
+ * The associated data a Guardian channel configuration is sealed with, so a
+ * stored config row cannot be replayed into another organization. Rows written
+ * before this existed are unbound v1 and still decrypt — the version check in
+ * decryptGuardianConfigDetailed ignores associated data for v1.
+ */
+export function channelAssociatedData(orgId: string): string {
+  return `outside.guardian.channel:${JSON.stringify(orgId)}`;
+}
+
 export interface DecryptedGuardianConfig<T> {
   value: T;
   /** The stored ciphertext format: v2 is bound to its tenant via associated data. */
