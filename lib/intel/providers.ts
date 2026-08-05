@@ -144,11 +144,17 @@ export async function checkDomainBreaches(domain: string, options: { signal?: Ab
 export async function checkIpGreyNoise(ip: string, options: { signal?: AbortSignal } = {}): Promise<IpClassification | null> {
   const key = providerKey("GREYNOISE_API_KEY");
   if (!key) return null;
+  // The Community API is rate limited whoever's key pays for it, so the cap
+  // applies to both paths. Restricting it to org-supplied keys capped nothing at
+  // all: GreyNoise carries a commercial gate by default, and loadOrgProviderKeys
+  // skips gated providers, so an organization key is never placed in scope —
+  // while the platform key it did not cover ran with no ceiling.
   const orgId = providerOrganizationId();
-  if (orgId && providerKeyIsOrgSupplied("GREYNOISE_API_KEY")) {
-    const budget = await rateLimit(`provider:greynoise:community:${orgId}`, 45, 7 * 24 * 60 * 60_000);
-    if (!budget.ok) throw new Error("GreyNoise Community weekly lookup budget reached.");
-  }
+  const budgetKey = orgId && providerKeyIsOrgSupplied("GREYNOISE_API_KEY")
+    ? `provider:greynoise:community:${orgId}`
+    : "provider:greynoise:community:platform";
+  const budget = await rateLimit(budgetKey, 45, 7 * 24 * 60 * 60_000);
+  if (!budget.ok) throw new Error("GreyNoise Community weekly lookup budget reached.");
   const body = await getJson(`https://api.greynoise.io/v3/community/${encodeURIComponent(ip)}`, { key }, options.signal);
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;

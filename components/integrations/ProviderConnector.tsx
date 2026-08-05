@@ -366,7 +366,11 @@ export function ProviderConnector({
             </div>
           )}
 
-          {status.usage && status.usage.total > 0 && (
+          {/* Gated on scanRuns, not on total: total counts lifecycle events like
+              connecting and testing, so a provider that has never run in a scan —
+              OpenAI never does, it answers explanation requests — would otherwise
+              read a permanent "Used in 0 scans". */}
+          {status.usage && status.usage.scanRuns > 0 && (
             <div className="mono text-[12px] leading-5 text-ink-faint">
               Used in {status.usage.scanRuns} scan
               {status.usage.scanRuns === 1 ? "" : "s"}
@@ -387,7 +391,6 @@ export function ProviderConnector({
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <button
-              ref={replaceButtonRef}
               type="button"
               onClick={() => void load(true)}
               disabled={busy !== ""}
@@ -396,6 +399,9 @@ export function ProviderConnector({
               {busy === "load" ? "Testing…" : "Test connection"}
             </button>
             <button
+              // Cancelling the replace form returns focus here, to the control
+              // that opened it — not to whichever button happened to be first.
+              ref={replaceButtonRef}
               type="button"
               onClick={() => {
                 setEditing(true);
@@ -468,11 +474,11 @@ export function ProviderConnector({
                 setKey(event.target.value);
                 setActionError(null);
               }}
-              placeholder={descriptor.keyPlaceholder}
+              placeholder={isPair ? "API secret" : descriptor.keyPlaceholder}
               autoComplete="off"
               spellCheck={false}
               required
-              aria-label={`${descriptor.name} API key`}
+              aria-label={`${descriptor.name} ${isPair ? "API secret" : "API key"}`}
               aria-invalid={actionError ? true : undefined}
               className="mono min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
             />
@@ -480,7 +486,7 @@ export function ProviderConnector({
               type="button"
               onClick={() => setShowKey((visible) => !visible)}
               aria-pressed={showKey}
-              aria-label={`${showKey ? "Hide" : "Show"} ${descriptor.name} API key`}
+              aria-label={`${showKey ? "Hide" : "Show"} ${descriptor.name} ${isPair ? "API secret" : "API key"}`}
               className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
             >
               {showKey ? "Hide key" : "Show key"}
