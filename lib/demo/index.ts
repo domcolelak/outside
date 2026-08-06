@@ -16,6 +16,6 @@ export function findDemoOrg(input: string): DemoOrg | null {
   return match ? match.build() : null;
 }
 
-export function isDemoDomain(domain: string): boolean {
-  return DEMO_ORGS.some((o) => o.domain === domain.trim().toLowerCase());
-}
+// isDemoDomain() lost its only caller when the scan route moved target handling
+// into canonicalScanTarget(), which resolves a demo target through findDemoOrg()
+// directly. Removed rather than left as a second, unused way to ask the question.

@@ -51,6 +51,30 @@ async function stage(emit: Emit, s: keyof typeof SCAN_STAGE_LABELS, work: () => 
  * (as opposed to enrichment, whose failure only leaves assets less annotated). */
 const DISCOVERY_METHODS = new Set<DiscoveryMethod>(["certificate_transparency", "dns", "passive_subdomain"]);
 
+/**
+ * Interleave two independent candidate sources so neither can crowd the other
+ * out at the global host cap.
+ *
+ * Certificate Transparency is free and often voluminous; passive DNS is the
+ * observation the customer paid a provider for. Concatenating them would let a
+ * large CT result spend the entire budget and silently discard every paid
+ * hostname, so they are taken in turn — passive first on each round, since it is
+ * the scarcer signal.
+ */
+export function interleaveCandidates(passive: string[], ct: string[], max: number): string[] {
+  const candidates: string[] = [];
+  const selected = new Set<string>();
+  for (let index = 0; candidates.length < max && (index < ct.length || index < passive.length); index += 1) {
+    for (const host of [passive[index], ct[index]]) {
+      if (!host || selected.has(host)) continue;
+      selected.add(host);
+      candidates.push(host);
+      if (candidates.length >= max) break;
+    }
+  }
+  return candidates;
+}
+
 /** Derive a completeness signal from the provider runs so a partial scan is never presented as whole. */
 export function computeScanCoverage(runs: ProviderRun[]): ScanCoverage {
   const failed = runs.filter((r) => r.status === "error" || r.status === "partial");
@@ -314,18 +338,7 @@ export async function runPassiveScan(
   const passiveHostSet = new Set(passiveHosts);
   const ctCandidates = [...ctByHost.keys()].filter((host) => host !== domain).sort();
   const passiveCandidates = [...passiveHostSet].filter((host) => host !== domain).sort();
-  // Round-robin independent sources so a full CT result cannot discard all
-  // customer-paid passive-DNS observations at the global responsibility cap.
-  const candidates: string[] = [];
-  const selected = new Set<string>();
-  for (let index = 0; candidates.length < MAX_HOSTS && (index < ctCandidates.length || index < passiveCandidates.length); index += 1) {
-    for (const host of [passiveCandidates[index], ctCandidates[index]]) {
-      if (!host || selected.has(host)) continue;
-      selected.add(host);
-      candidates.push(host);
-      if (candidates.length >= MAX_HOSTS) break;
-    }
-  }
+  const candidates = interleaveCandidates(passiveCandidates, ctCandidates, MAX_HOSTS);
 
   await stage(emit, "dns", async () => {
     const started = new Date();
