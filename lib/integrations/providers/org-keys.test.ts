@@ -119,6 +119,23 @@ describe("recordScanProviderUsage", () => {
     expect(await providerUsageSummary(ORG_A, "securitytrails")).toMatchObject({ total: 1, failures: 1 });
   });
 
+  it("meters every provider the scan pipeline can actually report", async () => {
+    // These are the exact strings lib/discovery and lib/intel push as
+    // ProviderRun.provider. Usage attribution is a match on that string against
+    // ProviderDefinition.runLabel, held together by nothing but two literals in
+    // unrelated files — rename either side and metering stops silently. This
+    // pins the seam from the consuming end.
+    const emitted = ["HaveIBeenPwned", "SecurityTrails", "Shodan", "AbuseIPDB", "GreyNoise", "VirusTotal", "Censys"] as const;
+    const ids = ["hibp", "securitytrails", "shodan", "abuseipdb", "greynoise", "virustotal", "censys"] as const;
+
+    for (const id of ids) await saveProviderKey(ORG_A, id, "k".repeat(32), "user_1");
+    await recordScanProviderUsage(ORG_A, emitted.map((provider) => ({ provider, status: "ok" })));
+
+    for (const id of ids) {
+      expect((await providerUsageSummary(ORG_A, id)).total, `${id} was not metered`).toBe(1);
+    }
+  });
+
   it("ignores providers that are not in the registry", async () => {
     await saveProviderKey(ORG_A, "hibp", "e".repeat(32), "user_1");
     await recordScanProviderUsage(ORG_A, [{ provider: "crt.sh", status: "ok" }]);

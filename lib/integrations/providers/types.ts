@@ -122,6 +122,13 @@ export interface ProviderStatus {
     scanRuns: number;
     lastScanAt?: string;
   };
+  /**
+   * Recent credential lifecycle events, newest first. An audit trail that cannot
+   * be read does not provide accountability, so the record an administrator
+   * needs — who changed this credential, and when — is returned here rather than
+   * only written to the database.
+   */
+  history?: Array<{ action: string; actorId: string; detail?: string; createdAt: string }>;
   blocked?: { reason: string };
   error?: { code: ProviderErrorCode; message: string; retryAfterSeconds?: number };
 }

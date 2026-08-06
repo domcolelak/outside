@@ -111,6 +111,28 @@ describe("providerStatus", () => {
   });
 });
 
+describe("the audit trail is readable, not just written", () => {
+  it("returns the credential lifecycle history with the status", async () => {
+    // An audit record nobody can read gives no accountability: an administrator
+    // has to be able to see who changed a credential and when.
+    const def = makeDef(okValidate);
+    await connectProvider(def, ORG, "goodkey", ACTOR);
+    const status = await providerStatus(def, ORG);
+    const actions = (status.history ?? []).map((entry) => entry.action);
+    expect(actions).toEqual(expect.arrayContaining(["connected", "validated"]));
+    expect(status.history?.[0]?.actorId).toBe(ACTOR);
+  });
+
+  it("still reports a status when the audit trail cannot be read", async () => {
+    const def = makeDef(okValidate);
+    await connectProvider(def, ORG, "goodkey", ACTOR);
+    __resetProviderAudit();
+    const status = await providerStatus(def, ORG);
+    expect(status.stored).toBe(true);
+    expect(status.history).toEqual([]);
+  });
+});
+
 describe("disconnectProvider", () => {
   it("removes the credential and audits it", async () => {
     const def = makeDef(okValidate);
