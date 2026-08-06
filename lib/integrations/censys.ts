@@ -11,6 +11,7 @@
  */
 
 import { mapProviderStatus, networkFailure, type ProviderFailure } from "@/lib/integrations/providers/http";
+import { joinCredentialPair, splitCredentialPair } from "@/lib/integrations/pair-credential";
 
 const API = "https://search.censys.io/api/v1";
 const LABEL = "Censys";
@@ -25,19 +26,13 @@ export interface CensysAccount {
 
 export type CensysResult<T> = ({ ok: true } & T) | ProviderFailure;
 
-/** Split the stored pair. Returns null when the value is not a well-formed pair. */
-export function splitCensysCredential(raw: string): { id: string; secret: string } | null {
-  const separator = raw.indexOf(":");
-  if (separator <= 0) return null;
-  const id = raw.slice(0, separator).trim();
-  const secret = raw.slice(separator + 1).trim();
-  return id && secret ? { id, secret } : null;
-}
-
-/** Join an id and secret into the single value the credential store holds. */
-export function joinCensysCredential(id: string, secret: string): string {
-  return `${id.trim()}:${secret.trim()}`;
-}
+/**
+ * The pair format is shared with the browser, which assembles the credential
+ * before sending it — so it is defined once in lib/integrations/pair-credential
+ * rather than here, where a client bundle could not import it.
+ */
+export const splitCensysCredential = splitCredentialPair;
+export const joinCensysCredential = joinCredentialPair;
 
 /**
  * Prove the pair works and read the query allowance. /account is the cheapest

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { joinCredentialPair } from "@/lib/integrations/pair-credential";
 
 export interface ProviderDescriptor {
   id: string;
@@ -162,7 +163,8 @@ export function ProviderConnector({
       return;
     }
     // A pair is stored as one value; the adapter that understands it splits it back.
-    const normalizedKey = isPair ? `${pairId.trim()}:${secret}` : secret;
+    // One definition of the pair format, shared with the adapter that splits it.
+    const normalizedKey = isPair ? joinCredentialPair(pairId, secret) : secret;
     setBusy("save");
     setActionError(null);
     try {

@@ -1,10 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { computeScanCoverage } from "./engine";
+import { computeScanCoverage, interleaveCandidates } from "./engine";
 import type { ProviderRun, DiscoveryMethod } from "@/lib/types";
 
 function run(provider: string, method: DiscoveryMethod, status: ProviderRun["status"], error?: string): ProviderRun {
   return { provider, method, status, startedAt: "", finishedAt: "", observations: 0, errors: error ? [error] : [] };
 }
+
+describe("neither candidate source can crowd the other out", () => {
+  const many = (prefix: string, count: number) => Array.from({ length: count }, (_, i) => `${prefix}-${i}.acme.com`);
+
+  it("keeps paid passive-DNS hostnames when certificate transparency floods the cap", () => {
+    // Concatenating would spend the whole budget on the free, voluminous source
+    // and silently discard every hostname the customer paid a provider for.
+    const result = interleaveCandidates(many("passive", 5), many("ct", 100), 10);
+    expect(result.filter((host) => host.startsWith("passive"))).toHaveLength(5);
+    expect(result).toHaveLength(10);
+  });
+
+  it("takes passive first on each round, then certificate transparency", () => {
+    expect(interleaveCandidates(["p0.acme.com", "p1.acme.com"], ["c0.acme.com", "c1.acme.com"], 4)).toEqual([
+      "p0.acme.com",
+      "c0.acme.com",
+      "p1.acme.com",
+      "c1.acme.com",
+    ]);
+  });
+
+  it("uses the whole budget when one source is empty", () => {
+    expect(interleaveCandidates([], many("ct", 20), 6)).toHaveLength(6);
+    expect(interleaveCandidates(many("passive", 20), [], 6)).toHaveLength(6);
+  });
+
+  it("never repeats a hostname both sources reported", () => {
+    const result = interleaveCandidates(["shared.acme.com", "p1.acme.com"], ["shared.acme.com", "c1.acme.com"], 10);
+    expect(result.filter((host) => host === "shared.acme.com")).toHaveLength(1);
+    expect(new Set(result).size).toBe(result.length);
+  });
+
+  it("returns nothing when there is nothing to select", () => {
+    expect(interleaveCandidates([], [], 10)).toEqual([]);
+    expect(interleaveCandidates(["a.acme.com"], ["b.acme.com"], 0)).toEqual([]);
+  });
+});
 
 describe("registry data that simply does not exist is not a coverage failure", () => {
   it("does not warn about incompleteness for a TLD that publishes no expiry date", () => {

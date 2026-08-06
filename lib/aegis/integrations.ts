@@ -119,20 +119,8 @@ export const CONNECTORS: Connector[] = [
   },
 ];
 
-export const INTEGRATION_CATEGORY_LABEL: Record<IntegrationCategory, string> = {
-  edge_cdn: "Edge & CDN",
-  cloud: "Cloud",
-  identity: "Identity & Mail",
-  source: "Source & CI",
-  hosting: "Hosting",
-  dns: "DNS",
-};
-
-export interface ConnectorState extends Connector {
-  connected: boolean;
-}
-
-/** Connector list with live (env-gated) connection state. Never throws. */
-export function connectorStates(): ConnectorState[] {
-  return CONNECTORS.map((c) => ({ ...c, connected: !!process.env[c.envKey] }));
-}
+// INTEGRATION_CATEGORY_LABEL, ConnectorState and connectorStates() were removed
+// with the /integrations rewrite: the page now renders BYOK providers from the
+// provider registry, which carries its own categories and live connection state
+// per organization. CONNECTORS remains as the catalogue of what a connector
+// could remediate; there is no longer an env-gated platform-wide state to show.
