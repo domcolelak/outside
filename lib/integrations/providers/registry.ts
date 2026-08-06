@@ -15,6 +15,9 @@ import { greyNoiseProvider } from "./greynoise";
 import { virusTotalProvider } from "./virustotal";
 import { openAiProvider } from "./openai";
 import { censysProvider } from "./censys";
+import { vercelProvider } from "./vercel";
+import { netlifyProvider } from "./netlify";
+import { digitalOceanProvider } from "./digitalocean";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
@@ -25,6 +28,9 @@ const REGISTRY: Record<string, ProviderDefinition> = {
   [virusTotalProvider.id]: virusTotalProvider,
   [openAiProvider.id]: openAiProvider,
   [censysProvider.id]: censysProvider,
+  [vercelProvider.id]: vercelProvider,
+  [netlifyProvider.id]: netlifyProvider,
+  [digitalOceanProvider.id]: digitalOceanProvider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */
