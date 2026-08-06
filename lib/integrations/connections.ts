@@ -13,7 +13,7 @@ import { storageMode } from "@/lib/config/storage";
 import { encryptGuardianConfig, decryptGuardianConfig, decryptGuardianConfigDetailed } from "@/lib/guardian/crypto";
 import { operationalLog } from "@/lib/observability/log";
 
-export type IntegrationProvider = "cloudflare" | "hibp" | "securitytrails" | "shodan" | "abuseipdb" | "greynoise" | "virustotal" | "openai" | "censys";
+export type IntegrationProvider = "cloudflare" | "hibp" | "securitytrails" | "shodan" | "abuseipdb" | "greynoise" | "virustotal" | "openai" | "censys" | "vercel";
 
 export interface ConnectionZone {
   id: string;

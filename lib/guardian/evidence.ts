@@ -30,6 +30,10 @@ const METHOD_RELIABILITY: Record<DiscoveryMethod, number> = {
   passive_subdomain: 0.72,
   service_observation: 0.78,
   threat_intel: 0.7,
+  // The customer's own provider account states the domain is theirs. That is a
+  // first-party assertion about ownership, not an outside inference, so it ranks
+  // just under the seed the operator supplied directly.
+  ownership_attribution: 0.98,
   demo: 0.45,
 };
 

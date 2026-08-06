@@ -97,6 +97,18 @@ export interface ProviderDefinition {
    */
   validate(raw: string, signal?: AbortSignal): Promise<ProviderValidation>;
   /**
+   * Read the domains this credential's account owns, so a scan can attribute
+   * hostnames it discovered from the outside to an account the customer
+   * controls. Providers that host or register domains implement this; pure
+   * intelligence providers do not.
+   *
+   * Strictly read-only, and strictly attribution: it never introduces an asset,
+   * it only explains one OUTSIDE already found. The value is the inverse — an
+   * asset matching nothing the customer owns is a shadow-asset candidate.
+   */
+  ownedDomains?(raw: string, signal?: AbortSignal): Promise<{ ok: true; domains: string[] } | { ok: false; message: string }>;
+
+  /**
    * Optional commercial/legal gate. When set, connecting is blocked with this
    * reason until the provider is cleared for production use.
    */

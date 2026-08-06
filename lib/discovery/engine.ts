@@ -32,6 +32,7 @@ import { recordProviderMetrics } from "@/lib/observability/metrics";
 import { enrichThreatIntel, intelEnabled } from "@/lib/intel/enrich";
 import { discoverPassiveHostnames, passiveDnsEnabled } from "./passive-dns";
 import { censysConfigured, enrichCensysServices } from "./censys";
+import { attributeAssetOwnership, ownershipAttributionEnabled } from "./ownership";
 
 export type Emit = (event: ScanEvent) => void | Promise<void>;
 
@@ -494,6 +495,26 @@ export async function runPassiveScan(
     } catch (error) {
       if (signal?.aborted) throw error;
       await emit({ type: "log", level: "warn", message: `Censys service discovery skipped: ${(error as Error).message}` });
+    }
+  }
+
+  // Attribute discovered hostnames to accounts the customer owns. Runs last, so
+  // every asset the scan found is present: the useful signal is which of them
+  // match nothing the customer owns. Read-only and isolated.
+  if (options.activeObservation && ownershipAttributionEnabled()) {
+    try {
+      const ownershipRuns = await attributeAssetOwnership(assets, { signal });
+      providerRuns.push(...ownershipRuns);
+      const attributed = ownershipRuns.reduce((total, run) => total + run.observations, 0);
+      const unattributed = assets.filter((asset) => typeof asset.attrs.ownedBy !== "string").length;
+      await emit({
+        type: "log",
+        level: unattributed > 0 ? "signal" : "info",
+        message: `${attributed} asset(s) attributed to a connected account; ${unattributed} not owned by any connected account`,
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      await emit({ type: "log", level: "warn", message: `Ownership attribution skipped: ${(error as Error).message}` });
     }
   }
 

@@ -56,6 +56,8 @@ export type DiscoveryMethod =
   | "service_observation"
   | "domain_registration"
   | "threat_intel"
+  /** Matching a discovered hostname against accounts the customer owns. */
+  | "ownership_attribution"
   | "seed"
   | "demo";
 
