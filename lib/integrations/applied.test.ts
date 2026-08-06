@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { recordApplied, activeRemediation, markRolledBack, __resetApplied } from "./applied";
+import { recordApplied, activeRemediation, listActiveRemediations, markRolledBack, __resetApplied } from "./applied";
 
 beforeEach(() => __resetApplied());
 
@@ -32,5 +32,38 @@ describe("applied remediations", () => {
     await recordApplied({ ...BASE, handle: { ...HANDLE, recordId: "rec2" } });
     const active = await activeRemediation("org_1", "cloudflare", "acme.com", "add_dmarc_monitoring");
     expect(active?.handle.recordId).toBe("rec2");
+  });
+});
+
+/**
+ * listActiveRemediations is the sole input to both connection guards — the one
+ * that refuses a disconnect and the one that refuses a token which can no longer
+ * reach a zone holding a live change. A scoping regression here would not fail
+ * loudly; it would quietly disarm both guards and let a customer strand a DNS
+ * record they can no longer roll back.
+ */
+describe("listActiveRemediations", () => {
+  it("returns every live change for one organization across targets", async () => {
+    await recordApplied({ ...BASE, handle: HANDLE });
+    await recordApplied({ ...BASE, target: "other.com", handle: { ...HANDLE, name: "_dmarc.other.com" } });
+    const active = await listActiveRemediations("org_1", "cloudflare");
+    expect(active.map((record) => record.target).sort()).toEqual(["acme.com", "other.com"]);
+  });
+
+  it("drops a change once it has been rolled back", async () => {
+    const applied = await recordApplied({ ...BASE, handle: HANDLE });
+    expect(await listActiveRemediations("org_1", "cloudflare")).toHaveLength(1);
+    await markRolledBack(applied.id);
+    expect(await listActiveRemediations("org_1", "cloudflare")).toEqual([]);
+  });
+
+  it("never reports another organization's change", async () => {
+    await recordApplied({ ...BASE, handle: HANDLE });
+    expect(await listActiveRemediations("org_2", "cloudflare")).toEqual([]);
+  });
+
+  it("never reports another provider's change", async () => {
+    await recordApplied({ ...BASE, handle: HANDLE });
+    expect(await listActiveRemediations("org_1", "route53")).toEqual([]);
   });
 });

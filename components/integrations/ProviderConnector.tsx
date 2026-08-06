@@ -27,9 +27,16 @@ interface Usage {
   scanRuns: number;
   lastScanAt?: string;
 }
+interface HistoryEntry {
+  action: string;
+  actorId: string;
+  detail?: string;
+  createdAt: string;
+}
 interface Status {
   stored: boolean;
   connected: boolean;
+  history?: HistoryEntry[];
   accountHint?: string;
   accountLabel?: string;
   connectedAt?: string;
@@ -364,6 +371,26 @@ export function ProviderConnector({
               {status.error?.message ??
                 "The stored key did not pass its latest connection check."}
             </div>
+          )}
+
+          {status.history && status.history.length > 0 && (
+            <details className="mt-1">
+              <summary className="mono cursor-pointer text-[12px] text-ink-faint hover:text-ink-soft">
+                Credential history
+              </summary>
+              <ul className="mt-2 space-y-1">
+                {status.history.map((entry) => (
+                  <li key={`${entry.action}-${entry.createdAt}`} className="mono text-[11px] leading-5 text-ink-faint">
+                    <span className="text-ink-soft">{entry.action}</span>
+                    {" · "}
+                    {new Date(entry.createdAt).toLocaleString()}
+                    {" · "}
+                    <span title="Acting user">{entry.actorId}</span>
+                    {entry.detail && <span> · {entry.detail}</span>}
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
 
           {/* Gated on scanRuns, not on total: total counts lifecycle events like

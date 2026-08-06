@@ -16,10 +16,16 @@ import {
 } from "@/lib/integrations/connections";
 import type { ProviderDefinition, ProviderStatus, ProviderErrorCode } from "./types";
 import { recordProviderUsage, providerUsageSummary } from "./telemetry";
-import { recordProviderAudit } from "./audit";
+import { recordProviderAudit, providerAuditTrail } from "./audit";
 
 async function statusFromSummary(def: ProviderDefinition, orgId: string, summary: ConnectionSummary): Promise<ProviderStatus> {
-  const usage = await providerUsageSummary(orgId, def.id);
+  const [usage, history] = await Promise.all([
+    providerUsageSummary(orgId, def.id),
+    // Read back the lifecycle record. Writing an audit trail nobody can read
+    // gives no accountability: an administrator has to be able to see who
+    // connected, replaced or removed a credential, and when.
+    providerAuditTrail(orgId, def.id, 5).catch(() => []),
+  ]);
   const validationError = summary.metadata.validationError;
   const hasValidation = typeof summary.metadata.lastValidatedAt === "string";
   return {
@@ -32,6 +38,7 @@ async function statusFromSummary(def: ProviderDefinition, orgId: string, summary
     lastValidatedAt: summary.metadata.lastValidatedAt,
     capabilities: summary.metadata.capabilities,
     usage,
+    history,
     ...(!hasValidation
       ? { error: { code: "unknown" as const, message: "Run a one-time connection test to confirm this saved key." } }
       : validationError
