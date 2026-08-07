@@ -4,8 +4,11 @@ import { awsProvider } from "./providers/aws";
 
 afterEach(() => vi.restoreAllMocks());
 
-const ID = "AKIAIOSFODNN7EXAMPLE";
-const SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+// Deliberately not AWS's documented AKIA…EXAMPLE sample: the repository's secret
+// scanner matches the AKIA/ASIA prefix and cannot tell a doc sample from a live
+// key. These are shaped to satisfy the format check without tripping it.
+const ID = "EXAMPLEACCESSKEYID01";
+const SECRET = "example-only-not-a-real-secret-value-0000";
 const CRED = `${ID}:${SECRET}`;
 
 const base = {
@@ -26,7 +29,9 @@ describe("SigV4 signing", () => {
   it("produces the documented Authorization shape", () => {
     const auth = signedGetHeaders(base).authorization;
     expect(auth).toMatch(
-      /^AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE\/20260101\/us-east-1\/route53\/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=[a-f0-9]{64}$/,
+      new RegExp(
+        `^AWS4-HMAC-SHA256 Credential=${ID}/20260101/us-east-1/route53/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=[a-f0-9]{64}$`,
+      ),
     );
   });
 
