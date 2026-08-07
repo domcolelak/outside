@@ -19,6 +19,8 @@ import { vercelProvider } from "./vercel";
 import { netlifyProvider } from "./netlify";
 import { digitalOceanProvider } from "./digitalocean";
 import { awsProvider } from "./aws";
+import { fastlyProvider } from "./fastly";
+import { gitHubProvider } from "./github";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
@@ -33,6 +35,8 @@ const REGISTRY: Record<string, ProviderDefinition> = {
   [netlifyProvider.id]: netlifyProvider,
   [digitalOceanProvider.id]: digitalOceanProvider,
   [awsProvider.id]: awsProvider,
+  [fastlyProvider.id]: fastlyProvider,
+  [gitHubProvider.id]: gitHubProvider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */
