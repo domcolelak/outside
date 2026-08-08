@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { joinCredentialPair } from "@/lib/integrations/pair-credential";
+import { joinCredentialPair, joinCredentialParts } from "@/lib/integrations/pair-credential";
 
 export interface ProviderDescriptor {
   id: string;
@@ -9,8 +9,8 @@ export interface ProviderDescriptor {
   summary: string;
   docsUrl: string;
   keyPlaceholder: string;
-  /** "id_secret" providers authenticate with a pair and collect two fields. */
-  credentialKind?: "api_key" | "id_secret";
+  /** How many fields the credential needs: one, a pair, or a Microsoft triple. */
+  credentialKind?: "api_key" | "id_secret" | "tenant_client_secret";
   blocked?: { reason: string };
 }
 
@@ -95,8 +95,11 @@ export function ProviderConnector({
   const [editing, setEditing] = useState(false);
   const [key, setKey] = useState("");
   // Pair providers (Censys) collect a non-secret identifier alongside the secret.
-  const isPair = descriptor.credentialKind === "id_secret";
+  // Microsoft providers collect a directory and an application identifier too.
+  const isTriple = descriptor.credentialKind === "tenant_client_secret";
+  const isPair = descriptor.credentialKind === "id_secret" || isTriple;
   const [pairId, setPairId] = useState("");
+  const [tenantId, setTenantId] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState<Busy>(descriptor.blocked ? "" : "load");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -159,12 +162,20 @@ export function ProviderConnector({
       return;
     }
     if (isPair && !pairId.trim()) {
-      setActionError("Enter the API ID.");
+      setActionError(isTriple ? "Enter the application (client) ID." : "Enter the API ID.");
       return;
     }
-    // A pair is stored as one value; the adapter that understands it splits it back.
-    // One definition of the pair format, shared with the adapter that splits it.
-    const normalizedKey = isPair ? joinCredentialPair(pairId, secret) : secret;
+    if (isTriple && !tenantId.trim()) {
+      setActionError("Enter the directory (tenant) ID.");
+      return;
+    }
+    // Stored as one value; the adapter that understands the shape splits it back.
+    // One definition of the format, shared with that adapter.
+    const normalizedKey = isTriple
+      ? joinCredentialParts(tenantId, pairId, secret)
+      : isPair
+        ? joinCredentialPair(pairId, secret)
+        : secret;
     setBusy("save");
     setActionError(null);
     try {
@@ -187,6 +198,7 @@ export function ProviderConnector({
       setLoadError(null);
       setKey("");
       setPairId("");
+      setTenantId("");
       setShowKey(false);
       setEditing(false);
       window.requestAnimationFrame(() => articleRef.current?.focus());
@@ -231,6 +243,7 @@ export function ProviderConnector({
       setEditing(false);
       setKey("");
       setPairId("");
+      setTenantId("");
       setShowKey(false);
       window.requestAnimationFrame(() => articleRef.current?.focus());
     } catch (error) {
@@ -462,13 +475,38 @@ export function ProviderConnector({
           className="mt-4 rounded-lg border border-line bg-base-950/60 p-3"
           aria-describedby={describedBy}
         >
+          {isTriple && (
+            <>
+              <label
+                htmlFor={`tenant-id-${descriptor.id}`}
+                className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
+              >
+                Directory (tenant) ID
+              </label>
+              <input
+                id={`tenant-id-${descriptor.id}`}
+                type="text"
+                value={tenantId}
+                onChange={(event) => {
+                  setTenantId(event.target.value);
+                  setActionError(null);
+                }}
+                placeholder="00000000-0000-0000-0000-000000000000"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                aria-label={`${descriptor.name} directory tenant ID`}
+                className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+              />
+            </>
+          )}
           {isPair && (
             <>
               <label
                 htmlFor={`pair-id-${descriptor.id}`}
                 className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
               >
-                API ID
+                {isTriple ? "Application (client) ID" : "API ID"}
               </label>
               <input
                 id={`pair-id-${descriptor.id}`}
@@ -478,11 +516,11 @@ export function ProviderConnector({
                   setPairId(event.target.value);
                   setActionError(null);
                 }}
-                placeholder="API ID"
+                placeholder={isTriple ? "00000000-0000-0000-0000-000000000000" : "API ID"}
                 autoComplete="off"
                 spellCheck={false}
                 required
-                aria-label={`${descriptor.name} API ID`}
+                aria-label={`${descriptor.name} ${isTriple ? "application client ID" : "API ID"}`}
                 className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               />
             </>
@@ -491,7 +529,7 @@ export function ProviderConnector({
             htmlFor={`key-${descriptor.id}`}
             className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
           >
-            {isPair ? "API secret" : "API key"}
+            {isTriple ? "Client secret" : isPair ? "API secret" : "API key"}
           </label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
@@ -564,6 +602,7 @@ export function ProviderConnector({
                   setEditing(false);
                   setKey("");
                   setPairId("");
+                  setTenantId("");
                   setShowKey(false);
                   setActionError(null);
                   window.requestAnimationFrame(() =>

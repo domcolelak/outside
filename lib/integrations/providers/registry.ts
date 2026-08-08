@@ -21,6 +21,8 @@ import { digitalOceanProvider } from "./digitalocean";
 import { awsProvider } from "./aws";
 import { fastlyProvider } from "./fastly";
 import { gitHubProvider } from "./github";
+import { azureProvider } from "./azure";
+import { m365Provider } from "./m365";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
@@ -37,6 +39,8 @@ const REGISTRY: Record<string, ProviderDefinition> = {
   [awsProvider.id]: awsProvider,
   [fastlyProvider.id]: fastlyProvider,
   [gitHubProvider.id]: gitHubProvider,
+  [azureProvider.id]: azureProvider,
+  [m365Provider.id]: m365Provider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */

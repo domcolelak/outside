@@ -52,7 +52,13 @@ export type ProviderValidation = ProviderValidationOk | ProviderValidationError;
  * a secret) that the provider needs together — stored as one encrypted value and
  * split apart only by the adapter that understands it.
  */
-export type CredentialKind = "api_key" | "id_secret";
+/**
+ * "tenant_client_secret" is the Microsoft identity shape: a directory, an
+ * application registered in it, and that application's secret. All three are
+ * needed together, so they are stored as one encrypted value and split apart
+ * only by the adapter that understands them.
+ */
+export type CredentialKind = "api_key" | "id_secret" | "tenant_client_secret";
 
 /**
  * Declarative description of a provider. Adding a provider is: write an adapter,
