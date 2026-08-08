@@ -23,6 +23,8 @@ import { fastlyProvider } from "./fastly";
 import { gitHubProvider } from "./github";
 import { azureProvider } from "./azure";
 import { m365Provider } from "./m365";
+import { gcpProvider } from "./gcp";
+import { googleWorkspaceProvider } from "./google-workspace";
 
 const REGISTRY: Record<string, ProviderDefinition> = {
   [hibpProvider.id]: hibpProvider,
@@ -41,6 +43,8 @@ const REGISTRY: Record<string, ProviderDefinition> = {
   [gitHubProvider.id]: gitHubProvider,
   [azureProvider.id]: azureProvider,
   [m365Provider.id]: m365Provider,
+  [gcpProvider.id]: gcpProvider,
+  [googleWorkspaceProvider.id]: googleWorkspaceProvider,
 };
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */

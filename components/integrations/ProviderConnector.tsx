@@ -9,8 +9,13 @@ export interface ProviderDescriptor {
   summary: string;
   docsUrl: string;
   keyPlaceholder: string;
-  /** How many fields the credential needs: one, a pair, or a Microsoft triple. */
-  credentialKind?: "api_key" | "id_secret" | "tenant_client_secret";
+  /** What the credential looks like, which decides how many fields to collect. */
+  credentialKind?:
+    | "api_key"
+    | "id_secret"
+    | "tenant_client_secret"
+    | "service_account_json"
+    | "service_account_json_subject";
   blocked?: { reason: string };
 }
 
@@ -97,9 +102,15 @@ export function ProviderConnector({
   // Pair providers (Censys) collect a non-secret identifier alongside the secret.
   // Microsoft providers collect a directory and an application identifier too.
   const isTriple = descriptor.credentialKind === "tenant_client_secret";
+  // Google keys are a whole file, so they get a textarea rather than a one-line
+  // input; Workspace additionally needs the administrator to impersonate.
+  const isJson =
+    descriptor.credentialKind === "service_account_json" || descriptor.credentialKind === "service_account_json_subject";
+  const needsSubject = descriptor.credentialKind === "service_account_json_subject";
   const isPair = descriptor.credentialKind === "id_secret" || isTriple;
   const [pairId, setPairId] = useState("");
   const [tenantId, setTenantId] = useState("");
+  const [subject, setSubject] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [busy, setBusy] = useState<Busy>(descriptor.blocked ? "" : "load");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -169,13 +180,20 @@ export function ProviderConnector({
       setActionError("Enter the directory (tenant) ID.");
       return;
     }
+    if (needsSubject && !subject.trim()) {
+      setActionError("Enter the administrator address to impersonate.");
+      return;
+    }
     // Stored as one value; the adapter that understands the shape splits it back.
     // One definition of the format, shared with that adapter.
     const normalizedKey = isTriple
       ? joinCredentialParts(tenantId, pairId, secret)
-      : isPair
-        ? joinCredentialPair(pairId, secret)
-        : secret;
+      : needsSubject
+        ? // A newline separator leaves the pasted JSON byte-for-byte intact.
+          `${subject.trim()}\n${secret}`
+        : isPair
+          ? joinCredentialPair(pairId, secret)
+          : secret;
     setBusy("save");
     setActionError(null);
     try {
@@ -199,6 +217,7 @@ export function ProviderConnector({
       setKey("");
       setPairId("");
       setTenantId("");
+      setSubject("");
       setShowKey(false);
       setEditing(false);
       window.requestAnimationFrame(() => articleRef.current?.focus());
@@ -244,6 +263,7 @@ export function ProviderConnector({
       setKey("");
       setPairId("");
       setTenantId("");
+      setSubject("");
       setShowKey(false);
       window.requestAnimationFrame(() => articleRef.current?.focus());
     } catch (error) {
@@ -475,6 +495,31 @@ export function ProviderConnector({
           className="mt-4 rounded-lg border border-line bg-base-950/60 p-3"
           aria-describedby={describedBy}
         >
+          {needsSubject && (
+            <>
+              <label
+                htmlFor={`subject-${descriptor.id}`}
+                className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
+              >
+                Administrator to impersonate
+              </label>
+              <input
+                id={`subject-${descriptor.id}`}
+                type="email"
+                value={subject}
+                onChange={(event) => {
+                  setSubject(event.target.value);
+                  setActionError(null);
+                }}
+                placeholder="admin@yourcompany.com"
+                autoComplete="off"
+                spellCheck={false}
+                required
+                aria-label={`${descriptor.name} administrator to impersonate`}
+                className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+              />
+            </>
+          )}
           {isTriple && (
             <>
               <label
@@ -529,26 +574,49 @@ export function ProviderConnector({
             htmlFor={`key-${descriptor.id}`}
             className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
           >
-            {isTriple ? "Client secret" : isPair ? "API secret" : "API key"}
+            {isJson ? "Service-account JSON key" : isTriple ? "Client secret" : isPair ? "API secret" : "API key"}
           </label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-            <input
-              ref={keyInputRef}
-              id={`key-${descriptor.id}`}
-              type={showKey ? "text" : "password"}
-              value={key}
-              onChange={(event) => {
-                setKey(event.target.value);
-                setActionError(null);
-              }}
-              placeholder={isPair ? "API secret" : descriptor.keyPlaceholder}
-              autoComplete="off"
-              spellCheck={false}
-              required
-              aria-label={`${descriptor.name} ${isPair ? "API secret" : "API key"}`}
-              aria-invalid={actionError ? true : undefined}
-              className="mono min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
-            />
+            {isJson ? (
+              /* A key file is multi-line and pasted verbatim, so it gets a
+                 textarea. It is not masked: hiding a blob the customer just
+                 copied helps nobody, and it never leaves this form unmasked. */
+              <textarea
+                id={`key-${descriptor.id}`}
+                value={key}
+                onChange={(event) => {
+                  setKey(event.target.value);
+                  setActionError(null);
+                }}
+                rows={6}
+                placeholder={descriptor.keyPlaceholder}
+                autoComplete="off"
+                spellCheck={false}
+                required
+                aria-label={`${descriptor.name} service-account JSON key`}
+                aria-invalid={actionError ? true : undefined}
+                className="mono min-w-0 flex-1 rounded-lg border border-line bg-base-900 p-3 text-[12px] leading-5 text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+              />
+            ) : (
+              <input
+                ref={keyInputRef}
+                id={`key-${descriptor.id}`}
+                type={showKey ? "text" : "password"}
+                value={key}
+                onChange={(event) => {
+                  setKey(event.target.value);
+                  setActionError(null);
+                }}
+                placeholder={isPair ? "API secret" : descriptor.keyPlaceholder}
+                autoComplete="off"
+                spellCheck={false}
+                required
+                aria-label={`${descriptor.name} ${isPair ? "API secret" : "API key"}`}
+                aria-invalid={actionError ? true : undefined}
+                className="mono min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+              />
+            )}
+            {!isJson && (
             <button
               type="button"
               onClick={() => setShowKey((visible) => !visible)}
@@ -558,6 +626,7 @@ export function ProviderConnector({
             >
               {showKey ? "Hide key" : "Show key"}
             </button>
+            )}
           </div>
           <p id={helpId} className="mt-2 text-xs leading-5 text-ink-faint">
             <a
@@ -603,6 +672,7 @@ export function ProviderConnector({
                   setKey("");
                   setPairId("");
                   setTenantId("");
+                  setSubject("");
                   setShowKey(false);
                   setActionError(null);
                   window.requestAnimationFrame(() =>
