@@ -1,0 +1,28 @@
+{
+  "language": "Język",
+  "changeLanguage": "Zmień język",
+  "languageChanged": "Język zmieniono na: {language}.",
+  "save": "Zapisz",
+  "cancel": "Anuluj",
+  "retry": "Spróbuj ponownie",
+  "loading": "Ładowanie…",
+  "assetCount": {
+    "one": "{count} zasób",
+    "few": "{count} zasoby",
+    "many": "{count} zasobów",
+    "other": "{count} zasobu"
+  },
+  "findingCount": {
+    "one": "{count} ustalenie",
+    "few": "{count} ustalenia",
+    "many": "{count} ustaleń",
+    "other": "{count} ustalenia"
+  },
+  "observed": "Zaobserwowane",
+  "derived": "Wyprowadzone",
+  "possibleRisk": "Możliwe ryzyko",
+  "verified": "Zweryfikowane",
+  "recommendation": "Zalecenie",
+  "remediationApplied": "Naprawa zastosowana",
+  "roadmapCapability": "Planowane"
+}

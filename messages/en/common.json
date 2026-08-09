@@ -1,0 +1,24 @@
+{
+  "language": "Language",
+  "changeLanguage": "Change language",
+  "languageChanged": "Language changed to {language}.",
+  "save": "Save",
+  "cancel": "Cancel",
+  "retry": "Try again",
+  "loading": "Loading…",
+  "assetCount": {
+    "one": "{count} asset",
+    "other": "{count} assets"
+  },
+  "findingCount": {
+    "one": "{count} finding",
+    "other": "{count} findings"
+  },
+  "observed": "Observed",
+  "derived": "Derived",
+  "possibleRisk": "Possible risk",
+  "verified": "Verified",
+  "recommendation": "Recommendation",
+  "remediationApplied": "Remediation applied",
+  "roadmapCapability": "Roadmap"
+}

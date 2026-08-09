@@ -61,7 +61,7 @@ export class PrismaAuthStore implements AuthStore {
   }
 
   async membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>> {
-    const rows = await prisma.$queryRaw<Array<{ role: string; notifyChanges: boolean; id: string; name: string; slug: string; plan: string; stripeCustomerId: string | null; stripeSubscriptionId: string | null; subscriptionStatus: string | null; createdAt: Date }>>`SELECT m.role,m."notifyChanges",o.* FROM memberships m JOIN organizations o ON o.id=m."orgId" WHERE m."userId"=${userId} AND m.active=true`;
+    const rows = await prisma.$queryRaw<Array<{ role: string; notifyChanges: boolean; id: string; name: string; slug: string; plan: string; stripeCustomerId: string | null; stripeSubscriptionId: string | null; subscriptionStatus: string | null; defaultLocale: string | null; createdAt: Date }>>`SELECT m.role,m."notifyChanges",o.* FROM memberships m JOIN organizations o ON o.id=m."orgId" WHERE m."userId"=${userId} AND m.active=true`;
     return rows.map((r) => ({ org: this.mapOrg(r), role: r.role as Role, notifyChanges: r.notifyChanges }));
   }
 
@@ -82,6 +82,14 @@ export class PrismaAuthStore implements AuthStore {
 
   async setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void> {
     await prisma.membership.update({ where: { userId_orgId: { userId, orgId } }, data: { notifyChanges: enabled } });
+  }
+
+  async setPreferredLocale(userId: string, locale: string): Promise<void> {
+    await prisma.user.update({ where: { id: userId }, data: { preferredLocale: locale } });
+  }
+
+  async setOrganizationLocale(orgId: string, locale: string): Promise<void> {
+    await prisma.organization.update({ where: { id: orgId }, data: { defaultLocale: locale } });
   }
 
   async provisionMembership(input: { email: string; name: string; passwordHash: string; orgId: string; role: Role; provisionedBy: string; active: boolean }) {
@@ -164,12 +172,13 @@ export class PrismaAuthStore implements AuthStore {
     });
   }
 
-  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; emailVerifiedAt: Date | null; sessionVersion: number; createdAt: Date }): User => ({
+  private mapUser = (u: { id: string; email: string; name: string; passwordHash: string; emailVerifiedAt: Date | null; preferredLocale?: string | null; sessionVersion: number; createdAt: Date }): User => ({
     id: u.id,
     email: u.email,
     name: u.name,
     passwordHash: u.passwordHash,
     emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
+    preferredLocale: u.preferredLocale ?? null,
     sessionVersion: u.sessionVersion,
     createdAt: u.createdAt.toISOString(),
   });
@@ -181,6 +190,7 @@ export class PrismaAuthStore implements AuthStore {
     stripeCustomerId?: string | null;
     stripeSubscriptionId?: string | null;
     subscriptionStatus?: string | null;
+    defaultLocale?: string | null;
     createdAt: Date;
   }): Organization => ({
     id: o.id,
@@ -190,6 +200,7 @@ export class PrismaAuthStore implements AuthStore {
     stripeCustomerId: o.stripeCustomerId ?? null,
     stripeSubscriptionId: o.stripeSubscriptionId ?? null,
     subscriptionStatus: o.subscriptionStatus ?? null,
+    defaultLocale: o.defaultLocale ?? null,
     createdAt: o.createdAt.toISOString(),
   });
 }

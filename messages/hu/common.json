@@ -1,0 +1,24 @@
+{
+  "language": "Nyelv",
+  "changeLanguage": "Nyelv módosítása",
+  "languageChanged": "A nyelv erre módosult: {language}.",
+  "save": "Mentés",
+  "cancel": "Mégse",
+  "retry": "Újrapróbálkozás",
+  "loading": "Betöltés…",
+  "assetCount": {
+    "one": "{count} eszköz",
+    "other": "{count} eszköz"
+  },
+  "findingCount": {
+    "one": "{count} megállapítás",
+    "other": "{count} megállapítás"
+  },
+  "observed": "Megfigyelt",
+  "derived": "Származtatott",
+  "possibleRisk": "Lehetséges kockázat",
+  "verified": "Ellenőrzött",
+  "recommendation": "Javaslat",
+  "remediationApplied": "Javítás alkalmazva",
+  "roadmapCapability": "Tervezett"
+}
