@@ -189,6 +189,11 @@ model User {
   // Default verifies legacy rows during additive migration; all new password
   // signups explicitly write null until the signed verification link is used.
   emailVerifiedAt   DateTime?
+  // A validated locale code, not a Prisma enum: adding a language should be a
+  // code change plus message files, never a schema migration on every table
+  // that stores one. Null means "no personal choice", which is what lets the
+  // organization default apply without ever overriding a person.
+  preferredLocale   String?
   sessionVersion    Int                  @default(0)
   createdAt         DateTime             @default(now())
   memberships       Membership[]
@@ -217,6 +222,9 @@ model Organization {
   name                    String
   slug                    String
   plan                    Plan                       @default(free)
+  /// Starting language for members who have not chosen one. Validated against
+  /// the supported-locale registry; English keeps every existing row working.
+  defaultLocale           String                     @default("en")
   stripeCustomerId        String?                    @unique
   stripeSubscriptionId    String?
   subscriptionStatus      String?

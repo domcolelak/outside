@@ -1,0 +1,28 @@
+{
+  "language": "Jazyk",
+  "changeLanguage": "Změnit jazyk",
+  "languageChanged": "Jazyk změněn na {language}.",
+  "save": "Uložit",
+  "cancel": "Zrušit",
+  "retry": "Zkusit znovu",
+  "loading": "Načítá se…",
+  "assetCount": {
+    "one": "{count} asset",
+    "few": "{count} assety",
+    "many": "{count} assetu",
+    "other": "{count} assetů"
+  },
+  "findingCount": {
+    "one": "{count} zjištění",
+    "few": "{count} zjištění",
+    "many": "{count} zjištění",
+    "other": "{count} zjištění"
+  },
+  "observed": "Pozorováno",
+  "derived": "Odvozeno",
+  "possibleRisk": "Možné riziko",
+  "verified": "Ověřeno",
+  "recommendation": "Doporučení",
+  "remediationApplied": "Náprava provedena",
+  "roadmapCapability": "Plánováno"
+}

@@ -22,6 +22,8 @@ export interface User {
   name: string;
   passwordHash: string;
   emailVerifiedAt: string | null;
+  /** A supported locale code, or null when the person has not chosen one. */
+  preferredLocale?: string | null;
   sessionVersion: number;
   createdAt: string;
 }
@@ -34,6 +36,8 @@ export interface Organization {
   stripeCustomerId?: string | null;
   stripeSubscriptionId?: string | null;
   subscriptionStatus?: string | null;
+  /** Starting language for members who have not chosen one themselves. */
+  defaultLocale?: string | null;
   createdAt: string;
 }
 
@@ -82,6 +86,10 @@ export interface AuthStore {
   /** Members of an organization (for notifications). */
   orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>>;
   setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void>;
+  /** Store a person's own language choice. Optional so the memory store can omit it. */
+  setPreferredLocale?(userId: string, locale: string): Promise<void>;
+  /** Set the starting language for members who have not chosen one (owner/admin). */
+  setOrganizationLocale?(orgId: string, locale: string): Promise<void>;
   provisionMembership(input: { email: string; name: string; passwordHash: string; orgId: string; role: Role; provisionedBy: string; active: boolean }): Promise<{ user: User; membership: Membership }>;
   setProvisionedMembershipActive(userId: string, orgId: string, provisionedBy: string, active: boolean): Promise<boolean>;
   setPlan(orgId: string, plan: Organization["plan"]): Promise<void>;

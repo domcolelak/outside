@@ -33,7 +33,9 @@ export class InMemoryAuthStore implements AuthStore {
   async createUserWithOrg(input: { email: string; name: string; passwordHash: string; orgName: string; emailVerified?: boolean }) {
     const email = input.email.toLowerCase();
     const user: User = { id: this.id("usr"), email, name: input.name, passwordHash: input.passwordHash, emailVerifiedAt: input.emailVerified ? new Date().toISOString() : null, sessionVersion: 0, createdAt: new Date().toISOString() };
-    const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free", createdAt: new Date().toISOString() };
+    // defaultLocale mirrors the column default, so memory mode and the database
+    // resolve a signed-in person's language identically.
+    const org: Organization = { id: this.id("org"), name: input.orgName, slug: slugifyOrganization(input.orgName), plan: "free", defaultLocale: "en", createdAt: new Date().toISOString() };
     this.users.set(user.id, user);
     this.byEmail.set(email, user.id);
     this.orgs.set(org.id, org);
@@ -100,6 +102,16 @@ export class InMemoryAuthStore implements AuthStore {
   async setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void> {
     const m = this.memberships.find((x) => x.userId === userId && x.orgId === orgId);
     if (m) m.notifyChanges = enabled;
+  }
+
+  async setPreferredLocale(userId: string, locale: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) user.preferredLocale = locale;
+  }
+
+  async setOrganizationLocale(orgId: string, locale: string): Promise<void> {
+    const org = this.orgs.get(orgId);
+    if (org) org.defaultLocale = locale;
   }
 
   async createInvite(orgId: string, email: string, role: Role, token: string, createdBy: string): Promise<Invite> {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { APP_URL } from "@/lib/config/runtime";
+import { currentLocale } from "@/lib/i18n/server";
 import "./globals.css";
 
 const SITE_URL = APP_URL;
@@ -30,13 +31,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Resolved per request rather than hardcoded, so assistive technology and
+  // browser translation see the language the page is actually written in.
+  const { locale } = await currentLocale();
   return (
-    <html lang="en" className="dark">
+    <html lang={locale} className="dark">
       <body className="min-h-screen antialiased">{children}</body>
     </html>
   );

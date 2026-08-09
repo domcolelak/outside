@@ -5,6 +5,9 @@ import { isFounder } from "@/lib/auth/founder";
 import { getEnterpriseStore } from "@/lib/enterprise/store";
 import { Wordmark } from "@/components/Wordmark";
 import { LogoutButton } from "@/components/account/AccountControls";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { currentLocale } from "@/lib/i18n/server";
+import { getTranslator } from "@/lib/i18n/messages";
 
 export type AppSection =
   | "overview"
@@ -51,23 +54,27 @@ export async function AppShell({
     )
   ).find((item) => item.workspace)?.membership.org;
 
+  // Navigation is translated from reviewed message files, never generated.
+  const { locale } = await currentLocale();
+  const t = getTranslator(locale);
+
   const items: Array<{ key: AppSection; href: string; label: string; accent?: boolean }> = [
-    { key: "overview", href: "/account", label: "Overview" },
-    { key: "guardian", href: "/guardian", label: "Guardian", accent: true },
-    { key: "assess", href: "/assess", label: "Assess" },
-    { key: "history", href: "/chronos", label: "History" },
-    { key: "integrations", href: "/integrations", label: "Integrations" },
-    { key: "capabilities", href: "/capabilities", label: "Capabilities" },
-    { key: "billing", href: "/billing", label: "Billing" },
+    { key: "overview", href: "/account", label: t.t("navigation", "overview") },
+    { key: "guardian", href: "/guardian", label: t.t("navigation", "guardian"), accent: true },
+    { key: "assess", href: "/assess", label: t.t("navigation", "assess") },
+    { key: "history", href: "/chronos", label: t.t("navigation", "history") },
+    { key: "integrations", href: "/integrations", label: t.t("navigation", "integrations") },
+    { key: "capabilities", href: "/capabilities", label: t.t("navigation", "capabilities") },
+    { key: "billing", href: "/billing", label: t.t("navigation", "billing") },
   ];
   if (ctx.memberships.some((membership) => membership.org.plan === "agency")) {
-    items.splice(1, 0, { key: "agency", href: "/agency", label: "Agency", accent: true });
+    items.splice(1, 0, { key: "agency", href: "/agency", label: t.t("navigation", "agency"), accent: true });
   }
   if (enterpriseOrg) {
-    items.splice(1, 0, { key: "enterprise", href: `/enterprise?orgId=${enterpriseOrg.id}`, label: "Enterprise", accent: true });
+    items.splice(1, 0, { key: "enterprise", href: `/enterprise?orgId=${enterpriseOrg.id}`, label: t.t("navigation", "enterprise"), accent: true });
   }
   if (isFounder(ctx)) {
-    items.push({ key: "evolution", href: "/evolution", label: "Evolution" });
+    items.push({ key: "evolution", href: "/evolution", label: t.t("navigation", "evolution") });
   }
 
   return (
@@ -96,9 +103,10 @@ export async function AppShell({
               );
             })}
             <Link href="/scan" className="mono rounded-md px-2 py-2 text-xs text-ink-soft transition hover:bg-base-700 hover:text-ink sm:px-2.5">
-              New scan
+              {t.t("navigation", "newScan")}
             </Link>
             {actions}
+            <LanguageSwitcher current={locale} label={t.t("common", "changeLanguage")} />
             <LogoutButton />
           </nav>
         </div>
