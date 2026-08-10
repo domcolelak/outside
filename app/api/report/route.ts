@@ -4,6 +4,7 @@ import { targetEntitlement } from "@/lib/auth/entitlements";
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { sanitizeScanResult } from "@/lib/http/scan-input";
 import { renderReport } from "@/lib/report/render";
+import { recipientLocale } from "@/lib/i18n/recipient";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { recordUsage } from "@/lib/usage/record";
@@ -34,7 +35,10 @@ export async function POST(req: NextRequest) {
   if (!limit.ok) return json({ error: "Report usage limit exceeded", retryAfter: limit.retryAfter }, 429);
   const startedAt = performance.now();
   try {
-    const pdf = await withConcurrency("report:global", 4, 60_000, () => renderReport(result));
+    // The requester's own language: a report is downloaded and read by the
+    // person who asked for it, so their preference outranks the organization's.
+    const locale = recipientLocale({ userPreference: ctx.user.preferredLocale, organizationDefault: ctx.memberships[0]?.org.defaultLocale });
+    const pdf = await withConcurrency("report:global", 4, 60_000, () => renderReport(result, locale));
     await recordUsage(entitlement.orgId, ctx.user.id, "report");
     const safeName = result.target.replace(/[^a-z0-9.-]/gi, "_");
     recordReportOperation("success", performance.now() - startedAt);

@@ -1,0 +1,62 @@
+{
+  "documentTitle": "OUTSIDE külső felület — {target}",
+  "bandLabel": "KÜLSŐ FELÜLETI JELENTÉS",
+  "demoWatermark": "BEMUTATÓ ADATOK — szintetikus szervezet. Szemléltető, nem valódi vizsgálat.",
+  "modeDemo": "Bemutató nézet",
+  "modePassive": "Passzív külső nézet (nem igazolt)",
+  "scanReference": "Vizsgálat: {scanId}",
+  "footer": "OUTSIDE · Külső felületi jelentés · {target}",
+
+  "bandGuarded": "Védett",
+  "bandModerate": "Mérsékelt",
+  "bandElevated": "Emelt",
+  "bandExposed": "Kitett",
+
+  "statAssets": "Külső eszközök",
+  "statWebSurfaces": "Web / API felületek",
+  "statShadow": "Árnyékeszköz-jelek",
+  "statHighPriority": "Magas prioritás",
+
+  "headingSummary": "Vezetői összefoglaló",
+  "headingPosture": "A védelmi helyzet bontása",
+  "headingChanges": "Változások a legutóbbi vizsgálat óta",
+  "headingFindings": "Megállapítások ({count})",
+  "headingInventory": "Eszközleltár",
+  "headingMethodology": "Módszertan és felelős használat",
+
+  "labelObserved": "Megfigyelve",
+  "labelInferred": "Következtetve",
+  "labelConcern": "Lehetséges aggály",
+  "labelRecommendation": "Javasolt átnézés",
+
+  "methodology": "Az OUTSIDE passzív, nem tolakodó nyilvános források (tanúsítvány-átláthatóság és DNS) segítségével térképezi fel a szervezet nyilvánosan megfigyelhető digitális lábnyomát. A megállapítások elkülönítik a megfigyelt tényt a következtetéstől és a lehetséges aggálytól, mindegyiket megbízhatósági pontszámmal. Ez a jelentés kizárólag külső felderítést ír le — nem jelent kihasználást, kompromittálódást vagy jogosulatlan hozzáférést. A következtetettként vagy lehetségesként jelölt tételek cselekvés előtt emberi átnézést igényelnek.",
+
+  "summaryFootprint": "A(z) {target} nyilvános digitális lábnyoma {assets}, ebből {surfaces}.",
+  "summaryAssetCount": {
+    "one": "{count} megfigyelhető eszköz",
+    "other": "{count} megfigyelhető eszköz"
+  },
+  "summarySurfaceCount": {
+    "one": "{count} nyilvános web- vagy API-felület",
+    "other": "{count} nyilvános web- vagy API-felület"
+  },
+  "summaryComplexitySmall": "Ez kis felület.",
+  "summaryComplexityModerate": "Ez mérsékelten összetett felület.",
+  "summaryComplexitySizeable": "Ez tekintélyes felület.",
+  "summaryComplexityLarge": "Ez nagy felület.",
+  "summaryPostureGuarded": "Védelmi helyzete jól kézben tartott, {score}/100 pontszámmal.",
+  "summaryPostureModerate": "Védelmi helyzete mérsékelten összetett, {score}/100 pontszámmal.",
+  "summaryPostureElevated": "Védelmi helyzete emelt, {score}/100 pontszámmal.",
+  "summaryPostureExposed": "Védelmi helyzete széles és kitett, {score}/100 pontszámmal.",
+  "summaryShadow": {
+    "one": "{count} eszköz mutat régi vagy nem kezelt infrastruktúrára utaló jeleket; érdemes ellenőrizni a jelenlegi tulajdonosát és üzleti célját.",
+    "other": "{count} eszköz mutat régi vagy nem kezelt infrastruktúrára utaló jeleket; érdemes ellenőrizni a jelenlegi tulajdonosukat és üzleti céljukat."
+  },
+  "summaryNonProd": {
+    "one": "{count} nyilvánosan elérhető hosztnév hordoz nem éles környezetre utaló elnevezést, ami a szándékolt kitettség megerősítését igényli.",
+    "other": "{count} nyilvánosan elérhető hosztnév hordoz nem éles környezetre utaló elnevezést, ami a szándékolt kitettség megerősítését igényli."
+  },
+  "summaryChangeNew": "A legjelentősebb közelmúltbeli változás a(z) {label}, újonnan megfigyelve.",
+  "summaryChangeReturned": "A legjelentősebb közelmúltbeli változás a(z) {label}, amely visszatért a nyilvános felületre.",
+  "summaryClean": "A jelenlegi külső felületen nem figyeltünk meg árnyékeszközöket, nem éles kitettséget vagy magas prioritású megállapításokat."
+}

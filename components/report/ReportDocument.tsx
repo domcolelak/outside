@@ -7,7 +7,9 @@
 import { Document, Page, View, Text, Svg, Circle, StyleSheet } from "@react-pdf/renderer";
 import type { ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
-import { reportFontFamily } from "@/lib/report/fonts";
+import { reportFontFamily, reportLocale } from "@/lib/report/fonts";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
+import { getTranslator, type MessageKey } from "@/lib/i18n/messages";
 
 // Resolved once at module load: the bundled font when it is present and has the
 // coverage these languages need, the base-14 fallback when it is not.
@@ -26,6 +28,14 @@ const BAND_COLOR: Record<string, string> = {
   elevated: "#b8860b",
   exposed: "#c85a2b",
 };
+/** The posture band's name, keyed so it reads in the report's own language. */
+const BAND_KEYS = {
+  guarded: "bandGuarded",
+  moderate: "bandModerate",
+  elevated: "bandElevated",
+  exposed: "bandExposed",
+} as const satisfies Record<string, MessageKey<"report">>;
+
 const PRIORITY_COLOR: Record<string, string> = {
   critical: "#c02e3c",
   high: "#c85a2b",
@@ -61,7 +71,7 @@ const s = StyleSheet.create({
   watermark: { backgroundColor: "#fff4e6", color: "#c85a2b", fontSize: 8, fontFamily: BOLD, paddingVertical: 4, paddingHorizontal: 40, letterSpacing: 1 },
 });
 
-function ScoreRing({ value, color }: { value: number; color: string }) {
+function ScoreRing({ value, color, bandLabel }: { value: number; color: string; bandLabel: string }) {
   const r = 34;
   const c = 2 * Math.PI * r;
   const filled = (c * value) / 100;
@@ -72,52 +82,56 @@ function ScoreRing({ value, color }: { value: number; color: string }) {
         <Circle cx="44" cy="44" r={r} stroke={color} strokeWidth={7} fill="none" strokeLinecap="round" strokeDasharray={`${filled.toFixed(2)},${(c - filled).toFixed(2)}`} transform="rotate(-90 44 44)" />
       </Svg>
       <Text style={{ marginTop: -56, fontSize: 22, fontFamily: BOLD, color: INK }}>{value}</Text>
-      <Text style={{ marginTop: 30, ...s.scoreLabel }}>/ 100 · {value >= 80 ? "Guarded" : value >= 60 ? "Moderate" : value >= 40 ? "Elevated" : "Exposed"}</Text>
+      <Text style={{ marginTop: 30, ...s.scoreLabel }}>/ 100 · {bandLabel}</Text>
     </View>
   );
 }
 
-export function ReportDocument({ result }: { result: ScanResult }) {
-  const date = new Date(result.finishedAt).toLocaleString();
+export function ReportDocument({ result, locale = DEFAULT_LOCALE }: { result: ScanResult; locale?: Locale }) {
+  // reportLocale() answers English when no font can spell the requested
+  // language, so the document never asks for words it cannot draw.
+  const t = getTranslator(reportLocale(locale));
+  const r = (key: Parameters<typeof t.t<"report">>[1], values?: Record<string, string | number>) => t.t("report", key, values);
+  const date = t.formatDate(result.finishedAt, { dateStyle: "medium", timeStyle: "short" });
   const bandColor = BAND_COLOR[result.score.band] ?? SIGNAL;
   const topFindings = result.findings.slice(0, 8);
   const assets = result.graph.assets.filter((a) => a.kind !== "root_domain");
 
   return (
-    <Document title={`OUTSIDE external surface — ${result.target}`} author="OUTSIDE">
+    <Document title={r("documentTitle", { target: result.target })} author="OUTSIDE">
       <Page size="A4" style={s.page} wrap>
         <View style={s.band} fixed>
           <View>
             <Text style={s.brand}>OUTSIDE</Text>
-            <Text style={s.bandSub}>EXTERNAL SURFACE REPORT</Text>
+            <Text style={s.bandSub}>{r("bandLabel")}</Text>
           </View>
           <Text style={{ fontSize: 8, color: "#8791a3" }}>{date}</Text>
         </View>
 
-        {result.isDemo && <Text style={s.watermark}>DEMO DATASET — synthetic organization. Illustrative, not a real scan.</Text>}
+        {result.isDemo && <Text style={s.watermark}>{r("demoWatermark")}</Text>}
 
         <View style={s.body}>
           <View style={s.coverRow}>
             <View>
               <Text style={s.org}>{result.target}</Text>
               <Text style={s.meta}>
-                {result.mode === "demo" ? "Demo view" : "Passive external view (unverified)"} · Scan {result.scanId}
+                {result.mode === "demo" ? r("modeDemo") : r("modePassive")} · {r("scanReference", { scanId: result.scanId })}
               </Text>
             </View>
-            <ScoreRing value={result.score.value} color={bandColor} />
+            <ScoreRing value={result.score.value} color={bandColor} bandLabel={r(BAND_KEYS[result.score.band] ?? "bandModerate")} />
           </View>
 
           <View style={s.statRow}>
-            <Stat v={result.stats.assets} l="External assets" />
-            <Stat v={result.stats.webSurfaces} l="Web / API surfaces" />
-            <Stat v={result.stats.shadowAssets} l="Shadow signals" warn={result.stats.shadowAssets > 0} />
-            <Stat v={result.stats.highPriorityFindings} l="High priority" warn={result.stats.highPriorityFindings > 0} />
+            <Stat v={result.stats.assets} l={r("statAssets")} />
+            <Stat v={result.stats.webSurfaces} l={r("statWebSurfaces")} />
+            <Stat v={result.stats.shadowAssets} l={r("statShadow")} warn={result.stats.shadowAssets > 0} />
+            <Stat v={result.stats.highPriorityFindings} l={r("statHighPriority")} warn={result.stats.highPriorityFindings > 0} />
           </View>
 
-          <Text style={s.h2}>Executive summary</Text>
-          <Text style={s.summary}>{buildExecutiveSummary(result)}</Text>
+          <Text style={s.h2}>{r("headingSummary")}</Text>
+          <Text style={s.summary}>{buildExecutiveSummary(result, t.locale)}</Text>
 
-          <Text style={s.h2}>Protection posture breakdown</Text>
+          <Text style={s.h2}>{r("headingPosture")}</Text>
           {result.score.components.map((comp) => (
             <View key={comp.code} style={s.row}>
               <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{comp.label}</Text>
@@ -130,7 +144,7 @@ export function ReportDocument({ result }: { result: ScanResult }) {
 
           {result.changeSummary && result.changeSummary.events.length > 0 && (
             <>
-              <Text style={s.h2}>Changes since last scan</Text>
+              <Text style={s.h2}>{r("headingChanges")}</Text>
               {result.changeSummary.events.map((e, i) => (
                 <View key={i} style={s.row}>
                   <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{e.label}</Text>
@@ -140,7 +154,7 @@ export function ReportDocument({ result }: { result: ScanResult }) {
             </>
           )}
 
-          <Text style={s.h2} break={topFindings.length > 3}>Findings ({result.findings.length})</Text>
+          <Text style={s.h2} break={topFindings.length > 3}>{r("headingFindings", { count: result.findings.length })}</Text>
           {topFindings.map((f) => (
             <View key={f.id} style={s.finding} wrap={false}>
               <View style={s.findingHead}>
@@ -150,22 +164,22 @@ export function ReportDocument({ result }: { result: ScanResult }) {
                 </Text>
               </View>
               <Text style={{ fontSize: 9, color: INK }}>{f.assetId && assets.find((a) => a.id === f.assetId)?.label}</Text>
-              <Text style={s.label7}>Observed</Text>
+              <Text style={s.label7}>{r("labelObserved")}</Text>
               <Text style={s.fieldText}>{f.observation}</Text>
               {f.inference && (
                 <>
-                  <Text style={s.label7}>Inferred</Text>
+                  <Text style={s.label7}>{r("labelInferred")}</Text>
                   <Text style={s.fieldText}>{f.inference}</Text>
                 </>
               )}
-              <Text style={s.label7}>Possible concern</Text>
+              <Text style={s.label7}>{r("labelConcern")}</Text>
               <Text style={s.fieldText}>{f.concern}</Text>
-              <Text style={s.label7}>Recommended review</Text>
+              <Text style={s.label7}>{r("labelRecommendation")}</Text>
               <Text style={s.fieldText}>{f.recommendation}</Text>
             </View>
           ))}
 
-          <Text style={s.h2} break>Asset inventory</Text>
+          <Text style={s.h2} break>{r("headingInventory")}</Text>
           {assets.map((a) => (
             <View key={a.id} style={s.row}>
               <Text style={{ fontSize: 9, color: "#2a3345", flex: 2 }}>{a.label}</Text>
@@ -174,17 +188,12 @@ export function ReportDocument({ result }: { result: ScanResult }) {
             </View>
           ))}
 
-          <Text style={s.h2}>Methodology & responsible use</Text>
-          <Text style={s.fieldText}>
-            OUTSIDE maps an organization&apos;s publicly observable digital footprint using passive, non-invasive public sources
-            (certificate transparency and DNS). Findings separate observed fact from inference from possible concern, each with a
-            confidence score. This report describes external discovery only — it does not represent exploitation, compromise, or
-            unauthorized access. Items marked as inferred or possible require human review before action.
-          </Text>
+          <Text style={s.h2}>{r("headingMethodology")}</Text>
+          <Text style={s.fieldText}>{r("methodology")}</Text>
         </View>
 
         <View style={s.footer} fixed>
-          <Text>OUTSIDE · External surface report · {result.target}</Text>
+          <Text>{r("footer", { target: result.target })}</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
