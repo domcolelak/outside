@@ -203,6 +203,10 @@ jobs:
             sleep 1
           done
           grep -q '"status":"ready"' /tmp/ready.json
+          # The report font is read from disk, so build tracing does not pull it
+          # into the standalone output. If the image stops shipping it, reports
+          # quietly revert to English — fail the build here instead.
+          grep -q '"localizedReports":true' /tmp/ready.json
           curl --fail --silent --no-buffer --max-time 20 \
             'http://127.0.0.1:3000/api/scan?target=northstar&mode=demo' > /tmp/demo.sse
           grep -q '"type":"result"' /tmp/demo.sse

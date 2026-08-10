@@ -15,6 +15,21 @@ import { canRenderLocalized, missingGlyphs, reportFontFamily, reportLocale, rese
  */
 const FONT = join(process.cwd(), "assets", "fonts", "NotoSans-Regular.ttf");
 
+/** The cmap subtable formats a font actually ships, read from its tables. */
+function cmapFormats(font: Buffer): number[] {
+  const tables = font.readUInt16BE(4);
+  let cmap = 0;
+  for (let i = 0; i < tables; i += 1) {
+    const record = 12 + i * 16;
+    if (font.toString("latin1", record, record + 4) === "cmap") cmap = font.readUInt32BE(record + 8);
+  }
+  if (!cmap) return [];
+  const count = font.readUInt16BE(cmap + 2);
+  const formats: number[] = [];
+  for (let i = 0; i < count; i += 1) formats.push(font.readUInt16BE(cmap + font.readUInt32BE(cmap + 4 + i * 8 + 4)));
+  return formats;
+}
+
 afterEach(() => resetReportFontsForTest());
 
 describe("report fonts", () => {
@@ -32,24 +47,30 @@ describe("report fonts", () => {
     expect(missingGlyphs(Buffer.alloc(64)).length).toBeGreaterThan(0);
   });
 
-  it("falls back to English rather than drawing a language it cannot spell", () => {
-    if (canRenderLocalized()) {
-      // The font is installed: every language may be rendered as asked.
-      expect(reportLocale("pl")).toBe("pl");
-      expect(reportLocale("hu")).toBe("hu");
-    } else {
-      // No font: a Polish report is written in English, not in broken Polish.
-      expect(reportLocale("pl")).toBe("en");
-      expect(reportLocale("cs")).toBe("en");
-      expect(reportFontFamily()).toBe("Helvetica");
+  it("finds the bundled font sufficient for all five languages", () => {
+    // Asserted against the font itself, not against what the check concludes.
+    // An earlier version of this test branched on canRenderLocalized() and so
+    // passed happily while the cmap parser was reporting every character
+    // missing — a test that agrees with the bug is worse than no test.
+    expect(existsSync(FONT), "assets/fonts/NotoSans-Regular.ttf is missing").toBe(true);
+    expect(missingGlyphs(readFileSync(FONT))).toEqual([]);
+  });
+
+  it("renders each language in the language that was asked for", () => {
+    expect(canRenderLocalized()).toBe(true);
+    for (const locale of ["en", "sk", "cs", "hu", "pl"] as const) {
+      expect(reportLocale(locale)).toBe(locale);
     }
+    expect(reportFontFamily()).toBe("OutsideReport");
+    expect(reportFontFamily(true)).toBe("OutsideReport");
   });
 
-  it("asks for English identically either way", () => {
-    expect(reportLocale("en")).toBe("en");
-  });
-
-  it("only claims localized rendering when the file is really there", () => {
-    expect(canRenderLocalized()).toBe(existsSync(FONT) && missingGlyphs(readFileSync(FONT)).length === 0);
+  it("reads a format 12 character map, not only format 4", () => {
+    // Noto Sans leads with a format 12 subtable. Reading only format 4 made the
+    // font look like it covered nothing at all.
+    const font = readFileSync(FONT);
+    const formats = cmapFormats(font);
+    expect(formats).toContain(12);
+    expect(missingGlyphs(font)).toEqual([]);
   });
 });

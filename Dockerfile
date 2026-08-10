@@ -61,6 +61,10 @@ RUN addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# The report font is read from disk at render time, so Next's build tracing does
+# not pull it into the standalone output. Without this the container silently
+# falls back to English reports — the failure would only be visible in a PDF.
+COPY --from=builder --chown=nextjs:nodejs /app/assets ./assets
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \

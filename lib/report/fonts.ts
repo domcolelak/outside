@@ -55,24 +55,49 @@ function coveredCodePoints(font: Buffer): Set<number> {
   }
   if (!cmapOffset) return covered;
 
+  // Read every Unicode subtable, not just one. Fonts commonly ship both a
+  // format 4 BMP table and a format 12 full-range table; picking one and hoping
+  // it is the readable format is how this silently reported total coverage
+  // failure for Noto Sans, which leads with format 12.
   const subtables = font.readUInt16BE(cmapOffset + 2);
-  let chosen = 0;
   for (let i = 0; i < subtables; i += 1) {
     const record = cmapOffset + 4 + i * 8;
     const platform = font.readUInt16BE(record);
     const encoding = font.readUInt16BE(record + 2);
-    // Windows Unicode BMP/full, or the platform-independent Unicode table.
-    if ((platform === 3 && (encoding === 1 || encoding === 10)) || platform === 0) chosen = cmapOffset + font.readUInt32BE(record + 4);
-  }
-  if (!chosen || font.readUInt16BE(chosen) !== 4) return covered;
-
-  const segmentBytes = font.readUInt16BE(chosen + 6);
-  for (let segment = 0; segment < segmentBytes / 2; segment += 1) {
-    const end = font.readUInt16BE(chosen + 14 + segment * 2);
-    const start = font.readUInt16BE(chosen + 16 + segmentBytes + segment * 2);
-    for (let code = start; code <= end && code !== 0xffff; code += 1) covered.add(code);
+    const isUnicode = platform === 0 || (platform === 3 && (encoding === 1 || encoding === 10));
+    if (!isUnicode) continue;
+    readSubtable(font, cmapOffset + font.readUInt32BE(record + 4), covered);
   }
   return covered;
+}
+
+/** Add one cmap subtable's code points. Unknown formats contribute nothing. */
+function readSubtable(font: Buffer, offset: number, covered: Set<number>): void {
+  if (offset <= 0 || offset + 4 > font.length) return;
+  const format = font.readUInt16BE(offset);
+
+  if (format === 4) {
+    const segmentBytes = font.readUInt16BE(offset + 6);
+    for (let segment = 0; segment < segmentBytes / 2; segment += 1) {
+      const end = font.readUInt16BE(offset + 14 + segment * 2);
+      const start = font.readUInt16BE(offset + 16 + segmentBytes + segment * 2);
+      for (let code = start; code <= end && code !== 0xffff; code += 1) covered.add(code);
+    }
+    return;
+  }
+
+  if (format === 12) {
+    const groups = font.readUInt32BE(offset + 12);
+    for (let group = 0; group < groups; group += 1) {
+      const record = offset + 16 + group * 12;
+      if (record + 12 > font.length) return;
+      const start = font.readUInt32BE(record);
+      const end = font.readUInt32BE(record + 4);
+      // Guard against a malformed group asking for millions of iterations.
+      if (end < start || end - start > 0x10000) continue;
+      for (let code = start; code <= end; code += 1) covered.add(code);
+    }
+  }
 }
 
 /** Which required characters a font is missing. Empty means it is usable. */
