@@ -20,33 +20,45 @@ import { DEFAULT_LOCALE, type Locale } from "./locales";
 
 import enCommon from "@/messages/en/common.json";
 import enNavigation from "@/messages/en/navigation.json";
+import enLanding from "@/messages/en/landing.json";
 import skCommon from "@/messages/sk/common.json";
 import skNavigation from "@/messages/sk/navigation.json";
+import skLanding from "@/messages/sk/landing.json";
 import csCommon from "@/messages/cs/common.json";
 import csNavigation from "@/messages/cs/navigation.json";
+import csLanding from "@/messages/cs/landing.json";
 import huCommon from "@/messages/hu/common.json";
 import huNavigation from "@/messages/hu/navigation.json";
+import huLanding from "@/messages/hu/landing.json";
 import plCommon from "@/messages/pl/common.json";
 import plNavigation from "@/messages/pl/navigation.json";
+import plLanding from "@/messages/pl/landing.json";
 
 /** Namespaces are separate files so no locale becomes one unreviewable blob. */
 const BUNDLES = {
-  en: { common: enCommon, navigation: enNavigation },
-  sk: { common: skCommon, navigation: skNavigation },
-  cs: { common: csCommon, navigation: csNavigation },
-  hu: { common: huCommon, navigation: huNavigation },
-  pl: { common: plCommon, navigation: plNavigation },
+  en: { common: enCommon, navigation: enNavigation, landing: enLanding },
+  sk: { common: skCommon, navigation: skNavigation, landing: skLanding },
+  cs: { common: csCommon, navigation: csNavigation, landing: csLanding },
+  hu: { common: huCommon, navigation: huNavigation, landing: huLanding },
+  pl: { common: plCommon, navigation: plNavigation, landing: plLanding },
 } as const;
 
 export type Namespace = keyof (typeof BUNDLES)["en"];
+/** One locale's messages, as handed to the client. */
+export type Bundles = (typeof BUNDLES)[Locale];
+
+/** The messages for a locale, for serialising to a client provider. */
+export function getBundles(locale: Locale): Bundles {
+  return BUNDLES[locale];
+}
 /** The English bundle defines the key space every locale must match. */
 export type MessageKey<N extends Namespace> = keyof (typeof BUNDLES)["en"][N] & string;
 
 type PluralForms = { one?: string; few?: string; many?: string; other: string };
 type MessageValue = string | PluralForms;
 
-function bundle(locale: Locale, namespace: Namespace): Record<string, MessageValue> {
-  return BUNDLES[locale][namespace] as unknown as Record<string, MessageValue>;
+function bundle(locale: Locale, namespace: Namespace, override?: Bundles): Record<string, MessageValue> {
+  return (override ?? BUNDLES[locale])[namespace] as unknown as Record<string, MessageValue>;
 }
 
 /**
@@ -81,10 +93,18 @@ export interface Translator {
 }
 
 export function getTranslator(locale: Locale): Translator {
+  return buildTranslator(locale);
+}
+
+/**
+ * The translator itself. `bundles` lets a client provider supply the messages it
+ * was handed, so the same code path serves the server and the browser.
+ */
+export function buildTranslator(locale: Locale, bundles?: Bundles): Translator {
   return {
     locale,
     t(namespace, key, values) {
-      const entry = bundle(locale, namespace)[key] ?? bundle(DEFAULT_LOCALE, namespace)[key];
+      const entry = bundle(locale, namespace, bundles)[key] ?? bundle(DEFAULT_LOCALE, namespace)[key];
       // A key with no English either is a programming error, not a user-facing
       // one: show the key rather than an empty space, and let CI catch it.
       if (entry === undefined) return key;

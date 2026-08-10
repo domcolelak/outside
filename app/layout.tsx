@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { APP_URL } from "@/lib/config/runtime";
 import { currentLocale } from "@/lib/i18n/server";
+import { LocaleProvider } from "@/lib/i18n/context";
+import { getBundles } from "@/lib/i18n/messages";
 import "./globals.css";
 
 const SITE_URL = APP_URL;
@@ -41,7 +43,13 @@ export default async function RootLayout({
   const { locale } = await currentLocale();
   return (
     <html lang={locale} className="dark">
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        {/* Resolved once here so no client component has to work out the
+            language for itself, and none of them can disagree. */}
+        <LocaleProvider locale={locale} bundles={getBundles(locale)}>
+          {children}
+        </LocaleProvider>
+      </body>
     </html>
   );
 }

@@ -6,6 +6,12 @@ import { asLocale, localeFromAcceptLanguage, LOCALES } from "./locales";
 import { signLocaleCookie, readLocaleCookie } from "./cookie";
 import { resolveLocale } from "./resolve";
 import { getTranslator } from "./messages";
+import enCommon from "@/messages/en/common.json";
+import enNavigation from "@/messages/en/navigation.json";
+import enLanding from "@/messages/en/landing.json";
+
+/** English defines the key space every locale has to cover. */
+const englishKeys = { common: enCommon, navigation: enNavigation, landing: enLanding };
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -128,6 +134,22 @@ describe("translation", () => {
   it("formats numbers and dates in the requested language", () => {
     expect(getTranslator("pl").formatNumber(1234.5)).not.toBe(getTranslator("en").formatNumber(1234.5));
     expect(getTranslator("sk").formatDate("2026-03-15T00:00:00.000Z")).toBeTruthy();
+  });
+
+  it("resolves every key in every locale, so no screen can show a raw key", () => {
+    // The loader returns the key itself when a message is absent. That is the
+    // right behaviour at runtime and the wrong thing to ever ship, so every key
+    // in every namespace is rendered here.
+    for (const { code } of LOCALES) {
+      const t = getTranslator(code);
+      for (const namespace of ["common", "navigation", "landing"] as const) {
+        for (const key of Object.keys(englishKeys[namespace])) {
+          const rendered = t.t(namespace, key as never, { count: 1, language: "x" });
+          expect(rendered, `${code}/${namespace}.${key} is unresolved`).not.toBe(key);
+          expect(rendered.trim(), `${code}/${namespace}.${key} is empty`).not.toBe("");
+        }
+      }
+    }
   });
 
   it("falls back to English rather than rendering nothing for a missing key", () => {
