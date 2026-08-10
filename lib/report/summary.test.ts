@@ -14,20 +14,25 @@ function result(stats: Partial<ScanStats>, opts: { band?: string; value?: number
 describe("buildExecutiveSummary", () => {
   it("states the footprint size, surfaces, band and score with correct singular/plural", () => {
     const one = buildExecutiveSummary(result({ assets: 1, webSurfaces: 1 }, { band: "guarded", value: 12 }));
-    expect(one).toContain("1 observable asset,");
-    expect(one).toContain("1 public web/API surface.");
-    expect(one).toContain("a well-contained surface, scoring 12/100");
+    expect(one).toContain("1 observable asset");
+    expect(one).toContain("1 public web or API surface");
+    expect(one).toContain("well contained");
+    expect(one).toContain("12/100");
 
     const many = buildExecutiveSummary(result({ assets: 25, webSurfaces: 3 }, { band: "exposed", value: 88 }));
     expect(many).toContain("25 observable assets");
-    expect(many).toContain("3 public web/API surfaces");
-    expect(many).toContain("a broad and exposed surface, scoring 88/100");
+    expect(many).toContain("3 public web or API surfaces");
+    expect(many).toContain("broad and exposed");
+    expect(many).toContain("88/100");
   });
 
-  it("scales the complexity phrase with the asset count", () => {
-    expect(buildExecutiveSummary(result({ assets: 3 }))).toContain("a small public digital footprint");
-    expect(buildExecutiveSummary(result({ assets: 30 }))).toContain("a sizeable public digital footprint");
-    expect(buildExecutiveSummary(result({ assets: 100 }))).toContain("a large public digital footprint");
+  it("scales the complexity sentence with the asset count", () => {
+    // Its own sentence rather than an adjective slotted into a carrying one:
+    // Slavic adjectives agree with case and number, so a fragment that reads
+    // correctly in one sentence is wrong in the next.
+    expect(buildExecutiveSummary(result({ assets: 3 }))).toContain("a small surface");
+    expect(buildExecutiveSummary(result({ assets: 30 }))).toContain("a sizeable surface");
+    expect(buildExecutiveSummary(result({ assets: 100 }))).toContain("a large surface");
   });
 
   it("adds shadow-asset and non-production sentences only when present", () => {

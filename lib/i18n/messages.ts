@@ -23,34 +23,39 @@ import enNavigation from "@/messages/en/navigation.json";
 import enLanding from "@/messages/en/landing.json";
 import enAuth from "@/messages/en/auth.json";
 import enEmail from "@/messages/en/email.json";
+import enReport from "@/messages/en/report.json";
 import skCommon from "@/messages/sk/common.json";
 import skNavigation from "@/messages/sk/navigation.json";
 import skLanding from "@/messages/sk/landing.json";
 import skAuth from "@/messages/sk/auth.json";
 import skEmail from "@/messages/sk/email.json";
+import skReport from "@/messages/sk/report.json";
 import csCommon from "@/messages/cs/common.json";
 import csNavigation from "@/messages/cs/navigation.json";
 import csLanding from "@/messages/cs/landing.json";
 import csAuth from "@/messages/cs/auth.json";
 import csEmail from "@/messages/cs/email.json";
+import csReport from "@/messages/cs/report.json";
 import huCommon from "@/messages/hu/common.json";
 import huNavigation from "@/messages/hu/navigation.json";
 import huLanding from "@/messages/hu/landing.json";
 import huAuth from "@/messages/hu/auth.json";
 import huEmail from "@/messages/hu/email.json";
+import huReport from "@/messages/hu/report.json";
 import plCommon from "@/messages/pl/common.json";
 import plNavigation from "@/messages/pl/navigation.json";
 import plLanding from "@/messages/pl/landing.json";
 import plAuth from "@/messages/pl/auth.json";
 import plEmail from "@/messages/pl/email.json";
+import plReport from "@/messages/pl/report.json";
 
 /** Namespaces are separate files so no locale becomes one unreviewable blob. */
 const BUNDLES = {
-  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail },
-  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail },
-  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail },
-  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail },
-  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail },
+  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport },
+  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport },
+  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport },
+  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport },
+  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport },
 } as const;
 
 export type Namespace = keyof (typeof BUNDLES)["en"];

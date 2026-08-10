@@ -1,0 +1,62 @@
+{
+  "documentTitle": "OUTSIDE external surface — {target}",
+  "bandLabel": "EXTERNAL SURFACE REPORT",
+  "demoWatermark": "DEMO DATASET — synthetic organization. Illustrative, not a real scan.",
+  "modeDemo": "Demo view",
+  "modePassive": "Passive external view (unverified)",
+  "scanReference": "Scan {scanId}",
+  "footer": "OUTSIDE · External surface report · {target}",
+
+  "bandGuarded": "Guarded",
+  "bandModerate": "Moderate",
+  "bandElevated": "Elevated",
+  "bandExposed": "Exposed",
+
+  "statAssets": "External assets",
+  "statWebSurfaces": "Web / API surfaces",
+  "statShadow": "Shadow signals",
+  "statHighPriority": "High priority",
+
+  "headingSummary": "Executive summary",
+  "headingPosture": "Protection posture breakdown",
+  "headingChanges": "Changes since last scan",
+  "headingFindings": "Findings ({count})",
+  "headingInventory": "Asset inventory",
+  "headingMethodology": "Methodology & responsible use",
+
+  "labelObserved": "Observed",
+  "labelInferred": "Inferred",
+  "labelConcern": "Possible concern",
+  "labelRecommendation": "Recommended review",
+
+  "methodology": "OUTSIDE maps an organization's publicly observable digital footprint using passive, non-invasive public sources (certificate transparency and DNS). Findings separate observed fact from inference from possible concern, each with a confidence score. This report describes external discovery only — it does not represent exploitation, compromise, or unauthorized access. Items marked as inferred or possible require human review before action.",
+
+  "summaryFootprint": "{target} presents a public digital footprint of {assets}, including {surfaces}.",
+  "summaryAssetCount": {
+    "one": "{count} observable asset",
+    "other": "{count} observable assets"
+  },
+  "summarySurfaceCount": {
+    "one": "{count} public web or API surface",
+    "other": "{count} public web or API surfaces"
+  },
+  "summaryComplexitySmall": "That is a small surface.",
+  "summaryComplexityModerate": "That is a moderately complex surface.",
+  "summaryComplexitySizeable": "That is a sizeable surface.",
+  "summaryComplexityLarge": "That is a large surface.",
+  "summaryPostureGuarded": "Its protection posture is well contained, scoring {score}/100.",
+  "summaryPostureModerate": "Its protection posture is moderately complex, scoring {score}/100.",
+  "summaryPostureElevated": "Its protection posture is elevated, scoring {score}/100.",
+  "summaryPostureExposed": "Its protection posture is broad and exposed, scoring {score}/100.",
+  "summaryShadow": {
+    "one": "{count} asset shows signals consistent with legacy or unmanaged infrastructure and should be reviewed for current ownership and business purpose.",
+    "other": "{count} assets show signals consistent with legacy or unmanaged infrastructure and should be reviewed for current ownership and business purpose."
+  },
+  "summaryNonProd": {
+    "one": "{count} publicly reachable hostname carries non-production naming indicators that warrant confirmation of intended exposure.",
+    "other": "{count} publicly reachable hostnames carry non-production naming indicators that warrant confirmation of intended exposure."
+  },
+  "summaryChangeNew": "The most significant recent change is {label}, newly observed.",
+  "summaryChangeReturned": "The most significant recent change is {label}, which returned to the public surface.",
+  "summaryClean": "No shadow assets, non-production exposure, or high-priority findings were observed on the current external surface."
+}

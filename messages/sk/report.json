@@ -1,0 +1,70 @@
+{
+  "documentTitle": "OUTSIDE vonkajší povrch — {target}",
+  "bandLabel": "SPRÁVA O VONKAJŠOM POVRCHU",
+  "demoWatermark": "UKÁŽKOVÉ DÁTA — syntetická organizácia. Ilustratívne, nie skutočný sken.",
+  "modeDemo": "Ukážkový pohľad",
+  "modePassive": "Pasívny vonkajší pohľad (neoverený)",
+  "scanReference": "Sken {scanId}",
+  "footer": "OUTSIDE · Správa o vonkajšom povrchu · {target}",
+
+  "bandGuarded": "Chránený",
+  "bandModerate": "Mierny",
+  "bandElevated": "Zvýšený",
+  "bandExposed": "Exponovaný",
+
+  "statAssets": "Vonkajšie assety",
+  "statWebSurfaces": "Web / API povrchy",
+  "statShadow": "Signály tieňových assetov",
+  "statHighPriority": "Vysoká priorita",
+
+  "headingSummary": "Manažérske zhrnutie",
+  "headingPosture": "Rozklad ochrannej pozície",
+  "headingChanges": "Zmeny od posledného skenu",
+  "headingFindings": "Zistenia ({count})",
+  "headingInventory": "Inventár assetov",
+  "headingMethodology": "Metodika a zodpovedné použitie",
+
+  "labelObserved": "Pozorované",
+  "labelInferred": "Odvodené",
+  "labelConcern": "Možná obava",
+  "labelRecommendation": "Odporúčaná kontrola",
+
+  "methodology": "OUTSIDE mapuje verejne pozorovateľnú digitálnu stopu organizácie pomocou pasívnych, neinvazívnych verejných zdrojov (transparentnosť certifikátov a DNS). Zistenia oddeľujú pozorovaný fakt od odvodenia a od možnej obavy, každé so skóre spoľahlivosti. Táto správa popisuje výhradne vonkajšie objavovanie — nepredstavuje zneužitie, kompromitáciu ani neoprávnený prístup. Položky označené ako odvodené alebo možné si pred konaním vyžadujú ľudskú kontrolu.",
+
+  "summaryFootprint": "{target} má verejnú digitálnu stopu s počtom {assets}, z toho {surfaces}.",
+  "summaryAssetCount": {
+    "one": "{count} pozorovateľný asset",
+    "few": "{count} pozorovateľné assety",
+    "many": "{count} pozorovateľného assetu",
+    "other": "{count} pozorovateľných assetov"
+  },
+  "summarySurfaceCount": {
+    "one": "{count} verejný web alebo API povrch",
+    "few": "{count} verejné web alebo API povrchy",
+    "many": "{count} verejného web alebo API povrchu",
+    "other": "{count} verejných web alebo API povrchov"
+  },
+  "summaryComplexitySmall": "Ide o malý povrch.",
+  "summaryComplexityModerate": "Ide o stredne zložitý povrch.",
+  "summaryComplexitySizeable": "Ide o rozsiahly povrch.",
+  "summaryComplexityLarge": "Ide o veľký povrch.",
+  "summaryPostureGuarded": "Jej ochranná pozícia je dobre kontrolovaná, so skóre {score}/100.",
+  "summaryPostureModerate": "Jej ochranná pozícia je stredne zložitá, so skóre {score}/100.",
+  "summaryPostureElevated": "Jej ochranná pozícia je zvýšená, so skóre {score}/100.",
+  "summaryPostureExposed": "Jej ochranná pozícia je široká a exponovaná, so skóre {score}/100.",
+  "summaryShadow": {
+    "one": "{count} asset vykazuje signály zodpovedajúce staršej alebo nespravovanej infraštruktúre a treba pri ňom overiť aktuálneho vlastníka a obchodný účel.",
+    "few": "{count} assety vykazujú signály zodpovedajúce staršej alebo nespravovanej infraštruktúre a treba pri nich overiť aktuálneho vlastníka a obchodný účel.",
+    "many": "{count} assetu vykazuje signály zodpovedajúce staršej alebo nespravovanej infraštruktúre a treba pri ňom overiť aktuálneho vlastníka a obchodný účel.",
+    "other": "{count} assetov vykazuje signály zodpovedajúce staršej alebo nespravovanej infraštruktúre a treba pri nich overiť aktuálneho vlastníka a obchodný účel."
+  },
+  "summaryNonProd": {
+    "one": "{count} verejne dostupný hostname nesie neprodukčné znaky v pomenovaní, ktoré si vyžadujú potvrdenie zamýšľanej expozície.",
+    "few": "{count} verejne dostupné hostnames nesú neprodukčné znaky v pomenovaní, ktoré si vyžadujú potvrdenie zamýšľanej expozície.",
+    "many": "{count} verejne dostupného hostname nesie neprodukčné znaky v pomenovaní, ktoré si vyžadujú potvrdenie zamýšľanej expozície.",
+    "other": "{count} verejne dostupných hostnames nesie neprodukčné znaky v pomenovaní, ktoré si vyžadujú potvrdenie zamýšľanej expozície."
+  },
+  "summaryChangeNew": "Najvýznamnejšou nedávnou zmenou je {label}, novo pozorovaný.",
+  "summaryChangeReturned": "Najvýznamnejšou nedávnou zmenou je {label}, ktorý sa vrátil na verejný povrch.",
+  "summaryClean": "Na aktuálnom vonkajšom povrchu neboli pozorované žiadne tieňové assety, neprodukčná expozícia ani zistenia s vysokou prioritou."
+}

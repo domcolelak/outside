@@ -1,0 +1,70 @@
+{
+  "documentTitle": "OUTSIDE powierzchnia zewnętrzna — {target}",
+  "bandLabel": "RAPORT O POWIERZCHNI ZEWNĘTRZNEJ",
+  "demoWatermark": "DANE POKAZOWE — organizacja syntetyczna. Poglądowe, nie jest to prawdziwe skanowanie.",
+  "modeDemo": "Widok pokazowy",
+  "modePassive": "Pasywny widok zewnętrzny (niezweryfikowany)",
+  "scanReference": "Skanowanie {scanId}",
+  "footer": "OUTSIDE · Raport o powierzchni zewnętrznej · {target}",
+
+  "bandGuarded": "Chroniona",
+  "bandModerate": "Umiarkowana",
+  "bandElevated": "Podwyższona",
+  "bandExposed": "Wystawiona",
+
+  "statAssets": "Zasoby zewnętrzne",
+  "statWebSurfaces": "Powierzchnie web / API",
+  "statShadow": "Sygnały zasobów w cieniu",
+  "statHighPriority": "Wysoki priorytet",
+
+  "headingSummary": "Podsumowanie dla zarządu",
+  "headingPosture": "Rozkład pozycji ochronnej",
+  "headingChanges": "Zmiany od ostatniego skanowania",
+  "headingFindings": "Ustalenia ({count})",
+  "headingInventory": "Inwentarz zasobów",
+  "headingMethodology": "Metodyka i odpowiedzialne użycie",
+
+  "labelObserved": "Zaobserwowano",
+  "labelInferred": "Wywnioskowano",
+  "labelConcern": "Możliwa obawa",
+  "labelRecommendation": "Zalecany przegląd",
+
+  "methodology": "OUTSIDE mapuje publicznie obserwowalny ślad cyfrowy organizacji przy użyciu pasywnych, nieinwazyjnych źródeł publicznych (przejrzystość certyfikatów i DNS). Ustalenia oddzielają zaobserwowany fakt od wnioskowania i od możliwej obawy, każde z oceną pewności. Ten raport opisuje wyłącznie odkrywanie zewnętrzne — nie przedstawia wykorzystania podatności, kompromitacji ani nieuprawnionego dostępu. Pozycje oznaczone jako wywnioskowane lub możliwe wymagają przeglądu przez człowieka przed podjęciem działań.",
+
+  "summaryFootprint": "{target} ma publiczny ślad cyfrowy obejmujący {assets}, w tym {surfaces}.",
+  "summaryAssetCount": {
+    "one": "{count} obserwowalny zasób",
+    "few": "{count} obserwowalne zasoby",
+    "many": "{count} obserwowalnych zasobów",
+    "other": "{count} obserwowalnego zasobu"
+  },
+  "summarySurfaceCount": {
+    "one": "{count} publiczną powierzchnię web lub API",
+    "few": "{count} publiczne powierzchnie web lub API",
+    "many": "{count} publicznych powierzchni web lub API",
+    "other": "{count} publicznej powierzchni web lub API"
+  },
+  "summaryComplexitySmall": "Jest to mała powierzchnia.",
+  "summaryComplexityModerate": "Jest to umiarkowanie złożona powierzchnia.",
+  "summaryComplexitySizeable": "Jest to znaczna powierzchnia.",
+  "summaryComplexityLarge": "Jest to duża powierzchnia.",
+  "summaryPostureGuarded": "Jej pozycja ochronna jest dobrze opanowana, z wynikiem {score}/100.",
+  "summaryPostureModerate": "Jej pozycja ochronna jest umiarkowanie złożona, z wynikiem {score}/100.",
+  "summaryPostureElevated": "Jej pozycja ochronna jest podwyższona, z wynikiem {score}/100.",
+  "summaryPostureExposed": "Jej pozycja ochronna jest szeroka i wystawiona, z wynikiem {score}/100.",
+  "summaryShadow": {
+    "one": "{count} zasób wykazuje sygnały odpowiadające starszej lub niezarządzanej infrastrukturze i należy zweryfikować jego bieżącego właściciela oraz cel biznesowy.",
+    "few": "{count} zasoby wykazują sygnały odpowiadające starszej lub niezarządzanej infrastrukturze i należy zweryfikować ich bieżącego właściciela oraz cel biznesowy.",
+    "many": "{count} zasobów wykazuje sygnały odpowiadające starszej lub niezarządzanej infrastrukturze i należy zweryfikować ich bieżącego właściciela oraz cel biznesowy.",
+    "other": "{count} zasobu wykazuje sygnały odpowiadające starszej lub niezarządzanej infrastrukturze i należy zweryfikować jego bieżącego właściciela oraz cel biznesowy."
+  },
+  "summaryNonProd": {
+    "one": "{count} publicznie dostępny hostname nosi nieprodukcyjne oznaczenia w nazewnictwie, które wymagają potwierdzenia zamierzonej ekspozycji.",
+    "few": "{count} publicznie dostępne hostnames noszą nieprodukcyjne oznaczenia w nazewnictwie, które wymagają potwierdzenia zamierzonej ekspozycji.",
+    "many": "{count} publicznie dostępnych hostnames nosi nieprodukcyjne oznaczenia w nazewnictwie, które wymagają potwierdzenia zamierzonej ekspozycji.",
+    "other": "{count} publicznie dostępnego hostname nosi nieprodukcyjne oznaczenia w nazewnictwie, które wymagają potwierdzenia zamierzonej ekspozycji."
+  },
+  "summaryChangeNew": "Najistotniejszą ostatnią zmianą jest {label}, nowo zaobserwowany.",
+  "summaryChangeReturned": "Najistotniejszą ostatnią zmianą jest {label}, który powrócił na powierzchnię publiczną.",
+  "summaryClean": "Na bieżącej powierzchni zewnętrznej nie zaobserwowano żadnych zasobów w cieniu, ekspozycji nieprodukcyjnej ani ustaleń o wysokim priorytecie."
+}
