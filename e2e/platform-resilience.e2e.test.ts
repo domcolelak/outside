@@ -61,6 +61,22 @@ describe.sequential("platform resilience PostgreSQL workflows", () => {
     ).resolves.toBeNull();
   });
 
+  it("returns one target when several requests create it at the same instant", async () => {
+    // upsert is not atomic against a concurrent insert of the same key: all
+    // callers can find no row, all try to create, and every one but the winner
+    // gets a unique violation. Scheduled scans for the same target start
+    // together often enough that this was a real intermittent failure, so the
+    // race is provoked deliberately rather than left to timing.
+    const store = new PrismaScanStore();
+    const domain = "concurrent-create.example";
+    await prisma.target.deleteMany({ where: { orgId: ORG_ID, domain } });
+
+    const targets = await Promise.all(Array.from({ length: 6 }, () => store.getOrCreateTarget(ORG_ID, domain)));
+
+    expect(new Set(targets.map((target) => target.id)).size, "callers disagree about the target").toBe(1);
+    expect(await prisma.target.count({ where: { orgId: ORG_ID, domain } })).toBe(1);
+  });
+
   it("serializes temporal scans per target and preserves monotonic identity bounds", async () => {
     const store = new PrismaScanStore();
     const scans = [

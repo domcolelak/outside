@@ -100,7 +100,8 @@ test.describe("public experience in five languages", () => {
     await page.getByLabel("Heslo").fill("an-incorrect-password");
     await page.locator("form").getByRole("button", { name: "Prihlásiť sa", exact: true }).click();
 
-    const alert = page.getByRole("alert");
+    // Scoped to the form: Next renders its own empty role="alert" announcer.
+    const alert = page.locator("form").getByRole("alert");
     await expect(alert).toBeVisible({ timeout: 20_000 });
     await expect(alert).toHaveText("Nesprávny e-mail alebo heslo.");
   });

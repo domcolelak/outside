@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { isUniqueViolation } from "@/lib/db/unique-violation";
 import { prisma } from "@/lib/db/prisma";
 
 const completed = new Set<string>();
@@ -17,7 +18,7 @@ export async function processWebhookOnce(
       });
       return "processed";
     } catch (error) {
-      if ((error as { code?: string }).code === "P2002") return "duplicate";
+      if (isUniqueViolation(error)) return "duplicate";
       throw error;
     }
   }
