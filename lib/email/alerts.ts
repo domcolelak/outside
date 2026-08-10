@@ -10,6 +10,7 @@ import type { ChangeEvent } from "@/lib/persistence/model";
 import type { Monitor } from "@/lib/monitoring";
 import { getAuthStore } from "@/lib/auth";
 import { changeAlertEmail } from "./templates";
+import { recipientLocale } from "@/lib/i18n/recipient";
 import { enqueueEmail, deliverOutboxBatch } from "./outbox";
 
 const HIGH = new Set(["high", "critical"]);
@@ -30,10 +31,17 @@ export async function dispatchChangeAlert(monitor: Monitor, result: ScanResult):
     const auth = await getAuthStore();
     const members = await auth.orgMembers(monitor.orgId);
     // Notify owners/admins/analysts who have change alerts enabled.
-    const recipients = members.filter((m) => m.role !== "viewer" && m.notifyChanges).map((m) => m.email);
+    const recipients = members.filter((m) => m.role !== "viewer" && m.notifyChanges);
     if (recipients.length === 0) return false;
 
-    await Promise.all(recipients.map((to) => enqueueEmail(changeAlertEmail(to, monitor, result, events), `alert:${monitor.id}:${result.scanId}:${to.toLowerCase()}`)));
+    // One alert per member, each in that member's own language: a Slovak
+    // analyst and a Polish one on the same team should each be able to read it.
+    // The organization default fills in for anyone who has not chosen.
+    const organization = await auth.getOrganization(monitor.orgId).catch(() => null);
+    await Promise.all(recipients.map((member) => {
+      const locale = recipientLocale({ userPreference: member.preferredLocale, organizationDefault: organization?.defaultLocale });
+      return enqueueEmail(changeAlertEmail(member.email, monitor, result, events, locale), `alert:${monitor.id}:${result.scanId}:${member.email.toLowerCase()}`);
+    }));
     await deliverOutboxBatch(Math.min(10, recipients.length)).catch((error) => console.error("[alerts] delivery deferred", error));
     return true;
   } catch (err) {

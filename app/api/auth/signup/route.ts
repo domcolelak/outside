@@ -6,6 +6,8 @@ import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { issueEmailVerification } from "@/lib/auth/email-verification";
 import { sendDurably } from "@/lib/email/outbox";
 import { welcomeEmail } from "@/lib/email/templates";
+import { currentLocale } from "@/lib/i18n/server";
+import { DEFAULT_LOCALE } from "@/lib/i18n/locales";
 import { APP_URL } from "@/lib/config/runtime";
 import { isValidEmail } from "@/lib/auth/validation";
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
@@ -44,9 +46,20 @@ export async function POST(req: NextRequest) {
   const passwordHash = await hashPassword(password);
   const { user, org } = await store.createUserWithOrg({ email, name, passwordHash, orgName });
 
+  // Whatever language they signed up in becomes their preference and their new
+  // organization's default. Making them choose again, in a settings screen they
+  // have not seen yet, would be the wrong first impression.
+  const { locale } = await currentLocale();
+  if (locale !== DEFAULT_LOCALE) {
+    await Promise.all([
+      store.setPreferredLocale(user.id, locale).catch(() => {}),
+      store.setOrganizationLocale(org.id, locale).catch(() => {}),
+    ]);
+  }
+
   // Fire-and-forget welcome email (no-op console transport unless configured).
   const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${encodeURIComponent(issueEmailVerification(user.id, user.email))}`;
-  await sendDurably(welcomeEmail(user.email, user.name, verifyUrl), `welcome:${user.id}`);
+  await sendDurably(welcomeEmail(user.email, user.name, verifyUrl, locale), `welcome:${user.id}`);
 
   const res = NextResponse.json({ user: { id: user.id, email: user.email, name: user.name }, org: { id: org.id, name: org.name, plan: org.plan } });
   res.headers.append("Set-Cookie", sessionCookie(signSession(user.id, SESSION_MAX_AGE, user.sessionVersion)));

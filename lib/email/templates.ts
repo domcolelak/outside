@@ -3,7 +3,22 @@ import type { ChangeEvent } from "@/lib/persistence/model";
 import type { Monitor } from "@/lib/monitoring";
 import type { EmailMessage } from "./provider";
 import { APP_URL } from "@/lib/config/runtime";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
+import { getTranslator, type MessageKey, type Translator } from "@/lib/i18n/messages";
 
+/**
+ * E-mail is rendered in the recipient's language at the moment it is created.
+ *
+ * The outbox stores the finished HTML and text, so the language is fixed when
+ * the message is enqueued rather than resolved again when a worker happens to
+ * deliver it. That is the behaviour we want: a person who changes their language
+ * on Tuesday should not retroactively change the wording of Monday's alert, and
+ * a delivery worker has no request context to resolve a language from anyway.
+ *
+ * Every template takes an explicit locale. It defaults to English so that a call
+ * site which has no recipient context is a visible, greppable `undefined` rather
+ * than silently picking somebody else's language.
+ */
 export function escapeHtml(value: unknown): string {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -13,96 +28,169 @@ export function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
-function shell(title: string, bodyHtml: string): string {
-  return `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;">
+function shell(t: Translator, title: string, bodyHtml: string): string {
+  // lang on <html> so a mail client reading Hungarian text does not offer to
+  // translate it from English, and screen readers pronounce it correctly.
+  return `<!doctype html><html lang="${t.locale}"><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <div style="font-size:15px;letter-spacing:3px;font-weight:700;color:#e8edf6;">OUTSIDE</div>
-    <div style="font-size:11px;letter-spacing:1px;color:#8791a3;margin-top:2px;">EXTERNAL EXPOSURE INTELLIGENCE</div>
+    <div style="font-size:11px;letter-spacing:1px;color:#8791a3;margin-top:2px;">${escapeHtml(t.t("email", "brandTagline"))}</div>
     <div style="height:1px;background:rgba(148,173,214,0.14);margin:20px 0;"></div>
     <h1 style="font-size:20px;margin:0 0 12px;color:#e8edf6;">${escapeHtml(title)}</h1>
     ${bodyHtml}
     <div style="height:1px;background:rgba(148,173,214,0.14);margin:24px 0;"></div>
-    <div style="font-size:11px;color:#6b7793;">You are receiving this because your organization uses OUTSIDE. This message describes external discovery only — not compromise or unauthorized access.</div>
+    <div style="font-size:11px;color:#6b7793;">${escapeHtml(t.t("email", "footerDisclaimer"))}</div>
   </div></body></html>`;
 }
 
-const CHANGE_LABEL: Record<string, string> = {
-  asset_appeared: "New asset",
-  asset_returned: "Returned",
-  asset_disappeared: "No longer observed",
-  technology_changed: "Technology changed",
-  priority_changed: "Priority increased",
-};
+const CHANGE_KEYS = {
+  asset_appeared: "changeAssetAppeared",
+  asset_returned: "changeAssetReturned",
+  asset_disappeared: "changeAssetDisappeared",
+  technology_changed: "changeTechnologyChanged",
+  priority_changed: "changePriorityChanged",
+} as const;
 
-export function changeAlertEmail(to: string, monitor: Monitor, result: ScanResult, events: ChangeEvent[]): EmailMessage {
+/** The label for a change type, or the raw type when it is one we do not name. */
+function changeLabel(t: Translator, type: string): string {
+  const key = CHANGE_KEYS[type as keyof typeof CHANGE_KEYS];
+  return key ? t.t("email", key) : type;
+}
+
+const DETAIL_KEYS = {
+  assetAppeared: "detailAssetAppeared",
+  assetReturned: "detailAssetReturned",
+  assetDisappeared: "detailAssetDisappeared",
+  technologyChanged: "detailTechnologyChanged",
+  certificateChanged: "detailCertificateChanged",
+  priorityChanged: "detailPriorityChanged",
+} as const;
+
+/**
+ * The explanation for a change, translated.
+ *
+ * Change events persist, and rows written before localization carry only the
+ * English sentence. Falling back to it keeps historical alerts and reports
+ * readable instead of showing a bare key.
+ */
+function changeDetail(t: Translator, event: ChangeEvent): string {
+  const key = event.detailKey ? DETAIL_KEYS[event.detailKey] : undefined;
+  return key ? t.t("email", key) : event.detail;
+}
+
+/**
+ * Interpolate a catalog sentence into HTML.
+ *
+ * The template comes from a reviewed message file and is trusted; the values do
+ * not, so they are escaped before substitution. Escaping the finished sentence
+ * instead would either double-escape the markup we deliberately add (a bolded
+ * domain) or, worse, invite a search-and-replace over escaped text that breaks
+ * the moment a translation mentions the value twice.
+ */
+function htmlMessage(t: Translator, key: MessageKey<"email">, values: Record<string, string | number>): string {
+  const escaped = Object.fromEntries(Object.entries(values).map(([name, value]) => [name, escapeHtml(value)]));
+  return t.t("email", key, escaped);
+}
+
+const button = (href: string, label: string, color = "#38e1c3") =>
+  `<a href="${escapeHtml(href)}" style="display:inline-block;margin-top:12px;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">${escapeHtml(label)}</a>`;
+
+export function changeAlertEmail(to: string, monitor: Monitor, result: ScanResult, events: ChangeEvent[], locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
   const domain = escapeHtml(monitor.domain);
   const rows = events.map((event) =>
     `<div style="padding:10px 12px;border:1px solid rgba(148,173,214,0.14);border-radius:8px;margin-bottom:8px;">
       <div style="font-family:monospace;font-size:13px;color:#e8edf6;">${escapeHtml(event.label)}</div>
-      <div style="font-size:12px;color:#aab6cc;margin-top:2px;">${escapeHtml(CHANGE_LABEL[event.type] ?? event.type)} — ${escapeHtml(event.detail)}</div>
+      <div style="font-size:12px;color:#aab6cc;margin-top:2px;">${escapeHtml(changeLabel(t, event.type))} — ${escapeHtml(changeDetail(t, event))}</div>
     </div>`).join("");
+  // The count phrase is a plural entry so Slovak, Czech and Polish pick the
+  // right form; the surrounding sentence is translated whole, not assembled.
+  const changes = t.t("email", "alertChangeCount", { count: events.length });
+  const surfaceUrl = `${APP_URL}/scan?target=${encodeURIComponent(monitor.domain)}`;
   const html = shell(
-    `Changes detected on ${monitor.domain}`,
-    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;margin:0 0 16px;">The latest external-surface scan of <strong style="color:#e8edf6;">${domain}</strong> found ${events.length} notable change${events.length === 1 ? "" : "s"}. Current protection posture: <strong style="color:#38e1c3;">${result.score.value}/100</strong>.</p>
+    t,
+    t.t("email", "alertTitle", { domain: monitor.domain }),
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;margin:0 0 16px;">${t.t("email", "alertBody", { domain: `<strong style="color:#e8edf6;">${domain}</strong>`, changes: escapeHtml(changes), score: result.score.value })}</p>
      ${rows}
-     <a href="${escapeHtml(`${APP_URL}/scan?target=${encodeURIComponent(monitor.domain)}`)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">View external surface</a>`,
+     ${button(surfaceUrl, t.t("email", "alertAction"))}`,
   );
-  const text = `Changes detected on ${monitor.domain}\n\n${events.map((event) => `- ${CHANGE_LABEL[event.type] ?? event.type}: ${event.label} — ${event.detail}`).join("\n")}\n\nProtection posture: ${result.score.value}/100\n${APP_URL}/scan?target=${monitor.domain}`;
-  return { to, subject: `OUTSIDE: ${events.length} change${events.length === 1 ? "" : "s"} on ${monitor.domain}`, html, text };
+  const text = `${t.t("email", "alertTitle", { domain: monitor.domain })}\n\n${events.map((event) => `- ${changeLabel(t, event.type)}: ${event.label} — ${changeDetail(t, event)}`).join("\n")}\n\n${t.t("email", "alertPosture", { score: result.score.value })}\n${surfaceUrl}`;
+  return { to, subject: t.t("email", "alertSubject", { count: events.length, domain: monitor.domain }), html, text };
 }
 
-export function inviteEmail(to: string, orgName: string, role: string, acceptUrl: string): EmailMessage {
+export function inviteEmail(to: string, orgName: string, role: string, acceptUrl: string, locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
+  const title = t.t("email", "inviteTitle", { orgName });
   const html = shell(
-    `You're invited to ${orgName} on OUTSIDE`,
-    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">You've been invited to join <strong style="color:#e8edf6;">${escapeHtml(orgName)}</strong> as <strong style="color:#e8edf6;">${escapeHtml(role)}</strong> on OUTSIDE — external exposure intelligence.</p>
-     <a href="${escapeHtml(acceptUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Accept invitation</a>`,
+    t,
+    title,
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">${htmlMessage(t, "inviteBody", { orgName, role })}</p>
+     ${button(acceptUrl, t.t("email", "inviteAction"))}`,
   );
-  return { to, subject: `You're invited to ${orgName} on OUTSIDE`, html, text: `You've been invited to join ${orgName} as ${role} on OUTSIDE.\nAccept: ${acceptUrl}` };
+  return { to, subject: title, html, text: `${t.t("email", "inviteText", { orgName, role })}\n${acceptUrl}` };
 }
 
-export function agencyInviteEmail(to: string, agencyName: string, role: string, acceptUrl: string, branding?: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }): EmailMessage {
+export function agencyInviteEmail(to: string, agencyName: string, role: string, acceptUrl: string, branding?: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }, locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
   const sender = branding?.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`;
   const color = /^#[0-9a-f]{6}$/i.test(branding?.primaryColor ?? "") ? branding!.primaryColor! : "#38e1c3";
   const footer = branding?.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : "";
-  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">You've been invited to the <strong style="color:#e8edf6;">${escapeHtml(agencyName)}</strong> security workspace as <strong style="color:#e8edf6;">${escapeHtml(role)}</strong>.</p><a href="${escapeHtml(acceptUrl)}" style="display:inline-block;margin:12px 0;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Open secure invitation</a>${footer}`;
+  const title = t.t("email", "agencyInviteTitle", { agencyName });
+  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">${htmlMessage(t, "agencyInviteBody", { agencyName, role })}</p>${button(acceptUrl, t.t("email", "agencyInviteAction"), color)}${footer}`;
   const html = branding?.whiteLabel
-    ? `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-size:15px;letter-spacing:2px;font-weight:700;color:#e8edf6;">${escapeHtml(sender)}</div><div style="height:1px;background:rgba(148,173,214,0.14);margin:20px 0;"></div><h1 style="font-size:20px;margin:0 0 12px;color:#e8edf6;">You're invited by ${escapeHtml(agencyName)}</h1>${body}</div></body></html>`
-    : shell(`You're invited by ${agencyName}`, body);
-  return { to, subject: `${sender}: secure workspace invitation`, html, text: `${agencyName} invited you as ${role}. Accept: ${acceptUrl}${branding?.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
+    ? `<!doctype html><html lang="${t.locale}"><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-size:15px;letter-spacing:2px;font-weight:700;color:#e8edf6;">${escapeHtml(sender)}</div><div style="height:1px;background:rgba(148,173,214,0.14);margin:20px 0;"></div><h1 style="font-size:20px;margin:0 0 12px;color:#e8edf6;">${escapeHtml(title)}</h1>${body}</div></body></html>`
+    : shell(t, title, body);
+  return { to, subject: t.t("email", "agencyInviteSubject", { sender }), html, text: `${t.t("email", "agencyInviteText", { agencyName, role })} ${acceptUrl}${branding?.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
 }
 
-export function agencyReportReadyEmail(to: string, reportTitle: string, reportUrl: string, agencyName: string, branding: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }): EmailMessage {
-  const sender = branding.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`; const color = /^#[0-9a-f]{6}$/i.test(branding.primaryColor ?? "") ? branding.primaryColor! : "#38e1c3";
-  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">Your security report <strong style="color:#e8edf6;">${escapeHtml(reportTitle)}</strong> is ready for secure review.</p><a href="${escapeHtml(reportUrl)}" style="display:inline-block;margin:12px 0;background:${color};color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Open report</a>${branding.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : ""}`;
-  const html = branding.whiteLabel ? `<!doctype html><html><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-weight:700;letter-spacing:2px;">${escapeHtml(sender)}</div><h1 style="font-size:20px;">Security report ready</h1>${body}</div></body></html>` : shell("Security report ready", body);
-  return { to, subject: `${sender}: ${reportTitle}`, html, text: `${reportTitle} is ready: ${reportUrl}${branding.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
+export function agencyReportReadyEmail(to: string, reportTitle: string, reportUrl: string, agencyName: string, branding: { whiteLabel?: boolean; primaryColor?: string; emailFromName?: string | null; emailFooter?: string | null }, locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
+  const sender = branding.whiteLabel ? branding.emailFromName || agencyName : `${agencyName} on OUTSIDE`;
+  const color = /^#[0-9a-f]{6}$/i.test(branding.primaryColor ?? "") ? branding.primaryColor! : "#38e1c3";
+  const heading = t.t("email", "reportReadyTitle");
+  const body = `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">${htmlMessage(t, "reportReadyBody", { reportTitle })}</p>${button(reportUrl, t.t("email", "reportReadyAction"), color)}${branding.emailFooter ? `<div style="font-size:11px;color:#6b7793;">${escapeHtml(branding.emailFooter)}</div>` : ""}`;
+  const html = branding.whiteLabel
+    ? `<!doctype html><html lang="${t.locale}"><body style="margin:0;background:#05070a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#e8edf6;"><div style="max-width:560px;margin:0 auto;padding:32px 24px;"><div style="font-weight:700;letter-spacing:2px;">${escapeHtml(sender)}</div><h1 style="font-size:20px;">${escapeHtml(heading)}</h1>${body}</div></body></html>`
+    : shell(t, heading, body);
+  return { to, subject: `${sender}: ${reportTitle}`, html, text: `${t.t("email", "reportReadyText", { reportTitle })} ${reportUrl}${branding.emailFooter ? `\n\n${branding.emailFooter}` : ""}` };
 }
 
-export function welcomeEmail(to: string, name: string, verificationUrl?: string): EmailMessage {
+export function welcomeEmail(to: string, name: string, verificationUrl?: string, locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
   const actionUrl = verificationUrl ?? APP_URL;
-  const actionLabel = verificationUrl ? "Verify email" : "Open OUTSIDE";
+  const actionLabel = verificationUrl ? t.t("email", "welcomeActionVerify") : t.t("email", "welcomeActionOpen");
+  const firstName = name.split(" ")[0] ?? name;
   const html = shell(
-    `Welcome to OUTSIDE, ${name.split(" ")[0]}`,
-    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">Enter a domain and watch its public digital footprint reveal itself. Verify ownership to unlock monitoring and change alerts.</p>
-     <a href="${escapeHtml(actionUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">${actionLabel}</a>`,
+    t,
+    t.t("email", "welcomeTitle", { firstName }),
+    // shell() escapes the title, so the name is escaped exactly once.
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">${escapeHtml(t.t("email", "welcomeBody"))}</p>
+     ${button(actionUrl, actionLabel)}`,
   );
-  return { to, subject: "Welcome to OUTSIDE", html, text: `Welcome to OUTSIDE, ${name}. ${verificationUrl ? `Verify your email: ${verificationUrl}` : `Open ${APP_URL} to map your external surface.`}` };
+  const text = verificationUrl
+    ? `${t.t("email", "welcomeTextVerify", { name })} ${verificationUrl}`
+    : `${t.t("email", "welcomeTextOpen", { name })} ${APP_URL}`;
+  return { to, subject: t.t("email", "welcomeSubject"), html, text };
 }
 
-export function verifyEmail(to: string, verificationUrl: string): EmailMessage {
+export function verifyEmail(to: string, verificationUrl: string, locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
   const html = shell(
-    "Verify your email address",
-    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">Confirm this email address before sending team invitations or accepting organization access.</p>
-     <a href="${escapeHtml(verificationUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Verify email</a>`,
+    t,
+    t.t("email", "verifyTitle"),
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">${escapeHtml(t.t("email", "verifyBody"))}</p>
+     ${button(verificationUrl, t.t("email", "verifyAction"))}`,
   );
-  return { to, subject: "Verify your OUTSIDE email", html, text: `Verify your email address: ${verificationUrl}` };
+  return { to, subject: t.t("email", "verifySubject"), html, text: `${t.t("email", "verifyText")} ${verificationUrl}` };
 }
 
-export function passwordResetEmail(to: string, resetUrl: string): EmailMessage {
+export function passwordResetEmail(to: string, resetUrl: string, locale: Locale = DEFAULT_LOCALE): EmailMessage {
+  const t = getTranslator(locale);
   const html = shell(
-    "Reset your OUTSIDE password",
-    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">A password reset was requested for this account. This single-use link expires in 30 minutes. If you did not request it, no action is required.</p>
-     <a href="${escapeHtml(resetUrl)}" style="display:inline-block;margin-top:12px;background:#38e1c3;color:#05070a;font-weight:600;font-size:14px;text-decoration:none;padding:10px 18px;border-radius:8px;">Reset password</a>`,
+    t,
+    t.t("email", "resetTitle"),
+    `<p style="font-size:14px;line-height:1.5;color:#aab6cc;">${escapeHtml(t.t("email", "resetBody"))}</p>
+     ${button(resetUrl, t.t("email", "resetAction"))}`,
   );
-  return { to, subject: "Reset your OUTSIDE password", html, text: `Reset your OUTSIDE password within 30 minutes: ${resetUrl}\n\nIf you did not request this, no action is required.` };
+  return { to, subject: t.t("email", "resetSubject"), html, text: `${t.t("email", "resetText")} ${resetUrl}\n\n${t.t("email", "resetTextNoAction")}` };
 }
