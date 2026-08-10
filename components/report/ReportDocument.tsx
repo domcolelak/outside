@@ -7,6 +7,12 @@
 import { Document, Page, View, Text, Svg, Circle, StyleSheet } from "@react-pdf/renderer";
 import type { ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
+import { reportFontFamily } from "@/lib/report/fonts";
+
+// Resolved once at module load: the bundled font when it is present and has the
+// coverage these languages need, the base-14 fallback when it is not.
+const REGULAR = reportFontFamily();
+const BOLD = reportFontFamily(true);
 
 const INK = "#0b0f17";
 const SOFT = "#4b5568";
@@ -29,30 +35,30 @@ const PRIORITY_COLOR: Record<string, string> = {
 };
 
 const s = StyleSheet.create({
-  page: { paddingTop: 0, paddingBottom: 48, paddingHorizontal: 0, fontSize: 10, color: INK, fontFamily: "Helvetica" },
+  page: { paddingTop: 0, paddingBottom: 48, paddingHorizontal: 0, fontSize: 10, color: INK, fontFamily: REGULAR },
   band: { backgroundColor: "#080b11", paddingVertical: 22, paddingHorizontal: 40, color: "#e8edf6", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  brand: { fontSize: 15, letterSpacing: 3, fontFamily: "Helvetica-Bold", color: "#e8edf6" },
+  brand: { fontSize: 15, letterSpacing: 3, fontFamily: BOLD, color: "#e8edf6" },
   bandSub: { fontSize: 8, color: "#8791a3", letterSpacing: 1, marginTop: 3 },
   body: { paddingHorizontal: 40, paddingTop: 22 },
-  h2: { fontSize: 11, fontFamily: "Helvetica-Bold", letterSpacing: 1, textTransform: "uppercase", color: SOFT, marginBottom: 8, marginTop: 18 },
+  h2: { fontSize: 11, fontFamily: BOLD, letterSpacing: 1, textTransform: "uppercase", color: SOFT, marginBottom: 8, marginTop: 18 },
   coverRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
-  org: { fontSize: 22, fontFamily: "Helvetica-Bold", color: INK },
+  org: { fontSize: 22, fontFamily: BOLD, color: INK },
   meta: { fontSize: 9, color: FAINT, marginTop: 2 },
   scoreLabel: { fontSize: 8, color: FAINT, textTransform: "uppercase", letterSpacing: 1, textAlign: "center" },
   statRow: { flexDirection: "row", gap: 10, marginTop: 16 },
   stat: { flex: 1, border: `1 solid ${LINE}`, borderRadius: 6, padding: 10 },
-  statVal: { fontSize: 18, fontFamily: "Helvetica-Bold", color: INK },
+  statVal: { fontSize: 18, fontFamily: BOLD, color: INK },
   statLabel: { fontSize: 7, color: FAINT, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
   summary: { fontSize: 10.5, lineHeight: 1.5, color: "#2a3345" },
   finding: { border: `1 solid ${LINE}`, borderRadius: 6, padding: 10, marginBottom: 8 },
   findingHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  findingTitle: { fontSize: 10.5, fontFamily: "Helvetica-Bold", color: INK },
-  tag: { fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.5 },
+  findingTitle: { fontSize: 10.5, fontFamily: BOLD, color: INK },
+  tag: { fontSize: 7, fontFamily: BOLD, textTransform: "uppercase", letterSpacing: 0.5 },
   label7: { fontSize: 7, color: FAINT, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 },
   fieldText: { fontSize: 9, color: "#2a3345", lineHeight: 1.4 },
   row: { flexDirection: "row", justifyContent: "space-between", borderBottom: `1 solid ${LINE}`, paddingVertical: 4 },
   footer: { position: "absolute", bottom: 20, left: 40, right: 40, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: FAINT, borderTop: `1 solid ${LINE}`, paddingTop: 6 },
-  watermark: { backgroundColor: "#fff4e6", color: "#c85a2b", fontSize: 8, fontFamily: "Helvetica-Bold", paddingVertical: 4, paddingHorizontal: 40, letterSpacing: 1 },
+  watermark: { backgroundColor: "#fff4e6", color: "#c85a2b", fontSize: 8, fontFamily: BOLD, paddingVertical: 4, paddingHorizontal: 40, letterSpacing: 1 },
 });
 
 function ScoreRing({ value, color }: { value: number; color: string }) {
@@ -65,7 +71,7 @@ function ScoreRing({ value, color }: { value: number; color: string }) {
         <Circle cx="44" cy="44" r={r} stroke={LINE} strokeWidth={7} fill="none" />
         <Circle cx="44" cy="44" r={r} stroke={color} strokeWidth={7} fill="none" strokeLinecap="round" strokeDasharray={`${filled.toFixed(2)},${(c - filled).toFixed(2)}`} transform="rotate(-90 44 44)" />
       </Svg>
-      <Text style={{ marginTop: -56, fontSize: 22, fontFamily: "Helvetica-Bold", color: INK }}>{value}</Text>
+      <Text style={{ marginTop: -56, fontSize: 22, fontFamily: BOLD, color: INK }}>{value}</Text>
       <Text style={{ marginTop: 30, ...s.scoreLabel }}>/ 100 · {value >= 80 ? "Guarded" : value >= 60 ? "Moderate" : value >= 40 ? "Elevated" : "Exposed"}</Text>
     </View>
   );
@@ -115,7 +121,7 @@ export function ReportDocument({ result }: { result: ScanResult }) {
           {result.score.components.map((comp) => (
             <View key={comp.code} style={s.row}>
               <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{comp.label}</Text>
-              <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: comp.impact < 0 ? PRIORITY_COLOR.high : SIGNAL }}>
+              <Text style={{ fontSize: 9, fontFamily: BOLD, color: comp.impact < 0 ? PRIORITY_COLOR.high : SIGNAL }}>
                 {comp.impact > 0 ? "+" : ""}
                 {comp.impact}
               </Text>
