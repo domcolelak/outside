@@ -1,0 +1,9 @@
+{
+  "_comment": "Keys that must read identically in every language. Product and brand names are how customers find their way around and how support requests are understood; translating 'Guardian' to 'Strážca' would make a Slovak screenshot unrecognisable to the person answering the ticket. check-messages enforces this, and the translation report stops asking for review on them.",
+  "keys": [
+    "navigation.guardian",
+    "navigation.assess",
+    "navigation.enterprise",
+    "navigation.evolution"
+  ]
+}

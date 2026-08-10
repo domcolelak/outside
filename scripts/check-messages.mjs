@@ -27,6 +27,25 @@ const REQUIRED_PLURAL_FORMS = {
 
 const problems = [];
 
+/** The {placeholder} names a string interpolates, as a sorted list. */
+function placeholders(value) {
+  return [...new Set([...String(value).matchAll(/\{(\w+)\}/g)].map((match) => match[1]))].sort();
+}
+
+/**
+ * A translation that drops or invents an interpolation variable renders a
+ * sentence with a hole in it — or a literal "{count}" — which no type check
+ * catches because the catalogs are data.
+ */
+function comparePlaceholders(locale, file, key, sourceValue, targetValue) {
+  const expected = placeholders(sourceValue);
+  const actual = placeholders(targetValue);
+  const missing = expected.filter((name) => !actual.includes(name));
+  const unknown = actual.filter((name) => !expected.includes(name));
+  if (missing.length) problems.push(`${locale}/${file}: "${key}" drops {${missing.join("}, {")}}`);
+  if (unknown.length) problems.push(`${locale}/${file}: "${key}" adds {${unknown.join("}, {")}} which English does not provide`);
+}
+
 function readNamespace(locale, file) {
   const path = join(ROOT, locale, file);
   if (!existsSync(path)) return null;
@@ -37,6 +56,15 @@ function readNamespace(locale, file) {
     return null;
   }
 }
+
+/**
+ * Product and brand names must read identically in every language: translating
+ * "Guardian" would make a Slovak screenshot unrecognisable to whoever answers
+ * the support request about it.
+ */
+const NONTRANSLATABLE = new Set(
+  existsSync(join(ROOT, "nontranslatable.json")) ? JSON.parse(readFileSync(join(ROOT, "nontranslatable.json"), "utf8")).keys : [],
+);
 
 const locales = readdirSync(ROOT, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -76,8 +104,18 @@ for (const locale of locales.filter((entry) => entry !== SOURCE)) {
         for (const form of REQUIRED_PLURAL_FORMS[locale] ?? ["other"]) {
           if (typeof target[key][form] !== "string" || !target[key][form]) {
             problems.push(`${locale}/${file}: "${key}" needs a "${form}" plural form for this language`);
+            continue;
           }
+          // English may only carry one/other; compare each form against the
+          // source form it derives from, falling back to "other".
+          comparePlaceholders(locale, file, `${key}.${form}`, source[key][form] ?? source[key].other, target[key][form]);
         }
+      } else {
+        comparePlaceholders(locale, file, key, source[key], target[key]);
+      }
+
+      if (NONTRANSLATABLE.has(`${file.replace(/\.json$/, "")}.${key}`) && JSON.stringify(target[key]) !== JSON.stringify(source[key])) {
+        problems.push(`${locale}/${file}: "${key}" is a product name and must read exactly as it does in English`);
       }
     }
 
