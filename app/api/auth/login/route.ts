@@ -16,13 +16,16 @@ const DUMMY_PASSWORD_HASH = "scrypt$b3V0c2lkZS1sb2dpbi1kdW1teS12MQ$gwldnd9qAHo2x
 export async function POST(req: NextRequest) {
   const client = clientIdentity(req);
   // Tighter limit on login to blunt credential guessing.
-  if (!(await rateLimit(`login:${client}`, 8, 60_000)).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
+  // Every failure carries a stable `code` alongside the English `error`. The
+  // code is what the UI translates; the string stays for API consumers and as
+  // the fallback when a code has no message yet.
+  if (!(await rateLimit(`login:${client}`, 8, 60_000)).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly.", code: "rate_limited" }, { status: 429 });
 
   let body: { email?: string; password?: string };
   try {
     body = await readLimitedJson(req, 16_000) as typeof body;
   } catch (error) {
-    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request." }, { status: error instanceof RequestBodyError ? error.status : 400 });
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request.", code: "invalid_request" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 
   const email = String(body.email ?? "").trim().toLowerCase();
@@ -33,7 +36,7 @@ export async function POST(req: NextRequest) {
   // Same generic message + password check either way to avoid user enumeration.
   const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
   if (!user || !ok) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+    return NextResponse.json({ error: "Invalid email or password.", code: "invalid_credentials" }, { status: 401 });
   }
 
   const sso = await enterpriseSsoRequirement(user, { authStore: store });
