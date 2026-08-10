@@ -89,14 +89,14 @@ export class InMemoryAuthStore implements AuthStore {
     return this.orgs.get(orgId) ?? null;
   }
 
-  async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>> {
+  async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean; preferredLocale: string | null }>> {
     return this.memberships
       .filter((m) => m.orgId === orgId && m.active)
       .map((m) => {
         const u = this.users.get(m.userId);
-        return u ? { email: u.email, name: u.name, role: m.role, notifyChanges: m.notifyChanges } : null;
+        return u ? { email: u.email, name: u.name, role: m.role, notifyChanges: m.notifyChanges, preferredLocale: u.preferredLocale ?? null } : null;
       })
-      .filter((x): x is { email: string; name: string; role: Role; notifyChanges: boolean } => x !== null);
+      .filter((x): x is { email: string; name: string; role: Role; notifyChanges: boolean; preferredLocale: string | null } => x !== null);
   }
 
   async setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void> {

@@ -71,12 +71,30 @@ export interface ChangeEvent {
   type: ChangeType;
   canonical: string;
   label: string;
+  /**
+   * English wording, written when the change was detected and stored with it.
+   *
+   * Kept because change events persist: rows written before localization have
+   * only this, and a report reproduced from history must still read correctly.
+   * New rows also carry detailKey, which is what gets translated.
+   */
   detail: string;
+  /** Stable identifier for the sentence in `detail`, translated at render time. */
+  detailKey?: ChangeDetailKey;
   /** Review weight so the UI/alerts can rank and group changes. */
   priority: Priority;
   from?: string;
   to?: string;
 }
+
+/** The fixed set of sentences the differ can produce for a change. */
+export type ChangeDetailKey =
+  | "assetAppeared"
+  | "assetReturned"
+  | "assetDisappeared"
+  | "technologyChanged"
+  | "certificateChanged"
+  | "priorityChanged";
 
 /** Compact per-scan diff attached to a ScanResult once history exists. */
 export interface ChangeSummary {

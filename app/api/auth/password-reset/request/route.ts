@@ -5,6 +5,7 @@ import { isValidEmail } from "@/lib/auth/validation";
 import { APP_URL } from "@/lib/config/runtime";
 import { enqueueEmail } from "@/lib/email/outbox";
 import { passwordResetEmail } from "@/lib/email/templates";
+import { recipientLocale } from "@/lib/i18n/recipient";
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 
@@ -30,7 +31,10 @@ export async function POST(req: NextRequest) {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
   await store.createPasswordReset(user.id, tokenHash, new Date(Date.now() + 30 * 60_000));
-  await enqueueEmail(passwordResetEmail(user.email, `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`), `password-reset:${user.id}:${tokenHash.slice(0, 16)}`);
+  // The recipient's own stored preference, not the language of whoever's browser
+  // asked: a reset can be requested from a shared or public machine.
+  const locale = recipientLocale({ userPreference: user.preferredLocale });
+  await enqueueEmail(passwordResetEmail(user.email, `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`, locale), `password-reset:${user.id}:${tokenHash.slice(0, 16)}`);
   return response();
 }
 

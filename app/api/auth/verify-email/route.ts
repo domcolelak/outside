@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore, getSessionContext } from "@/lib/auth";
 import { issueEmailVerification, verifyEmailVerification } from "@/lib/auth/email-verification";
 import { verifyEmail } from "@/lib/email/templates";
+import { recipientLocale } from "@/lib/i18n/recipient";
 import { sendDurably } from "@/lib/email/outbox";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { APP_URL } from "@/lib/config/runtime";
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
   if (!limit.ok) return NextResponse.json({ error: "Too many verification emails" }, { status: 429 });
   const token = issueEmailVerification(ctx.user.id, ctx.user.email);
   const hour = Math.floor(Date.now() / 3_600_000);
-  await sendDurably(verifyEmail(ctx.user.email, `${APP_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`), `verify-email:${ctx.user.id}:${hour}`);
+  const locale = recipientLocale({ userPreference: ctx.user.preferredLocale, organizationDefault: ctx.memberships[0]?.org.defaultLocale });
+  await sendDurably(verifyEmail(ctx.user.email, `${APP_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`, locale), `verify-email:${ctx.user.id}:${hour}`);
   return NextResponse.json({ ok: true });
 }

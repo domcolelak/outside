@@ -83,13 +83,16 @@ export interface AuthStore {
   membershipsForUser(userId: string): Promise<Array<{ org: Organization; role: Role; notifyChanges: boolean }>>;
   getMembership(userId: string, orgId: string): Promise<Membership | null>;
   getOrganization(orgId: string): Promise<Organization | null>;
-  /** Members of an organization (for notifications). */
-  orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>>;
+  /**
+   * Members of an organization (for notifications). preferredLocale is included
+   * so an alert reaches each member in their own language.
+   */
+  orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean; preferredLocale: string | null }>>;
   setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void>;
-  /** Store a person's own language choice. Optional so the memory store can omit it. */
-  setPreferredLocale?(userId: string, locale: string): Promise<void>;
+  /** Store a person's own language choice. */
+  setPreferredLocale(userId: string, locale: string): Promise<void>;
   /** Set the starting language for members who have not chosen one (owner/admin). */
-  setOrganizationLocale?(orgId: string, locale: string): Promise<void>;
+  setOrganizationLocale(orgId: string, locale: string): Promise<void>;
   provisionMembership(input: { email: string; name: string; passwordHash: string; orgId: string; role: Role; provisionedBy: string; active: boolean }): Promise<{ user: User; membership: Membership }>;
   setProvisionedMembershipActive(userId: string, orgId: string, provisionedBy: string, active: boolean): Promise<boolean>;
   setPlan(orgId: string, plan: Organization["plan"]): Promise<void>;

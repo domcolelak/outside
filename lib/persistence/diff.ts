@@ -59,9 +59,13 @@ export function diffScans(
       type: returned ? "asset_returned" : "asset_appeared",
       canonical: canon,
       label: snap.label,
+      // The English wording is stored with the event; detailKey is what a
+      // renderer translates. Both, because events written before localization
+      // have only the sentence.
       detail: returned
         ? "A previously observed asset is publicly reachable again after being absent."
         : "A new public asset appeared on the external surface.",
+      detailKey: returned ? "assetReturned" : "assetAppeared",
       priority: returned ? maxPriority(snap.priority, "medium") : maxPriority(snap.priority, "medium"),
     });
   }
@@ -74,6 +78,7 @@ export function diffScans(
       canonical: canon,
       label: snap.label,
       detail: "An asset observed in the previous scan is no longer publicly reachable.",
+      detailKey: "assetDisappeared",
       priority: "low",
     });
   }
@@ -88,6 +93,7 @@ export function diffScans(
         canonical: canon,
         label: cur.label,
         detail: "Observed technology signals changed since the previous scan.",
+        detailKey: "technologyChanged",
         priority: "medium",
         from: before.technologies.join(", ") || "none",
         to: cur.technologies.join(", ") || "none",
@@ -99,6 +105,7 @@ export function diffScans(
         canonical: canon,
         label: cur.label,
         detail: "The certificate presented for this hostname changed since the previous scan.",
+        detailKey: "certificateChanged",
         priority: "medium",
         from: before.certKey,
         to: cur.certKey,
@@ -110,6 +117,7 @@ export function diffScans(
         canonical: canon,
         label: cur.label,
         detail: "Review priority increased since the previous scan.",
+        detailKey: "priorityChanged",
         priority: cur.priority,
         from: before.priority,
         to: cur.priority,

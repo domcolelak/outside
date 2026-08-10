@@ -75,9 +75,9 @@ export class PrismaAuthStore implements AuthStore {
     return row ? this.mapOrg(row) : null;
   }
 
-  async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean }>> {
-    const rows = await prisma.$queryRaw<Array<{ email: string; name: string; role: string; notifyChanges: boolean }>>`SELECT u.email,u.name,m.role,m."notifyChanges" FROM memberships m JOIN users u ON u.id=m."userId" WHERE m."orgId"=${orgId} AND m.active=true`;
-    return rows.map((r) => ({ email: r.email, name: r.name, role: r.role as Role, notifyChanges: r.notifyChanges }));
+  async orgMembers(orgId: string): Promise<Array<{ email: string; name: string; role: Role; notifyChanges: boolean; preferredLocale: string | null }>> {
+    const rows = await prisma.$queryRaw<Array<{ email: string; name: string; role: string; notifyChanges: boolean; preferredLocale: string | null }>>`SELECT u.email,u.name,u."preferredLocale",m.role,m."notifyChanges" FROM memberships m JOIN users u ON u.id=m."userId" WHERE m."orgId"=${orgId} AND m.active=true`;
+    return rows.map((r) => ({ email: r.email, name: r.name, role: r.role as Role, notifyChanges: r.notifyChanges, preferredLocale: r.preferredLocale ?? null }));
   }
 
   async setNotifyChanges(userId: string, orgId: string, enabled: boolean): Promise<void> {
