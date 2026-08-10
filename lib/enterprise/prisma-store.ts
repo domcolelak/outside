@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isUniqueViolation } from "@/lib/db/unique-violation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { retryPostgresTransaction } from "@/lib/db/transaction-retry";
@@ -108,7 +109,7 @@ export class PrismaEnterpriseStore implements EnterpriseStore {
         await appendAuditTx(transaction, { workspaceId, actorType: "user", actorId: input.ownerUserId, action: "enterprise.workspace.provisioned", resourceType: "workspace", resourceId: workspaceId, requestId: null, ipHash: null, detail: { dataRegion: input.dataRegion ?? "eu", licensedSeats: input.licensedSeats ?? 25 } });
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") { const concurrentlyCreated = await this.workspaceByOrg(input.orgId); if (concurrentlyCreated) return concurrentlyCreated; }
+      if (isUniqueViolation(error)) { const concurrentlyCreated = await this.workspaceByOrg(input.orgId); if (concurrentlyCreated) return concurrentlyCreated; }
       throw error;
     }
     return (await this.workspace(workspaceId))!;

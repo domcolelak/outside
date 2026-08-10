@@ -30,7 +30,20 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 /** Basic strength gate — enforced server-side at signup. */
 export function passwordProblem(password: string): string | null {
-  if (typeof password !== "string" || password.length < 10) return "Password must be at least 10 characters.";
-  if (password.length > 200) return "Password is too long.";
+  return passwordRejection(password)?.message ?? null;
+}
+
+/**
+ * Why a password is unacceptable, as a stable code plus English wording.
+ *
+ * Too short and too long are different fixes for the person typing, so they get
+ * different codes rather than one "weak password". The code is what the UI
+ * translates; the message stays for API consumers and as the fallback.
+ */
+export function passwordRejection(password: string): { code: "password_too_short" | "password_too_long"; message: string } | null {
+  if (typeof password !== "string" || password.length < 10) {
+    return { code: "password_too_short", message: "Password must be at least 10 characters." };
+  }
+  if (password.length > 200) return { code: "password_too_long", message: "Password is too long." };
   return null;
 }

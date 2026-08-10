@@ -69,6 +69,43 @@ test.describe("public experience in five languages", () => {
     }
   });
 
+  for (const locale of LOCALES) {
+    test(`renders sign-in in ${locale} without clipping or overflow`, async ({ page }) => {
+      await page.goto("/login");
+      const response = await page.request.post("/api/locale", { data: { locale } });
+      expect(response.ok()).toBe(true);
+
+      for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto("/login");
+        await expect(page.locator("html")).toHaveAttribute("lang", locale);
+
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow, `${locale} at ${width}px scrolls horizontally`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+
+  test("a rejected sign-in explains itself in the chosen language", async ({ page }) => {
+    // The API answers with an English string and a stable code. This proves the
+    // code is what reaches the person — otherwise a Slovak user would get a
+    // fully translated form and an English failure.
+    await page.goto("/login");
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    await page.goto("/login");
+
+    await page.getByLabel("E-mail").fill("definitely-not-a-user@example.invalid");
+    await page.getByLabel("Heslo").fill("an-incorrect-password");
+    await page.locator("form").getByRole("button", { name: "Prihlásiť sa", exact: true }).click();
+
+    // Scoped to the form: Next renders its own empty role="alert" announcer.
+    const alert = page.locator("form").getByRole("alert");
+    await expect(alert).toBeVisible({ timeout: 20_000 });
+    await expect(alert).toHaveText("Nesprávny e-mail alebo heslo.");
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);

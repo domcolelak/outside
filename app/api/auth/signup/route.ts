@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthStore } from "@/lib/auth";
-import { hashPassword, passwordProblem } from "@/lib/auth/password";
+import { hashPassword, passwordRejection } from "@/lib/auth/password";
 import { SESSION_MAX_AGE, sessionCookie, signSession } from "@/lib/auth/session";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { issueEmailVerification } from "@/lib/auth/email-verification";
@@ -15,13 +15,15 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const client = clientIdentity(req);
-  if (!(await rateLimit(`signup:${client}`, 6, 60_000)).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
+  // Stable `code` alongside the English `error`: the code is what the UI
+  // translates, the string stays for API consumers.
+  if (!(await rateLimit(`signup:${client}`, 6, 60_000)).ok) return NextResponse.json({ error: "Too many attempts. Try again shortly.", code: "rate_limited" }, { status: 429 });
 
   let body: { email?: string; name?: string; password?: string; orgName?: string };
   try {
     body = await readLimitedJson(req, 20_000) as typeof body;
   } catch (error) {
-    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request." }, { status: error instanceof RequestBodyError ? error.status : 400 });
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request.", code: "invalid_request" }, { status: error instanceof RequestBodyError ? error.status : 400 });
   }
 
   const email = String(body.email ?? "").trim().toLowerCase();
@@ -29,14 +31,14 @@ export async function POST(req: NextRequest) {
   const password = String(body.password ?? "");
   const orgName = String(body.orgName ?? "").trim().slice(0, 80) || `${name || "My"} workspace`;
 
-  if (!isValidEmail(email)) return NextResponse.json({ error: "Enter a valid email address." }, { status: 422 });
-  if (!name) return NextResponse.json({ error: "Enter your name." }, { status: 422 });
-  const pwProblem = passwordProblem(password);
-  if (pwProblem) return NextResponse.json({ error: pwProblem }, { status: 422 });
+  if (!isValidEmail(email)) return NextResponse.json({ error: "Enter a valid email address.", code: "invalid_email" }, { status: 422 });
+  if (!name) return NextResponse.json({ error: "Enter your name.", code: "missing_name" }, { status: 422 });
+  const pwProblem = passwordRejection(password);
+  if (pwProblem) return NextResponse.json({ error: pwProblem.message, code: pwProblem.code }, { status: 422 });
 
   const store = await getAuthStore();
   if (await store.findUserByEmail(email)) {
-    return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
+    return NextResponse.json({ error: "An account with that email already exists.", code: "email_taken" }, { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);

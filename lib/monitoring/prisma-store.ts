@@ -1,4 +1,5 @@
 import type { Frequency, Monitor, MonitorStore } from "./index";
+import { isUniqueViolation } from "@/lib/db/unique-violation";
 import { nextRunAt } from "./index";
 import { prisma } from "@/lib/db/prisma";
 import { randomUUID } from "node:crypto";
@@ -37,7 +38,7 @@ export class PrismaMonitorStore implements MonitorStore {
         return map(row);
       });
     } catch (error) {
-      if ((error as { code?: string }).code === "P2002") return null;
+      if (isUniqueViolation(error)) return null;
       throw error;
     }
   }

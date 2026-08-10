@@ -4,15 +4,41 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Wordmark } from "@/components/Wordmark";
+import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { useTranslator } from "@/lib/i18n/context";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+/**
+ * Server error codes to catalog keys.
+ *
+ * The API answers with a stable code and an English string. The code is what
+ * gets translated; the string is the fallback, so a code added on the server
+ * before its message exists degrades to English rather than to nothing.
+ */
+const ERROR_KEYS: Record<string, MessageKey<"auth">> = {
+  rate_limited: "errorRateLimited",
+  invalid_request: "errorInvalidRequest",
+  invalid_credentials: "errorInvalidCredentials",
+  invalid_email: "errorInvalidEmail",
+  missing_name: "errorMissingName",
+  email_taken: "errorEmailTaken",
+  sso_required: "errorSsoRequired",
+  // Too short and too long are different fixes for the person typing.
+  password_too_short: "errorPasswordTooShort",
+  password_too_long: "errorPasswordTooLong",
+  reset_link_invalid: "errorResetLinkInvalid",
+};
 
 function AuthForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useTranslator();
+  const a = (key: MessageKey<"auth">) => t.t("auth", key);
   const [mode, setMode] = useState<"login" | "signup">(params.get("mode") === "signup" ? "signup" : "login");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(params.get("error") ? "Sign-in failed. Please try again." : null);
+  const [error, setError] = useState<string | null>(params.get("error") ? a("errorSignInFailed") : null);
   const [busy, setBusy] = useState(false);
   const [googleOn, setGoogleOn] = useState(false);
 
@@ -37,7 +63,10 @@ function AuthForm() {
       const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Something went wrong.");
+        // Translate by code; fall back to the server's own wording, then to a
+        // generic message, so a failure always says something.
+        const key = typeof data.code === "string" ? ERROR_KEYS[data.code] : undefined;
+        setError(key ? a(key) : data.error ?? a("errorGeneric"));
         setBusy(false);
         return;
       }
@@ -45,15 +74,18 @@ function AuthForm() {
       router.push(next && next.startsWith("/") ? next : "/account");
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setError(a("errorNetwork"));
       setBusy(false);
     }
   };
 
   return (
     <div className="w-full max-w-sm">
-      <div className="mb-8 flex justify-center">
+      <div className="mb-8 flex flex-col items-center gap-4">
         <Link href="/"><Wordmark className="h-7" /></Link>
+        {/* Someone who reached sign-in in the wrong language must be able to
+            change it here, not only from the landing page. */}
+        <LanguageSwitcher current={t.locale} label={t.t("common", "changeLanguage")} />
       </div>
       <div className="panel p-6">
         <div className="mb-5 flex rounded-lg border border-line p-1 text-sm">
@@ -61,12 +93,12 @@ function AuthForm() {
             <button
               key={m}
               type="button"
-              aria-label={m === "login" ? "Switch to sign in" : "Switch to account creation"}
+              aria-label={m === "login" ? a("switchToSignIn") : a("switchToCreateAccount")}
               aria-pressed={mode === m}
               onClick={() => { setMode(m); setError(null); }}
               className={`flex-1 rounded-md py-1.5 transition ${mode === m ? "bg-base-700 text-ink" : "text-ink-faint hover:text-ink-soft"}`}
             >
-              {m === "login" ? "Sign in" : "Create account"}
+              {m === "login" ? a("signIn") : a("createAccount")}
             </button>
           ))}
         </div>
@@ -78,30 +110,30 @@ function AuthForm() {
               className="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-base-850 py-2.5 text-sm text-ink transition hover:bg-base-700"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1Z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.2 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z"/></svg>
-              Continue with Google
+              {a("continueWithGoogle")}
             </a>
             <div className="mb-4 flex items-center gap-3 text-[12px] text-ink-faint">
-              <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+              <span className="h-px flex-1 bg-line" /> {a("or")} <span className="h-px flex-1 bg-line" />
             </div>
           </>
         )}
         <form onSubmit={submit} className="space-y-3">
           {mode === "signup" && (
-            <Input label="Name" value={name} onChange={setName} placeholder="Alex Rivera" autoComplete="name" />
+            <Input label={a("name")} value={name} onChange={setName} placeholder={a("namePlaceholder")} autoComplete="name" />
           )}
-          <Input label="Email" value={email} onChange={setEmail} placeholder="you@company.com" type="email" autoComplete="email" />
-          <Input label="Password" value={password} onChange={setPassword} placeholder={mode === "signup" ? "At least 10 characters" : "••••••••"} type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} />
-          {mode === "login" && <div className="text-right"><Link href="/reset-password" className="text-xs text-ink-faint hover:text-signal">Forgot password?</Link></div>}
+          <Input label={a("email")} value={email} onChange={setEmail} placeholder={a("emailPlaceholder")} type="email" autoComplete="email" />
+          <Input label={a("password")} value={password} onChange={setPassword} placeholder={mode === "signup" ? a("passwordPlaceholderNew") : "••••••••"} type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} />
+          {mode === "login" && <div className="text-right"><Link href="/reset-password" className="text-xs text-ink-faint hover:text-signal">{a("forgotPassword")}</Link></div>}
 
           {error && <p role="alert" className="mono text-xs text-risk-high">{error}</p>}
 
           <button type="submit" disabled={busy} className="w-full rounded-lg bg-signal py-2.5 text-sm font-semibold text-base-950 transition hover:bg-signal-bright disabled:opacity-60">
-            {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+            {busy ? a("pleaseWait") : mode === "signup" ? a("createAccount") : a("signIn")}
           </button>
         </form>
       </div>
       <p className="mono mt-4 text-center text-[12px] text-ink-faint">
-        An external snapshot needs no account. Sign in to monitor targets and verify ownership.
+        {a("noAccountNeeded")}
       </p>
     </div>
   );

@@ -8,6 +8,7 @@
 import type { ScanResult } from "@/lib/types";
 import type { AssetSnapshot, DomainVerification, ScanRecord, ScanStore, Target } from "./model";
 import { prisma } from "@/lib/db/prisma";
+import { isUniqueViolation } from "@/lib/db/unique-violation";
 import { randomUUID } from "node:crypto";
 
 export class PrismaScanStore implements ScanStore {
@@ -20,12 +21,23 @@ export class PrismaScanStore implements ScanStore {
 
   async getOrCreateTarget(orgId: string, domain: string): Promise<Target> {
     const key = domain.toLowerCase();
-    const row = await prisma.target.upsert({
-      where: { orgId_domain: { orgId, domain: key } },
-      create: { orgId, domain: key },
-      update: {},
-    });
-    return { id: row.id, orgId: row.orgId, domain: row.domain, createdAt: row.createdAt.toISOString() };
+    // upsert is not atomic against a concurrent insert of the same key: two
+    // requests can both find no row, both try to create, and one loses on the
+    // unique index. That is not a conflict worth surfacing — the row the caller
+    // asked for now exists, so read it back and carry on. Scheduled scans for
+    // the same target start together often enough for this to matter.
+    try {
+      const row = await prisma.target.upsert({
+        where: { orgId_domain: { orgId, domain: key } },
+        create: { orgId, domain: key },
+        update: {},
+      });
+      return { id: row.id, orgId: row.orgId, domain: row.domain, createdAt: row.createdAt.toISOString() };
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      const row = await prisma.target.findUniqueOrThrow({ where: { orgId_domain: { orgId, domain: key } } });
+      return { id: row.id, orgId: row.orgId, domain: row.domain, createdAt: row.createdAt.toISOString() };
+    }
   }
 
   async latestSnapshots(targetId: string): Promise<AssetSnapshot[]> {
