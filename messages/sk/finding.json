@@ -1,0 +1,26 @@
+{
+  "shadowAssetTitle": "Možný tieňový / zabudnutý asset",
+  "shadowAssetObservation": "{label} je verejne dostupný a zdieľa registrovateľnú doménu organizácie.",
+  "shadowAssetConcern": "Nespravovaný alebo zabudnutý verejný asset nemusí mať súčasného vlastníka, aktualizácie ani monitorovanie.",
+  "shadowAssetRecommendation": "Overte vlastníctvo, obchodný účel, zodpovedný tím a či je asset ešte potrebný. Ak nie, vyraďte ho z prevádzky.",
+
+  "nonProdExposureTitle": "Možné neprodukčné prostredie je verejne dostupné",
+  "nonProdExposureObservation": "{label} je verejne dostupný.",
+  "nonProdExposureConcern": "Neprodukčné prostredia mávajú slabšie kontroly, testovacie údaje alebo ladiace rozhrania a nemusia byť určené na verejnú expozíciu.",
+  "nonProdExposureRecommendation": "Overte, či má byť toto prostredie prístupné z internetu. Ak nie, obmedzte prístup (zoznam povolených IP, VPN alebo autentifikácia) alebo ho odstráňte.",
+
+  "authSurfaceTitle": "Verejné prihlasovacie alebo administračné rozhranie",
+  "authSurfaceObservation": "{label} má pomenovanie zodpovedajúce prihlasovaciemu, vzdialenému alebo administračnému rozhraniu.",
+  "authSurfaceConcern": "Verejné prihlasovacie rozhrania sú prirodzeným cieľom útokov na prihlasovacie údaje a mali by byť čo najmenšie a spevnené.",
+  "authSurfaceRecommendation": "Overte, či má byť rozhranie verejné. Zabezpečte viacfaktorové overenie, limitovanie požiadaviek a monitorovanie; zvážte obmedzenie na známe siete.",
+
+  "newAssetTitle": "Zistený nový vonkajší asset",
+  "newAssetObservation": "{label} bol prvýkrát pozorovaný v poslednom skenovacom okne.",
+  "newAssetConcern": "Nové verejné assety menia vonkajší povrch a nemusia byť ešte zaevidované ani skontrolované zodpovedným tímom.",
+  "newAssetRecommendation": "Overte, že tento asset bol zverejnený zámerne a patrí známemu tímu.",
+
+  "mailSecurityTitle": "Konfigurácia zabezpečenia pošty si vyžaduje kontrolu",
+  "mailSecurityObservation": "Pre poštovú doménu organizácie nebol pozorovaný žiadny SPF záznam.",
+  "mailSecurityConcern": "Chýbajúce SPF/DMARC uľahčuje podvrhnutie domény vo phishingových kampaniach mierených na zamestnancov, zákazníkov alebo partnerov.",
+  "mailSecurityRecommendation": "Zverejnite SPF, DKIM a politiku DMARC; pred prechodom na vynucovanie sledujte súhrnné DMARC správy."
+}

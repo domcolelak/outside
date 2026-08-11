@@ -8,6 +8,7 @@ import { Document, Page, View, Text, Svg, Circle, StyleSheet } from "@react-pdf/
 import type { ScanResult } from "@/lib/types";
 import { buildExecutiveSummary } from "@/lib/report/summary";
 import { reportFontFamily, reportLocale } from "@/lib/report/fonts";
+import { findingText } from "@/lib/report/finding-text";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { getTranslator, type MessageKey } from "@/lib/i18n/messages";
 
@@ -155,17 +156,21 @@ export function ReportDocument({ result, locale = DEFAULT_LOCALE }: { result: Sc
           )}
 
           <Text style={s.h2} break={topFindings.length > 3}>{r("headingFindings", { count: result.findings.length })}</Text>
-          {topFindings.map((f) => (
+          {topFindings.map((f) => {
+            // Translated where the finding carries a key; its own recorded
+            // English otherwise, so nothing ever renders as a bare key.
+            const text = findingText(f, t.locale);
+            return (
             <View key={f.id} style={s.finding} wrap={false}>
               <View style={s.findingHead}>
-                <Text style={s.findingTitle}>{f.title}</Text>
+                <Text style={s.findingTitle}>{text.title}</Text>
                 <Text style={{ ...s.tag, color: PRIORITY_COLOR[f.priority] }}>
                   {f.priority} · {Math.round(f.confidence * 100)}%
                 </Text>
               </View>
               <Text style={{ fontSize: 9, color: INK }}>{f.assetId && assets.find((a) => a.id === f.assetId)?.label}</Text>
               <Text style={s.label7}>{r("labelObserved")}</Text>
-              <Text style={s.fieldText}>{f.observation}</Text>
+              <Text style={s.fieldText}>{text.observation}</Text>
               {f.inference && (
                 <>
                   <Text style={s.label7}>{r("labelInferred")}</Text>
@@ -173,11 +178,11 @@ export function ReportDocument({ result, locale = DEFAULT_LOCALE }: { result: Sc
                 </>
               )}
               <Text style={s.label7}>{r("labelConcern")}</Text>
-              <Text style={s.fieldText}>{f.concern}</Text>
+              <Text style={s.fieldText}>{text.concern}</Text>
               <Text style={s.label7}>{r("labelRecommendation")}</Text>
-              <Text style={s.fieldText}>{f.recommendation}</Text>
+              <Text style={s.fieldText}>{text.recommendation}</Text>
             </View>
-          ))}
+          );})}
 
           <Text style={s.h2} break>{r("headingInventory")}</Text>
           {assets.map((a) => (

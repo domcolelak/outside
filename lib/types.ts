@@ -120,6 +120,21 @@ export interface Edge {
   evidence: Evidence[];
 }
 
+/**
+ * Stable identifier for a finding's wording, translated at render time.
+ *
+ * Findings are generated from evidence and then persisted and replayed, so the
+ * English prose stays on the record and this key sits beside it. A finding
+ * written before localization — or by a generator not yet keyed — still renders
+ * its original English rather than a bare key.
+ */
+export type FindingTextKey =
+  | "shadowAsset"
+  | "nonProdExposure"
+  | "authSurface"
+  | "newAsset"
+  | "mailSecurity";
+
 export interface Finding {
   id: string;
   title: string;
@@ -132,6 +147,10 @@ export interface Finding {
   concern: string; // possible risk
   reasoning: string;
   recommendation: string;
+  /** Key for title/observation/concern/recommendation. Absent = English only. */
+  textKey?: FindingTextKey;
+  /** Evidence values the sentences interpolate — hostnames, never translated. */
+  textValues?: Record<string, string | number>;
   evidence: Evidence[];
   discoveryMethod: DiscoveryMethod;
   createdAt: string;

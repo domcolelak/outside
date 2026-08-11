@@ -1,0 +1,26 @@
+{
+  "shadowAssetTitle": "Możliwy zasób w cieniu / zapomniany",
+  "shadowAssetObservation": "{label} jest publicznie dostępny i współdzieli rejestrowalną domenę organizacji.",
+  "shadowAssetConcern": "Niezarządzany lub zapomniany zasób publiczny może nie mieć bieżącego właściciela, aktualizacji ani monitorowania.",
+  "shadowAssetRecommendation": "Zweryfikuj własność, cel biznesowy, odpowiedzialny zespół oraz czy zasób jest nadal potrzebny. Jeśli nie, wycofaj go z użycia.",
+
+  "nonProdExposureTitle": "Możliwe środowisko nieprodukcyjne jest publicznie dostępne",
+  "nonProdExposureObservation": "{label} jest publicznie dostępny.",
+  "nonProdExposureConcern": "Środowiska nieprodukcyjne często mają słabsze zabezpieczenia, dane testowe lub interfejsy diagnostyczne i mogą nie być przeznaczone do publicznej ekspozycji.",
+  "nonProdExposureRecommendation": "Sprawdź, czy to środowisko ma być dostępne z internetu. Jeśli nie, ogranicz dostęp (lista dozwolonych IP, VPN lub uwierzytelnianie) albo je usuń.",
+
+  "authSurfaceTitle": "Publiczny interfejs logowania lub administracji",
+  "authSurfaceObservation": "{label} ma nazewnictwo odpowiadające interfejsowi logowania, dostępu zdalnego lub administracji.",
+  "authSurfaceConcern": "Publiczne interfejsy logowania są naturalnym celem ataków na dane uwierzytelniające i powinny być ograniczone oraz wzmocnione.",
+  "authSurfaceRecommendation": "Sprawdź, czy interfejs ma być publiczny. Zapewnij uwierzytelnianie wieloskładnikowe, ograniczanie liczby żądań i monitorowanie; rozważ ograniczenie do znanych sieci.",
+
+  "newAssetTitle": "Wykryto nowy zasób zewnętrzny",
+  "newAssetObservation": "{label} został po raz pierwszy zaobserwowany w ostatnim oknie skanowania.",
+  "newAssetConcern": "Nowe zasoby publiczne zmieniają powierzchnię zewnętrzną i mogą nie być jeszcze zinwentaryzowane ani sprawdzone przez odpowiedzialny zespół.",
+  "newAssetRecommendation": "Potwierdź, że ten zasób został opublikowany celowo i należy do znanego zespołu.",
+
+  "mailSecurityTitle": "Konfiguracja bezpieczeństwa poczty wymaga przeglądu",
+  "mailSecurityObservation": "Dla domeny pocztowej organizacji nie zaobserwowano żadnego rekordu SPF.",
+  "mailSecurityConcern": "Brak SPF/DMARC ułatwia podszywanie się pod domenę w kampaniach phishingowych wymierzonych w pracowników, klientów lub partnerów.",
+  "mailSecurityRecommendation": "Opublikuj SPF, DKIM i politykę DMARC; przed przejściem do wymuszania monitoruj zbiorcze raporty DMARC."
+}

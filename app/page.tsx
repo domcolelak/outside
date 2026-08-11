@@ -5,8 +5,10 @@ import { Wordmark } from "@/components/Wordmark";
 import { LandingDemo } from "@/components/experience/LandingDemo";
 import { NavAuthLink } from "@/components/NavAuthLink";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { SupportExperience } from "@/components/support/SupportExperience";
 import { currentLocale } from "@/lib/i18n/server";
 import { getTranslator } from "@/lib/i18n/messages";
+import { faqEntries, supportCopy } from "@/lib/support/knowledge";
 
 export default async function Landing() {
   // Copy comes from reviewed catalogs, never from a translation call at request
@@ -14,6 +16,7 @@ export default async function Landing() {
   const { locale } = await currentLocale();
   const t = getTranslator(locale);
   const m = (key: Parameters<typeof t.t<"landing">>[1]) => t.t("landing", key);
+  const support = supportCopy(locale);
 
   return (
     <div className="relative">
@@ -30,6 +33,7 @@ export default async function Landing() {
             <a href="#guardian" className="hover:text-ink">{m("navGuardian")}</a>
             <a href="#security" className="hover:text-ink">{m("navResponsible")}</a>
             <a href="#pricing" className="hover:text-ink">{m("navPricing")}</a>
+            <a href="#faq" className="hover:text-ink">{support.navFaq}</a>
           </nav>
           {/* The controls wrap among themselves too: Hungarian needs more width
               for these three than a 390px screen has. */}
@@ -187,6 +191,8 @@ export default async function Landing() {
         </div>
       </section>
 
+      <SupportExperience locale={locale} entries={faqEntries(locale)} copy={support} />
+
       {/* Final CTA */}
       <section className="mx-auto max-w-6xl px-6 py-24 text-center">
         <h2 className="text-4xl font-semibold tracking-tight text-ink">{m("ctaTitle")}</h2>
@@ -205,6 +211,7 @@ export default async function Landing() {
               <a href="#how" className="hover:text-ink">{m("navHow")}</a>
               <a href="#features" className="hover:text-ink">{m("navFeatures")}</a>
               <a href="#pricing" className="hover:text-ink">{m("navPricing")}</a>
+              <a href="#faq" className="hover:text-ink">{support.navFaq}</a>
               <a href="#security" className="hover:text-ink">{m("navResponsible")}</a>
               <Link href="/login" className="hover:text-ink">{m("navSignIn")}</Link>
             </nav>

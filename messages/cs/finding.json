@@ -1,0 +1,26 @@
+{
+  "shadowAssetTitle": "Možný stínový / zapomenutý asset",
+  "shadowAssetObservation": "{label} je veřejně dostupný a sdílí registrovatelnou doménu organizace.",
+  "shadowAssetConcern": "Nespravovaný nebo zapomenutý veřejný asset nemusí mít současného vlastníka, aktualizace ani monitorování.",
+  "shadowAssetRecommendation": "Ověřte vlastnictví, obchodní účel, odpovědný tým a zda je asset ještě potřeba. Pokud ne, vyřaďte jej z provozu.",
+
+  "nonProdExposureTitle": "Možné neprodukční prostředí je veřejně dostupné",
+  "nonProdExposureObservation": "{label} je veřejně dostupný.",
+  "nonProdExposureConcern": "Neprodukční prostředí mívají slabší kontroly, testovací data nebo ladicí rozhraní a nemusí být určena k veřejné expozici.",
+  "nonProdExposureRecommendation": "Ověřte, zda má být toto prostředí přístupné z internetu. Pokud ne, omezte přístup (seznam povolených IP, VPN nebo autentizace) nebo jej odstraňte.",
+
+  "authSurfaceTitle": "Veřejné přihlašovací nebo administrační rozhraní",
+  "authSurfaceObservation": "{label} má pojmenování odpovídající přihlašovacímu, vzdálenému nebo administračnímu rozhraní.",
+  "authSurfaceConcern": "Veřejná přihlašovací rozhraní jsou přirozeným cílem útoků na přihlašovací údaje a měla by být co nejmenší a zpevněná.",
+  "authSurfaceRecommendation": "Ověřte, zda má být rozhraní veřejné. Zajistěte vícefaktorové ověření, omezení počtu požadavků a monitorování; zvažte omezení na známé sítě.",
+
+  "newAssetTitle": "Zjištěn nový vnější asset",
+  "newAssetObservation": "{label} byl poprvé pozorován v posledním skenovacím okně.",
+  "newAssetConcern": "Nové veřejné assety mění vnější povrch a nemusí být ještě zaevidovány ani zkontrolovány odpovědným týmem.",
+  "newAssetRecommendation": "Ověřte, že tento asset byl zveřejněn záměrně a patří známému týmu.",
+
+  "mailSecurityTitle": "Konfigurace zabezpečení pošty vyžaduje kontrolu",
+  "mailSecurityObservation": "Pro poštovní doménu organizace nebyl pozorován žádný SPF záznam.",
+  "mailSecurityConcern": "Chybějící SPF/DMARC usnadňuje podvržení domény ve phishingových kampaních mířených na zaměstnance, zákazníky nebo partnery.",
+  "mailSecurityRecommendation": "Zveřejněte SPF, DKIM a politiku DMARC; před přechodem na vynucování sledujte souhrnné DMARC zprávy."
+}

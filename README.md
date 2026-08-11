@@ -109,6 +109,55 @@ Production operators should also read the [current readiness evidence](docs/PROD
 
 This is defensive discovery software. It intentionally contains no exploitation, credential attack, brute-force, or payload capability.
 
+## Languages
+
+OUTSIDE is available in English, Slovak, Czech, Hungarian and Polish. Czech is
+stored as `cs`; the selector displays "CZ" because that is what the region
+recognises, but a country code never reaches storage or a URL.
+
+- The effective language is resolved server-side, in one place: an explicit
+  change, then the person's stored preference, then their organization's
+  default, then a signed cookie, then `Accept-Language`, then English. A default
+  supplies a starting language and never overrides someone who has chosen.
+- Product copy, security terminology, e-mail, and report narrative come from
+  reviewed catalogs under `messages/`. Nothing is translated by a model at
+  request time — the words a customer acts on are identical on every request.
+- E-mail is written in the recipient's language and fixed when the message is
+  enqueued, so a later language change does not rewrite an alert already sent.
+- Reports are written in the requester's language, including the executive
+  summary. `lib/report/fonts.ts` verifies that the bundled font can actually
+  spell the requested language and falls back to English if it cannot, because
+  a report with missing characters reads as corruption rather than as a missing
+  translation.
+- Findings, change events and server errors carry stable keys alongside their
+  English text. The key is translated; the text remains for records written
+  before a generator was keyed, so nothing ever renders as a bare key.
+- `npm run check:messages` holds every locale to the English key space,
+  including plural categories and interpolation variables, and runs in CI.
+  `node scripts/translations.mjs report` lists what still needs human review;
+  when the English source changes, a reviewed translation is marked stale rather
+  than overwritten or silently kept.
+
+## Support assistant and FAQ
+
+The public FAQ and its assistant answer product questions in all five languages
+from reviewed content.
+
+- Answers are never written by a model. A question is first matched against the
+  FAQ deterministically; only if that is inconclusive is a model asked, and it
+  acts strictly as a classifier that returns one FAQ id from an allowed list.
+  The reply text is always read from the reviewed catalog for the effective
+  language.
+- That containment is the security property: text injected into a question can
+  at worst route to the wrong FAQ entry. It cannot change the reply language,
+  reveal instructions, or produce arbitrary prose. A model reply that is not a
+  known id is discarded and the reviewed fallback is served.
+- The endpoint is rate limited per client and globally, caps the request body
+  and the question length, and validates the requested language against the
+  supported set. The visitor's question is never logged.
+- If the model gateway is unavailable, over budget, or unconfigured, the FAQ
+  continues to answer on its own.
+
 ## Agency Suite
 
 Agency Suite is the Agency-plan control plane for MSPs, MSSPs, consultants, and resellers. It layers an explicitly authorized portfolio relationship over existing organizations; it does not weaken organization tenancy or copy Guardian evidence into a second source of truth.
