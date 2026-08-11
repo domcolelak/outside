@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { asLocale } from "@/lib/i18n/locales";
+import { localeFromRequest } from "@/lib/i18n/resolve";
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { answerSupportQuestion } from "@/lib/support/assistant";
@@ -47,7 +47,11 @@ export async function POST(req: NextRequest) {
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const question =
     typeof body.question === "string" ? body.question.trim() : "";
-  const locale = asLocale(body.locale) ?? "en";
+  // A body value is honoured only after validation; when it is absent or
+  // unsupported the server resolves the visitor's language from the request
+  // itself. Defaulting to English here would let the assistant answer in
+  // English in the middle of a Slovak page.
+  const locale = localeFromRequest(req, typeof body.locale === "string" ? body.locale : null);
   if (question.length < 2)
     return json({ error: "Enter a question.", code: "empty_question" }, 422);
   if (question.length > 500)

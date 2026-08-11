@@ -33,6 +33,32 @@ describe("public support route", () => {
     });
   });
 
+  it("resolves the visitor's language when the body does not state one", async () => {
+    // A client that forgets the field must not drop the visitor into English in
+    // the middle of a page rendered in their own language. The server resolves
+    // it the same way every other surface does.
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    const request = new NextRequest("https://outside.test/api/support", {
+      method: "POST",
+      headers: { "content-type": "application/json", "accept-language": "sk-SK,sk;q=0.9" },
+      body: JSON.stringify({ question: "Ako funguje overenie domény?" }),
+    });
+
+    const body = await (await POST(request)).json();
+    expect(body.matchedId).toBe("verification");
+    // Slovak copy, not the English entry with the same id.
+    expect(body.answer).toMatch(/[áäčďéíĺľňóôŕšťúýž]/i);
+  });
+
+  it("ignores an unsupported language rather than failing the request", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    const response = await POST(request({ locale: "../../etc/passwd", question: "How does domain verification work?" }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ matchedId: "verification" });
+  });
+
   it("rejects malformed and oversized questions", async () => {
     const malformed = await POST(request("{not-json"));
     expect(malformed.status).toBe(400);

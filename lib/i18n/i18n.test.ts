@@ -4,7 +4,7 @@ vi.stubEnv("AUTH_SECRET", "i18n-test-auth-secret-at-least-thirty-two-bytes");
 
 import { asLocale, localeFromAcceptLanguage, LOCALES } from "./locales";
 import { signLocaleCookie, readLocaleCookie } from "./cookie";
-import { resolveLocale } from "./resolve";
+import { localeFromRequest, resolveLocale } from "./resolve";
 import { getTranslator } from "./messages";
 import enCommon from "@/messages/en/common.json";
 import enNavigation from "@/messages/en/navigation.json";
@@ -97,6 +97,31 @@ describe("resolution order", () => {
   it("ignores unsupported values at every step instead of failing", () => {
     expect(resolveLocale({ explicit: "de", userPreference: "fr", organizationDefault: "es", acceptLanguage: "sk" }))
       .toEqual({ locale: "sk", source: "header" });
+  });
+});
+
+describe("a public request's language", () => {
+  const headers = (values: Record<string, string>) => ({ get: (name: string) => values[name.toLowerCase()] ?? null });
+
+  it("honours a validated explicit value above everything", () => {
+    expect(localeFromRequest({ headers: headers({ "accept-language": "pl" }) }, "hu")).toBe("hu");
+  });
+
+  it("falls through an unsupported explicit value instead of failing", () => {
+    // A client sending nonsense must not drop the visitor into English when the
+    // request itself says which language they are reading.
+    expect(localeFromRequest({ headers: headers({ "accept-language": "sk-SK" }) }, "../../etc/passwd")).toBe("sk");
+    expect(localeFromRequest({ headers: headers({ "accept-language": "sk-SK" }) }, "de")).toBe("sk");
+  });
+
+  it("reads a signed cookie and ignores a forged one", () => {
+    const signed = signLocaleCookie("cs");
+    expect(localeFromRequest({ headers: headers({ cookie: `other=1; outside_locale=${signed}` }) })).toBe("cs");
+    expect(localeFromRequest({ headers: headers({ cookie: "outside_locale=cs", "accept-language": "pl" }) })).toBe("pl");
+  });
+
+  it("answers English when the request says nothing", () => {
+    expect(localeFromRequest({ headers: headers({}) })).toBe("en");
   });
 });
 
