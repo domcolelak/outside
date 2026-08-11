@@ -106,6 +106,28 @@ test.describe("public experience in five languages", () => {
     await expect(alert).toHaveText("Nesprávny e-mail alebo heslo.");
   });
 
+  test("the signed-in workspace is written in the chosen language", async ({ page }) => {
+    // The screen every signed-in person lands on. Asserted against a real
+    // session, because most of its copy lives in client components that only
+    // render once the page is actually interactive.
+    const email = `locale-workspace-${Date.now()}@example.invalid`;
+    await page.goto("/login");
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    const signup = await page.request.post("/api/auth/signup", {
+      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
+    });
+    expect(signup.ok()).toBe(true);
+
+    await page.goto("/account");
+    await expect(page.locator("html")).toHaveAttribute("lang", "sk");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Vitajte");
+
+    const body = await page.locator("body").innerText();
+    for (const english of ["Monitored targets", "Change alerts", "Sign out", "Organizations"]) {
+      expect(body, `"${english}" is still English`).not.toContain(english);
+    }
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);
