@@ -17,7 +17,7 @@
  */
 
 import { asLocale, localeFromAcceptLanguage, DEFAULT_LOCALE, type Locale } from "./locales";
-import { readLocaleCookie } from "./cookie";
+import { readLocaleCookie, LOCALE_COOKIE } from "./cookie";
 
 export interface LocaleSources {
   /** An explicit switch on this request, e.g. ?lang= or a just-set header. */
@@ -54,4 +54,31 @@ export function resolveLocale(sources: LocaleSources): ResolvedLocale {
   if (header) return { locale: header, source: "header" };
 
   return { locale: DEFAULT_LOCALE, source: "default" };
+}
+
+/**
+ * The language for a public request, read straight off the request.
+ *
+ * Public endpoints have no session to consult and should not pay for a lookup
+ * to discover that — an anonymous visitor has no stored preference by
+ * definition. This uses the two sources that actually exist for them: the
+ * signed cookie and Accept-Language.
+ *
+ * It also works outside a request scope, so a route handler can be tested by
+ * calling it directly rather than only through a running server.
+ */
+export function localeFromRequest(
+  request: { headers: { get(name: string): string | null } },
+  explicit?: string | null,
+): Locale {
+  return resolveLocale({
+    explicit,
+    cookieValue: request.headers
+      .get("cookie")
+      ?.split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${LOCALE_COOKIE}=`))
+      ?.slice(LOCALE_COOKIE.length + 1) ?? null,
+    acceptLanguage: request.headers.get("accept-language"),
+  }).locale;
 }
