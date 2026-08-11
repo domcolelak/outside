@@ -1,0 +1,26 @@
+{
+  "shadowAssetTitle": "Lehetséges árnyék- vagy elfeledett eszköz",
+  "shadowAssetObservation": "A(z) {label} nyilvánosan elérhető, és a szervezet bejegyezhető domainjén osztozik.",
+  "shadowAssetConcern": "Egy nem kezelt vagy elfeledett nyilvános eszköznek hiányozhat a jelenlegi gazdája, a frissítése vagy a felügyelete.",
+  "shadowAssetRecommendation": "Tisztázza a tulajdonlást, az üzleti célt, a felelős csapatot, és azt, hogy az eszközre szükség van-e még. Ha nincs, vonja ki a használatból.",
+
+  "nonProdExposureTitle": "Lehetséges nem éles környezet nyilvánosan elérhető",
+  "nonProdExposureObservation": "A(z) {label} nyilvánosan elérhető.",
+  "nonProdExposureConcern": "A nem éles környezetek gyakran gyengébb védelemmel, teszt adatokkal vagy hibakeresési felületekkel működnek, és nem feltétlenül nyilvános használatra szánták őket.",
+  "nonProdExposureRecommendation": "Ellenőrizze, hogy ennek a környezetnek elérhetőnek kell-e lennie az internet felől. Ha nem, korlátozza a hozzáférést (IP-engedélyezőlista, VPN vagy hitelesítés), vagy szüntesse meg.",
+
+  "authSurfaceTitle": "Nyilvános bejelentkezési vagy adminisztrációs felület",
+  "authSurfaceObservation": "A(z) {label} elnevezése bejelentkezési, távoli elérési vagy adminisztrációs felületre utal.",
+  "authSurfaceConcern": "A nyilvános bejelentkezési felületek természetes célpontjai a hitelesítőadat-alapú támadásoknak, ezért a lehető legkisebbre kell szorítani és meg kell erősíteni őket.",
+  "authSurfaceRecommendation": "Ellenőrizze, hogy a felületnek nyilvánosnak kell-e lennie. Gondoskodjon többtényezős hitelesítésről, kérésszám-korlátozásról és felügyeletről; fontolja meg az ismert hálózatokra korlátozást.",
+
+  "newAssetTitle": "Új külső eszközt észleltünk",
+  "newAssetObservation": "A(z) {label} először a legutóbbi vizsgálati időszakban jelent meg.",
+  "newAssetConcern": "Az új nyilvános eszközök megváltoztatják a külső felületet, és lehet, hogy a felelős csapat még nem vette leltárba vagy nem nézte át őket.",
+  "newAssetRecommendation": "Erősítse meg, hogy ezt az eszközt szándékosan tették közzé, és ismert csapathoz tartozik.",
+
+  "mailSecurityTitle": "A levelezés biztonsági beállítása átnézést igényel",
+  "mailSecurityObservation": "A szervezet levelezési domainjéhez nem találtunk SPF-rekordot.",
+  "mailSecurityConcern": "SPF/DMARC hiányában a domaint könnyebb meghamisítani a munkatársak, ügyfelek vagy partnerek ellen irányuló adathalász kampányokban.",
+  "mailSecurityRecommendation": "Tegyen közzé SPF-, DKIM- és DMARC-szabályt; a kikényszerítésre való áttérés előtt kövesse a DMARC összesítő jelentéseket."
+}

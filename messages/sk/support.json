@@ -1,0 +1,59 @@
+{
+  "navFaq": "FAQ",
+  "faqKicker": "Otázky a odpovede",
+  "faqTitle": "Čo sa tímy pýtajú pred prvým skenom.",
+  "faqIntro": "Jasné odpovede o tom, čo OUTSIDE pozoruje, kedy je potrebné overenie, ako fungujú integrácie a čo sa zmení po zapnutí monitorovania.",
+  "assistantOpen": "Opýtať sa OUTSIDE",
+  "assistantClose": "Zavrieť",
+  "assistantTitle": "OUTSIDE asistent",
+  "assistantSubtitle": "Odpovede o produkte z kontrolovanej dokumentácie",
+  "assistantGreeting": "Ahoj. Opýtajte sa ma na skeny, Guardian, integrácie, AI, ceny alebo spracovanie údajov.",
+  "assistantDisclosure": "Odpovede sa vyberajú z kontrolovaného FAQ OUTSIDE. Asistent nevidí do vašich systémov ani účtu.",
+  "assistantQuestionLabel": "Vaša otázka",
+  "assistantPlaceholder": "Opýtajte sa na OUTSIDE…",
+  "assistantSend": "Odoslať",
+  "assistantSending": "Hľadám…",
+  "assistantQuickLabel": "Časté otázky",
+  "assistantError": "Asistent je dočasne nedostupný. FAQ nižšie môžete naďalej používať.",
+  "assistantRateLimited": "Za krátky čas ste poslali viacero otázok. Chvíľu počkajte a skúste to znova.",
+  "assistantFallback": "K tejto otázke som nenašiel dostatočne istú odpoveď. Vyberte si súvisiacu tému nižšie alebo použite celé FAQ na tejto stránke.",
+  "assistantMatchedLabel": "OUTSIDE asistent",
+  "assistantUserLabel": "Vy",
+  "assistantSuggestionsLabel": "Súvisiace otázky",
+
+  "faqOverviewQuestion": "Čo presne OUTSIDE robí?",
+  "faqOverviewAnswer": "OUTSIDE začne firemnou doménou a zmapuje externý digitálny povrch viditeľný z internetu. Oddeľuje pozorované dôkazy od záverov a možných rizík, zobrazuje vzťahy medzi aktívami a vysvetľuje, čo si treba preveriť. Je to produkt na externú viditeľnosť a monitorovanie, nie penetračný test.",
+  "faqOverviewKeywords": "outside produkt účel externý povrch útočný povrch objavovanie mapa aktíva zistenia skóre viditeľnosť",
+
+  "faqSafetyQuestion": "Je skenovanie bezpečné a môžem skenovať ľubovoľnú doménu?",
+  "faqSafetyAnswer": "Verejný prehľad štandardne používa pasívne a verejne dostupné zdroje. Aktívne kontroly, nepretržité monitorovanie a nápravy vyžadujú prihlásený účet a overené vlastníctvo cieľa. Skenujte iba domény, ktoré vlastníte alebo máte povolenie posudzovať. Vlastníci domén môžu použiť aj zverejnený mechanizmus odhlásenia.",
+  "faqSafetyKeywords": "bezpečné bezpečnosť legálne povolenie oprávnenie pasívny aktívny sken doména odhlásenie zneužitie vlastníctvo",
+
+  "faqSourcesQuestion": "Aké zdroje údajov OUTSIDE používa?",
+  "faqSourcesAnswer": "Základné objavovanie používa verejné záznamy transparentnosti certifikátov, DNS, HTTP a TLS pozorovania. Voliteľné integrácie s vlastnými účtami organizácie môžu doplniť pasívne DNS, údaje o únikoch, reputáciu, vystavené služby, cloudové vlastníctvo a ďalší kontext. Zlyhanie poskytovateľa sa zobrazí ako neúplné pokrytie, nikdy ako úspešná kontrola.",
+  "faqSourcesKeywords": "zdroje údaje certifikáty transparentnosť dns http tls poskytovatelia pokrytie pasívne inteligencia objavovanie",
+
+  "faqVerificationQuestion": "Prečo musím overiť doménu?",
+  "faqVerificationAnswer": "Overenie dokazuje, že vaša organizácia ovláda cieľ, skôr než OUTSIDE vykoná aktívne pozorovania alebo začne ukladať priebežnú históriu. Doménu overíte DNS TXT záznamom alebo podporovaným súborom na webe. Overenie neodovzdáva kontrolu nad DNS a po potvrdení ho môžete odstrániť.",
+  "faqVerificationKeywords": "overiť overenie vlastníctvo doména dns txt súbor aktívna kontrola dokázať ovládanie token",
+
+  "faqGuardianQuestion": "Čo je OUTSIDE Guardian?",
+  "faqGuardianAnswer": "Guardian porovnáva plánované skeny v čase. Zvýrazňuje zmeny externého povrchu, udržiava živý kontrolný zoznam, vytvára odporúčania podložené dôkazmi, smeruje zoskupené upozornenia a pripravuje manažérsky súhrn. Informuje, čo sa zmenilo a prečo je to dôležité, bez tvrdenia, že systém bol zneužitý.",
+  "faqGuardianKeywords": "guardian monitorovanie plánované nepretržité zmeny drift upozornenie checklist odporúčanie súhrn história",
+
+  "faqIntegrationsQuestion": "Môžem pripojiť vlastné účty poskytovateľov a cloudu?",
+  "faqIntegrationsAnswer": "Áno. OUTSIDE podporuje prihlasovacie údaje vo vlastníctve organizácie pre spravodajské a cloudové zdroje v jednom vedenom procese. Údaje sa otestujú, zašifrujú, oddelia podľa organizácie a použijú iba pre zvolenú organizáciu. Zápisové akcie, napríklad Cloudflare DMARC náprava, sú výslovné, vopred zobrazené, auditované a tam, kde je to podporované, vratné.",
+  "faqIntegrationsKeywords": "integrácia pripojiť api kľúč byok vlastný kľúč cloud poskytovateľ cloudflare shodan virustotal censys openai aws azure google github prihlasovacie údaje",
+
+  "faqAiQuestion": "Rozhoduje AI o tom, čo je bezpečnostné zistenie?",
+  "faqAiAnswer": "Nie. Objavovanie, zistenia, skóre a dôkazy sú deterministické. Voliteľná AI môže existujúci výsledok vysvetliť jednoduchším jazykom, ale nemôže pridávať aktíva, zistenia ani skóre. Tajomstvá a vzory osobných údajov sa pred volaním modelu odstránia a deterministické vysvetlenie funguje aj bez AI.",
+  "faqAiKeywords": "ai umelá inteligencia openai model vysvetlenie halucinácia zistenie skóre deterministické súkromie redakcia",
+
+  "faqPricingQuestion": "Koľko OUTSIDE stojí?",
+  "faqPricingAnswer": "Jednorazový Snapshot je bezplatný. Professional stojí 79 USD mesačne a obsahuje Guardian až pre päť monitorovaných domén. Agency stojí 249 USD mesačne pre najviac tridsať klientskych domén a pridáva tímy, white-label, workflow a API. Aktuálnym zdrojom cien je cenník na tejto stránke.",
+  "faqPricingKeywords": "cena cenník náklady bezplatne snapshot professional agency mesačne plán skúška domény 79 249",
+
+  "faqDataQuestion": "Ako OUTSIDE spracúva moje údaje a prihlasovacie údaje?",
+  "faqDataAnswer": "Zákaznícke záznamy sú oddelené podľa organizácie, prihlasovacie údaje poskytovateľov sú šifrované a produkcia používa trvalé databázové úložisko s ohraničenou retenciou. Verejné ukážky používajú syntetické údaje. OUTSIDE minimalizuje vstupy pre modely, nepoužíva tenantov ani domény ako metrické štítky a má zdokumentovaný export, odvolanie prístupov, retenciu a ukončenie služby.",
+  "faqDataKeywords": "údaje súkromie prihlasovacie údaje šifrovanie retencia vymazanie export úložisko tenant syntetické telemetria bezpečnosť tajomstvá"
+}

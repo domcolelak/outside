@@ -1,0 +1,26 @@
+{
+  "shadowAssetTitle": "Possible shadow / forgotten asset",
+  "shadowAssetObservation": "{label} is publicly reachable and shares the organization's registrable domain.",
+  "shadowAssetConcern": "An unmanaged or forgotten public asset may lack current ownership, patching, or monitoring.",
+  "shadowAssetRecommendation": "Confirm ownership, business purpose, responsible team, and whether the asset is still required. Decommission if not.",
+
+  "nonProdExposureTitle": "Possible non-production environment publicly reachable",
+  "nonProdExposureObservation": "{label} is publicly reachable.",
+  "nonProdExposureConcern": "Non-production environments often carry weaker controls, test data, or debug surfaces and may not be intended for public exposure.",
+  "nonProdExposureRecommendation": "Verify this environment should be internet-facing. If not, restrict access (IP allowlist, VPN, or authentication) or remove it.",
+
+  "authSurfaceTitle": "Public authentication or administration surface",
+  "authSurfaceObservation": "{label} exposes a naming pattern consistent with a login, remote-access, or admin surface.",
+  "authSurfaceConcern": "Public authentication surfaces are a natural target for credential-based attacks and should be minimized and hardened.",
+  "authSurfaceRecommendation": "Confirm the surface is intended to be public. Ensure MFA, rate limiting, and monitoring are in place; consider restricting to known networks.",
+
+  "newAssetTitle": "New external asset detected",
+  "newAssetObservation": "{label} was first observed in the most recent scan window.",
+  "newAssetConcern": "New public assets change the external surface and may not yet be inventoried or reviewed by the responsible team.",
+  "newAssetRecommendation": "Confirm this asset was intentionally published and is owned by a known team.",
+
+  "mailSecurityTitle": "Mail security configuration requires review",
+  "mailSecurityObservation": "No SPF record was observed for the organization's mail domain.",
+  "mailSecurityConcern": "Absent SPF/DMARC makes the domain easier to spoof in phishing campaigns targeting staff, customers, or partners.",
+  "mailSecurityRecommendation": "Publish SPF, DKIM, and a DMARC policy; monitor DMARC aggregate reports before moving to enforcement."
+}
