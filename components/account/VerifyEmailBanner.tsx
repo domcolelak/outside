@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslator } from "@/lib/i18n/context";
 
 type Notice = "complete" | "invalid" | undefined;
 
@@ -11,6 +12,8 @@ type Notice = "complete" | "invalid" | undefined;
  * makes that explicit and lets the user resend the link.
  */
 export function VerifyEmailBanner({ verified, email, notice }: { verified: boolean; email: string; notice?: Notice }) {
+  const tr = useTranslator();
+  const a = (key: Parameters<typeof tr.t<"account">>[1], values?: Record<string, string | number>) => tr.t("account", key, values);
   const [state, setState] = useState<"idle" | "sending" | "sent" | "limited" | "error">("idle");
 
   if (verified) {
@@ -35,10 +38,10 @@ export function VerifyEmailBanner({ verified, email, notice }: { verified: boole
 
   const message = {
     idle: null,
-    sending: "Sending…",
-    sent: "Sent — check your inbox (and spam).",
-    limited: "Too many requests. Try again in a little while.",
-    error: "Could not send right now. Please try again.",
+    sending: a("verifySending"),
+    sent: a("verifySentMessage"),
+    limited: a("verifyLimited"),
+    error: a("verifyError"),
   }[state];
 
   return (
@@ -47,11 +50,11 @@ export function VerifyEmailBanner({ verified, email, notice }: { verified: boole
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full border border-risk-medium text-[12px] text-risk-medium">!</span>
           <div>
-            <p className="text-sm font-medium text-ink">Verify your email to unlock scanning, monitoring, and reports</p>
+            <p className="text-sm font-medium text-ink">{a("verifyTitle")}</p>
             <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
               {notice === "invalid"
-                ? "That verification link was invalid or expired. Send a fresh one below."
-                : <>We sent a verification link to <span className="text-ink">{email}</span>. Verified-target scans, Guardian, invites, and Agency/Enterprise stay locked until you confirm it.</>}
+                ? a("verifyBodyInvalid")
+                : a("verifyBody", { email })}
             </p>
           </div>
         </div>
@@ -60,7 +63,7 @@ export function VerifyEmailBanner({ verified, email, notice }: { verified: boole
           disabled={state === "sending" || state === "sent"}
           className="mono flex-none rounded-lg border border-risk-medium/50 px-4 py-2 text-xs text-risk-medium transition hover:bg-risk-medium/10 disabled:opacity-60"
         >
-          {state === "sent" ? "Email sent" : state === "sending" ? "Sending…" : "Resend email"}
+          {state === "sent" ? a("verifySent") : state === "sending" ? a("verifySending") : a("verifyResend")}
         </button>
       </div>
       {message && state !== "idle" && (

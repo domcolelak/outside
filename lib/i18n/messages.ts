@@ -25,6 +25,7 @@ import enAuth from "@/messages/en/auth.json";
 import enEmail from "@/messages/en/email.json";
 import enReport from "@/messages/en/report.json";
 import enFinding from "@/messages/en/finding.json";
+import enAccount from "@/messages/en/account.json";
 import enSupport from "@/messages/en/support.json";
 import skCommon from "@/messages/sk/common.json";
 import skNavigation from "@/messages/sk/navigation.json";
@@ -33,6 +34,7 @@ import skAuth from "@/messages/sk/auth.json";
 import skEmail from "@/messages/sk/email.json";
 import skReport from "@/messages/sk/report.json";
 import skFinding from "@/messages/sk/finding.json";
+import skAccount from "@/messages/sk/account.json";
 import skSupport from "@/messages/sk/support.json";
 import csCommon from "@/messages/cs/common.json";
 import csNavigation from "@/messages/cs/navigation.json";
@@ -41,6 +43,7 @@ import csAuth from "@/messages/cs/auth.json";
 import csEmail from "@/messages/cs/email.json";
 import csReport from "@/messages/cs/report.json";
 import csFinding from "@/messages/cs/finding.json";
+import csAccount from "@/messages/cs/account.json";
 import csSupport from "@/messages/cs/support.json";
 import huCommon from "@/messages/hu/common.json";
 import huNavigation from "@/messages/hu/navigation.json";
@@ -49,6 +52,7 @@ import huAuth from "@/messages/hu/auth.json";
 import huEmail from "@/messages/hu/email.json";
 import huReport from "@/messages/hu/report.json";
 import huFinding from "@/messages/hu/finding.json";
+import huAccount from "@/messages/hu/account.json";
 import huSupport from "@/messages/hu/support.json";
 import plCommon from "@/messages/pl/common.json";
 import plNavigation from "@/messages/pl/navigation.json";
@@ -57,15 +61,16 @@ import plAuth from "@/messages/pl/auth.json";
 import plEmail from "@/messages/pl/email.json";
 import plReport from "@/messages/pl/report.json";
 import plFinding from "@/messages/pl/finding.json";
+import plAccount from "@/messages/pl/account.json";
 import plSupport from "@/messages/pl/support.json";
 
 /** Namespaces are separate files so no locale becomes one unreviewable blob. */
 const BUNDLES = {
-  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport, support: enSupport, finding: enFinding },
-  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport, support: skSupport, finding: skFinding },
-  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport, support: csSupport, finding: csFinding },
-  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport, support: huSupport, finding: huFinding },
-  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport, support: plSupport, finding: plFinding },
+  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport, support: enSupport, finding: enFinding, account: enAccount },
+  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport, support: skSupport, finding: skFinding, account: skAccount },
+  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport, support: csSupport, finding: csFinding, account: csAccount },
+  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport, support: huSupport, finding: huFinding, account: huAccount },
+  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport, support: plSupport, finding: plFinding, account: plAccount },
 } as const;
 
 export type Namespace = keyof (typeof BUNDLES)["en"];
