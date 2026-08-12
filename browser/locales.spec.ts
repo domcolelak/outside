@@ -183,12 +183,19 @@ test.describe("public experience in five languages", () => {
   });
 
   test("the integrations page and its provider descriptions are translated", async ({ page }) => {
+    // /integrations redirects to /login when signed out, so this needs a
+    // session — the descriptions only render for someone who could connect.
+    const email = `locale-integrations-${Date.now()}@example.invalid`;
+    await page.goto("/login");
     await page.request.post("/api/locale", { data: { locale: "sk" } });
+    expect((await page.request.post("/api/auth/signup", {
+      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
+    })).ok()).toBe(true);
+
     await page.goto("/integrations");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pripojte spravodajstvo a nápravu");
 
     const body = await page.locator("body").innerText();
-    // Provider descriptions render for signed-out visitors too.
     expect(body).toContain("Expozícia v únikoch pre domény, ktoré ste overili");
     for (const english of ["Connect intelligence and remediation", "Read-only data sources", "Breach exposure for domains"]) {
       expect(body, `integrations still shows "${english}"`).not.toContain(english);
