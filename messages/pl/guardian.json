@@ -1,0 +1,18 @@
+{
+  "workspaceKicker": "Przestrzeń robocza Guardian",
+  "paywallBadge": "Premium: ciągły wywiad",
+  "paywallTitleLine1": "Kontekst na poziomie analityka.",
+  "paywallTitleLine2": "Przy każdym zaplanowanym skanowaniu.",
+  "paywallBody": "Guardian zamienia zweryfikowane obserwacje w wywiad o zmianach, Exposure Drift, żywe kontrole, możliwe do prześledzenia rekomendacje i raportowanie dla zarządu — gdy skonfigurowano monitorowanie i harmonogram.",
+  "paywallStat1Value": "Codziennie",
+  "paywallStat1Label": "Domyślne monitorowanie",
+  "paywallStat1Detail": "Istotne zmiany zewnętrzne są korelowane po zaplanowanych skanowaniach.",
+  "paywallStat2Value": "10",
+  "paywallStat2Label": "Żywe kontrole",
+  "paywallStat2Detail": "Pozycja ochronna poparta dowodami, która zmienia się z każdym skanowaniem.",
+  "paywallStat3Value": "0",
+  "paywallStat3Label": "Zmyślonych ustaleń",
+  "paywallStat3Detail": "Każdy wniosek pozostaje możliwy do prześledzenia aż do obserwacji.",
+  "paywallUnlock": "Odblokuj Guardian",
+  "paywallDemo": "Obejrzyj 20-sekundowe demo"
+}

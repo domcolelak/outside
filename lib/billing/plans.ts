@@ -13,7 +13,13 @@ export interface Plan {
   priceMonthly: number;
   monitorLimit: number;
   scanFrequency: string;
-  features: string[];
+  /**
+   * Catalog keys for the plan's selling points, resolved where a plan is shown.
+   * The wording lives in messages/<locale>/billing.json; this record is read
+   * server-side by pricing and limit logic, where there is no language to
+   * render in.
+   */
+  featureKeys: string[];
   stripePriceId?: string;
 }
 
@@ -24,7 +30,7 @@ export const PLANS: Record<PlanId, Plan> = {
     priceMonthly: 0,
     monitorLimit: 1,
     scanFrequency: "on demand",
-    features: ["Single external snapshot", "Interactive asset graph", "Attacker View replay", "Top findings"],
+    featureKeys: ["freeFeature1", "freeFeature2", "freeFeature3", "freeFeature4"],
   },
   professional: {
     id: "professional",
@@ -32,7 +38,7 @@ export const PLANS: Record<PlanId, Plan> = {
     priceMonthly: 79,
     monitorLimit: 5,
     scanFrequency: "daily",
-    features: ["Up to 5 monitored domains", "Daily scans & change alerts", "Full findings & evidence", "Protection posture history", "PDF reports"],
+    featureKeys: ["professionalFeature1", "professionalFeature2", "professionalFeature3", "professionalFeature4", "professionalFeature5"],
     stripePriceId: process.env.STRIPE_PRICE_PROFESSIONAL,
   },
   agency: {
@@ -41,7 +47,7 @@ export const PLANS: Record<PlanId, Plan> = {
     priceMonthly: 249,
     monitorLimit: 30,
     scanFrequency: "daily",
-    features: ["Up to 30 client domains", "Team roles & workspaces", "Scheduled reporting", "Priority discovery", "API access"],
+    featureKeys: ["agencyFeature1", "agencyFeature2", "agencyFeature3", "agencyFeature4", "agencyFeature5"],
     stripePriceId: process.env.STRIPE_PRICE_AGENCY,
   },
 };

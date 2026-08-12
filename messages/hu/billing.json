@@ -1,0 +1,38 @@
+{
+  "kicker": "Számlázás",
+  "title": "Csomagok és előfizetés",
+  "currentPlanLine": "{organization} · jelenlegi csomag: {plan}",
+  "notConfigured": "A számlázás nincs beállítva ezen a telepítésen (nincsenek Stripe-kulcsok). A csomagok tájékoztatásul jelennek meg; az ingyenes csomag teljesen működik. A fizetés bekapcsolásához állítsa be a STRIPE_SECRET_KEY-t, az árazonosítókat és a webhook titkot.",
+  "perMonth": "/hó",
+  "currentPlan": "Jelenlegi csomag",
+  "included": "Tartalmazza",
+  "checkoutDisabled": "A fizetés ki van kapcsolva",
+  "upgrade": "Váltás magasabb csomagra",
+  "switchPlan": "Csomagváltás",
+  "redirecting": "Átirányítás…",
+  "checkoutUnavailable": "A fizetés jelenleg nem érhető el.",
+  "manageBilling": "Számlázás kezelése",
+  "opening": "Megnyitás…",
+  "portalUnavailable": "A számlázási portál jelenleg nem érhető el.",
+
+  "planSnapshot": "Snapshot",
+  "planProfessional": "Professional",
+  "planAgency": "Agency",
+
+  "freeFeature1": "Egyetlen külső pillanatkép",
+  "freeFeature2": "Interaktív eszközgráf",
+  "freeFeature3": "Attacker View visszajátszás",
+  "freeFeature4": "Legfontosabb megállapítások",
+
+  "professionalFeature1": "Legfeljebb 5 figyelt domain",
+  "professionalFeature2": "Napi vizsgálatok és változásértesítések",
+  "professionalFeature3": "Teljes megállapítások és bizonyítékok",
+  "professionalFeature4": "A védelmi helyzet előzményei",
+  "professionalFeature5": "PDF-jelentések",
+
+  "agencyFeature1": "Legfeljebb 30 ügyféldomain",
+  "agencyFeature2": "Csapatszerepek és munkaterületek",
+  "agencyFeature3": "Ütemezett riportálás",
+  "agencyFeature4": "Elsőbbségi felderítés",
+  "agencyFeature5": "API-hozzáférés"
+}

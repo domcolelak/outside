@@ -1,0 +1,38 @@
+{
+  "kicker": "Fakturácia",
+  "title": "Plány a predplatné",
+  "currentPlanLine": "{organization} · aktuálny plán: {plan}",
+  "notConfigured": "Fakturácia nie je v tomto nasadení nakonfigurovaná (chýbajú kľúče Stripe). Plány sú zobrazené informatívne; bezplatný plán je plne funkčný. Pokladňu zapnete nastavením STRIPE_SECRET_KEY, ID cien a tajomstva pre webhook.",
+  "perMonth": "/mes.",
+  "currentPlan": "Aktuálny plán",
+  "included": "Zahrnuté",
+  "checkoutDisabled": "Pokladňa vypnutá",
+  "upgrade": "Prejsť na vyšší plán",
+  "switchPlan": "Zmeniť plán",
+  "redirecting": "Presmerúva sa…",
+  "checkoutUnavailable": "Pokladňa je momentálne nedostupná.",
+  "manageBilling": "Spravovať fakturáciu",
+  "opening": "Otvára sa…",
+  "portalUnavailable": "Fakturačný portál je momentálne nedostupný.",
+
+  "planSnapshot": "Snapshot",
+  "planProfessional": "Professional",
+  "planAgency": "Agency",
+
+  "freeFeature1": "Jedna vonkajšia snímka",
+  "freeFeature2": "Interaktívny graf assetov",
+  "freeFeature3": "Prehrávanie Attacker View",
+  "freeFeature4": "Najdôležitejšie zistenia",
+
+  "professionalFeature1": "Až 5 monitorovaných domén",
+  "professionalFeature2": "Denné skeny a upozornenia na zmeny",
+  "professionalFeature3": "Úplné zistenia a dôkazy",
+  "professionalFeature4": "História ochrannej pozície",
+  "professionalFeature5": "PDF reporty",
+
+  "agencyFeature1": "Až 30 klientskych domén",
+  "agencyFeature2": "Tímové role a pracovné priestory",
+  "agencyFeature3": "Plánované reportovanie",
+  "agencyFeature4": "Prednostné objavovanie",
+  "agencyFeature5": "Prístup k API"
+}

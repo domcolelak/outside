@@ -1,0 +1,18 @@
+{
+  "workspaceKicker": "Pracovní prostor Guardian",
+  "paywallBadge": "Prémiové průběžné zpravodajství",
+  "paywallTitleLine1": "Kontext na úrovni analytika.",
+  "paywallTitleLine2": "Při každém plánovaném skenu.",
+  "paywallBody": "Guardian mění ověřená pozorování na zpravodajství o změnách, Exposure Drift, živé kontroly, dohledatelná doporučení a reportování pro vedení — je-li nastaveno monitorování a plánovač.",
+  "paywallStat1Value": "Denně",
+  "paywallStat1Label": "Výchozí monitorování",
+  "paywallStat1Detail": "Podstatné vnější změny se korelují po plánovaných skenech.",
+  "paywallStat2Value": "10",
+  "paywallStat2Label": "Živé kontroly",
+  "paywallStat2Detail": "Ochranná pozice podložená důkazy, která se vyvíjí s každým skenem.",
+  "paywallStat3Value": "0",
+  "paywallStat3Label": "Vymyšlených zjištění",
+  "paywallStat3Detail": "Každý závěr zůstává dohledatelný až k pozorování.",
+  "paywallUnlock": "Odemknout Guardian",
+  "paywallDemo": "Zhlédnout 20sekundové demo"
+}

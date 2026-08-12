@@ -1,0 +1,18 @@
+{
+  "workspaceKicker": "Guardian workspace",
+  "paywallBadge": "Premium continuous intelligence",
+  "paywallTitleLine1": "Analyst-grade context.",
+  "paywallTitleLine2": "Every scheduled scan.",
+  "paywallBody": "Guardian turns verified observations into change intelligence, Exposure Drift, living controls, traceable recommendations and board-ready reporting when monitoring and the scheduler are configured.",
+  "paywallStat1Value": "Daily",
+  "paywallStat1Label": "Default monitoring",
+  "paywallStat1Detail": "Meaningful external changes are correlated after scheduled scans.",
+  "paywallStat2Value": "10",
+  "paywallStat2Label": "Living controls",
+  "paywallStat2Detail": "Evidence-backed posture that evolves with every scan.",
+  "paywallStat3Value": "0",
+  "paywallStat3Label": "Fabricated findings",
+  "paywallStat3Detail": "Every conclusion remains traceable to an observation.",
+  "paywallUnlock": "Unlock Guardian",
+  "paywallDemo": "Watch the 20-second demo"
+}
