@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslator } from "@/lib/i18n/context";
+import { providerSummaryKey } from "@/lib/integrations/providers/text";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { joinCredentialPair, joinCredentialParts } from "@/lib/integrations/pair-credential";
 
@@ -82,6 +85,14 @@ export function ProviderConnector({
   descriptor: ProviderDescriptor;
   orgId: string;
 }) {
+  const tr = useTranslator();
+  const n = (key: Parameters<typeof tr.t<"integrations">>[1], values?: Record<string, string | number>) =>
+    tr.t("integrations", key, values);
+  // The same description the page shows, resolved here too. This component
+  // renders for anyone who *can* connect, so leaving it on descriptor.summary
+  // meant an admin — the one person who acts on it — read English.
+  const summaryKey = providerSummaryKey(descriptor.id);
+  const summary = summaryKey ? n(summaryKey) : descriptor.summary;
   const titleId = `provider-${descriptor.id}-title`;
   const helpId = `provider-${descriptor.id}-help`;
   const loadErrorId = `provider-${descriptor.id}-load-error`;
@@ -169,19 +180,19 @@ export function ProviderConnector({
     if (busy) return;
     const secret = key.trim();
     if (!secret) {
-      setActionError(isPair ? "Enter the API secret." : "Enter an API key.");
+      setActionError(isPair ? n("connectorErrApiSecret") : n("connectorErrApiKey"));
       return;
     }
     if (isPair && !pairId.trim()) {
-      setActionError(isTriple ? "Enter the application (client) ID." : "Enter the API ID.");
+      setActionError(isTriple ? n("connectorErrClientId") : n("connectorErrApiId"));
       return;
     }
     if (isTriple && !tenantId.trim()) {
-      setActionError("Enter the directory (tenant) ID.");
+      setActionError(n("connectorErrTenantId"));
       return;
     }
     if (needsSubject && !subject.trim()) {
-      setActionError("Enter the administrator address to impersonate.");
+      setActionError(n("connectorErrAdminAddress"));
       return;
     }
     // Stored as one value; the adapter that understands the shape splits it back.
@@ -225,7 +236,7 @@ export function ProviderConnector({
       setActionError(
         error instanceof Error
           ? error.message
-          : "Network error. Nothing was saved.",
+          : n("connectorErrNetworkSave"),
       );
     } finally {
       setBusy("");
@@ -270,7 +281,7 @@ export function ProviderConnector({
       setActionError(
         error instanceof Error
           ? error.message
-          : "Network error. The connection was not removed.",
+          : n("connectorErrNetworkDelete"),
       );
     } finally {
       setBusy("");
@@ -285,18 +296,18 @@ export function ProviderConnector({
     !blocked && loadState !== "loading" && (editing || !status?.stored);
   const badge =
     busy === "load" || loadState === "loading"
-      ? "Checking…"
+      ? n("connectorBadgeChecking")
       : loadState === "error"
-        ? "Status unknown"
+        ? n("connectorBadgeStatusUnknown")
         : blocked
-          ? "Unavailable"
+          ? n("connectorBadgeUnavailable")
           : capabilityNeedsSetup
-            ? "Setup needed"
+            ? n("connectorBadgeSetupNeeded")
             : status?.connected
-              ? "Connected"
+              ? n("connectorBadgeConnected")
               : status?.stored
-                ? "Attention"
-                : "Not connected";
+                ? n("connectorBadgeAttention")
+                : n("connectorBadgeNotConnected");
   const badgeClass =
     blocked || loadState === "error"
       ? "border-line text-ink-faint"
@@ -327,7 +338,7 @@ export function ProviderConnector({
             {descriptor.name}
           </h4>
           <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-            {descriptor.summary}
+            {summary}
           </p>
         </div>
         <span
@@ -388,12 +399,12 @@ export function ProviderConnector({
                   {capability.label}:{" "}
                   {capability.available ? (
                     <span className="text-signal">
-                      available
+                      {n("connectorCapAvailable")}
                       {capability.detail ? ` — ${capability.detail}` : ""}
                     </span>
                   ) : (
                     <span className="text-risk-medium">
-                      {capability.detail ?? "not available"}
+                      {capability.detail ?? n("connectorCapNotAvailable")}
                     </span>
                   )}
                 </li>
@@ -404,23 +415,23 @@ export function ProviderConnector({
           {!status.connected && (
             <div className="mono rounded-md border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[12px] leading-5 text-risk-medium">
               {status.error?.message ??
-                "The stored key did not pass its latest connection check."}
+                n("connectorStoredKeyFailed")}
             </div>
           )}
 
           {status.history && status.history.length > 0 && (
             <details className="mt-1">
               <summary className="mono cursor-pointer text-[12px] text-ink-faint hover:text-ink-soft">
-                Credential history
+                {n("connectorCredentialHistory")}
               </summary>
               <ul className="mt-2 space-y-1">
                 {status.history.map((entry) => (
                   <li key={`${entry.action}-${entry.createdAt}`} className="mono text-[11px] leading-5 text-ink-faint">
                     <span className="text-ink-soft">{entry.action}</span>
                     {" · "}
-                    {new Date(entry.createdAt).toLocaleString()}
+                    {tr.formatDate(entry.createdAt, { dateStyle: "medium", timeStyle: "short" })}
                     {" · "}
-                    <span title="Acting user">{entry.actorId}</span>
+                    <span title={n("connectorActingUser")}>{entry.actorId}</span>
                     {entry.detail && <span> · {entry.detail}</span>}
                   </li>
                 ))}
@@ -434,18 +445,17 @@ export function ProviderConnector({
               read a permanent "Used in 0 scans". */}
           {status.usage && status.usage.scanRuns > 0 && (
             <div className="mono text-[12px] leading-5 text-ink-faint">
-              Used in {status.usage.scanRuns} scan
-              {status.usage.scanRuns === 1 ? "" : "s"}
+              {n("connectorUsedInScans", { count: status.usage.scanRuns })}
               {status.usage.failures > 0 && (
                 <span className="text-risk-medium">
                   {" "}
-                  · {status.usage.failures} failed
+                  · {n("connectorFailedRuns", { count: status.usage.failures })}
                 </span>
               )}
               {status.usage.lastScanAt && (
                 <span>
                   {" "}
-                  · latest scan {new Date(status.usage.lastScanAt).toLocaleString()}
+                  · {n("connectorLatestScan", { date: tr.formatDate(status.usage.lastScanAt, { dateStyle: "medium", timeStyle: "short" }) })}
                 </span>
               )}
             </div>
@@ -458,7 +468,7 @@ export function ProviderConnector({
               disabled={busy !== ""}
               className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
             >
-              {busy === "load" ? "Testing…" : "Test connection"}
+              {busy === "load" ? n("connectorTesting") : n("connectorTest")}
             </button>
             <button
               // Cancelling the replace form returns focus here, to the control
@@ -472,7 +482,7 @@ export function ProviderConnector({
               disabled={busy !== ""}
               className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
             >
-              Replace key
+              {n("connectorReplaceKey")}
             </button>
             <button
               type="button"
@@ -480,7 +490,7 @@ export function ProviderConnector({
               disabled={busy !== ""}
               className="min-h-11 rounded-lg border border-risk-high/30 px-3 text-sm text-risk-high transition hover:bg-risk-high/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high disabled:opacity-50"
             >
-              {busy === "delete" ? "Disconnecting…" : "Disconnect"}
+              {busy === "delete" ? n("connectorDisconnecting") : n("connectorDisconnect")}
             </button>
           </div>
         </div>
@@ -501,7 +511,7 @@ export function ProviderConnector({
                 htmlFor={`subject-${descriptor.id}`}
                 className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
               >
-                Administrator to impersonate
+                {n("connectorAdminToImpersonate")}
               </label>
               <input
                 id={`subject-${descriptor.id}`}
@@ -511,11 +521,11 @@ export function ProviderConnector({
                   setSubject(event.target.value);
                   setActionError(null);
                 }}
-                placeholder="admin@yourcompany.com"
+                placeholder={n("connectorAdminPlaceholder")}
                 autoComplete="off"
                 spellCheck={false}
                 required
-                aria-label={`${descriptor.name} administrator to impersonate`}
+                aria-label={n("connectorAdminAria", { provider: descriptor.name })}
                 className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               />
             </>
@@ -526,7 +536,7 @@ export function ProviderConnector({
                 htmlFor={`tenant-id-${descriptor.id}`}
                 className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
               >
-                Directory (tenant) ID
+                {n("connectorDirectoryTenantId")}
               </label>
               <input
                 id={`tenant-id-${descriptor.id}`}
@@ -540,7 +550,7 @@ export function ProviderConnector({
                 autoComplete="off"
                 spellCheck={false}
                 required
-                aria-label={`${descriptor.name} directory tenant ID`}
+                aria-label={n("connectorTenantAria", { provider: descriptor.name })}
                 className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               />
             </>
@@ -551,7 +561,7 @@ export function ProviderConnector({
                 htmlFor={`pair-id-${descriptor.id}`}
                 className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
               >
-                {isTriple ? "Application (client) ID" : "API ID"}
+                {isTriple ? n("connectorAppClientId") : n("connectorApiId")}
               </label>
               <input
                 id={`pair-id-${descriptor.id}`}
@@ -561,11 +571,11 @@ export function ProviderConnector({
                   setPairId(event.target.value);
                   setActionError(null);
                 }}
-                placeholder={isTriple ? "00000000-0000-0000-0000-000000000000" : "API ID"}
+                placeholder={isTriple ? "00000000-0000-0000-0000-000000000000" : n("connectorApiId")}
                 autoComplete="off"
                 spellCheck={false}
                 required
-                aria-label={`${descriptor.name} ${isTriple ? "application client ID" : "API ID"}`}
+                aria-label={isTriple ? n("connectorClientIdAria", { provider: descriptor.name }) : n("connectorApiIdAria", { provider: descriptor.name })}
                 className="mono mt-2 mb-3 min-h-11 w-full rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               />
             </>
@@ -574,7 +584,7 @@ export function ProviderConnector({
             htmlFor={`key-${descriptor.id}`}
             className="mono block text-[12px] uppercase tracking-wide text-ink-faint"
           >
-            {isJson ? "Service-account JSON key" : isTriple ? "Client secret" : isPair ? "API secret" : "API key"}
+            {isJson ? n("connectorServiceAccountJson") : isTriple ? n("connectorClientSecret") : isPair ? n("connectorApiSecret") : n("connectorApiKey")}
           </label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             {isJson ? (
@@ -593,7 +603,7 @@ export function ProviderConnector({
                 autoComplete="off"
                 spellCheck={false}
                 required
-                aria-label={`${descriptor.name} service-account JSON key`}
+                aria-label={n("connectorJsonAria", { provider: descriptor.name })}
                 aria-invalid={actionError ? true : undefined}
                 className="mono min-w-0 flex-1 rounded-lg border border-line bg-base-900 p-3 text-[12px] leading-5 text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               />
@@ -607,11 +617,11 @@ export function ProviderConnector({
                   setKey(event.target.value);
                   setActionError(null);
                 }}
-                placeholder={isPair ? "API secret" : descriptor.keyPlaceholder}
+                placeholder={isPair ? n("connectorApiSecret") : descriptor.keyPlaceholder}
                 autoComplete="off"
                 spellCheck={false}
                 required
-                aria-label={`${descriptor.name} ${isPair ? "API secret" : "API key"}`}
+                aria-label={isPair ? n("connectorSecretAria", { provider: descriptor.name }) : n("connectorKeyAria", { provider: descriptor.name })}
                 aria-invalid={actionError ? true : undefined}
                 className="mono min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-base-900 px-3 text-sm text-ink placeholder:text-ink-faint focus-visible:border-signal/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
               />
@@ -621,10 +631,10 @@ export function ProviderConnector({
               type="button"
               onClick={() => setShowKey((visible) => !visible)}
               aria-pressed={showKey}
-              aria-label={`${showKey ? "Hide" : "Show"} ${descriptor.name} ${isPair ? "API secret" : "API key"}`}
+              aria-label={n(isPair ? (showKey ? "connectorHideSecretAria" : "connectorShowSecretAria") : (showKey ? "connectorHideKeyAria" : "connectorShowKeyAria"), { provider: descriptor.name })}
               className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
             >
-              {showKey ? "Hide key" : "Show key"}
+              {showKey ? n("connectorHideKey") : n("connectorShowKey")}
             </button>
             )}
           </div>
@@ -635,12 +645,11 @@ export function ProviderConnector({
               rel="noreferrer noopener"
               className="font-medium text-ink-soft underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
             >
-              Open {descriptor.name} key setup
+              {n("connectorOpenKeySetup", { provider: descriptor.name })}
             </a>
-            . OUTSIDE verifies the key server-side, stores it encrypted, and
-            never shows it again.
+            . {n("connectorKeyStorageNote")}
             {loadState === "error" &&
-              " Current connection status is unknown; saving a key may replace an existing one."}
+              ` ${n("connectorStatusUnknownWarning")}`}
           </p>
           {actionError && (
             <p
@@ -654,15 +663,15 @@ export function ProviderConnector({
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="submit"
-              aria-label={`${status?.stored ? "Verify and replace" : "Verify and connect"} ${descriptor.name}`}
+              aria-label={n(status?.stored ? "connectorVerifyReplaceAria" : "connectorVerifyConnectAria", { provider: descriptor.name })}
               disabled={busy !== "" || key.trim().length === 0}
               className="min-h-11 rounded-lg border border-signal/40 bg-signal/10 px-4 text-sm font-medium text-signal transition hover:bg-signal/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
             >
               {busy === "save"
-                ? "Verifying…"
+                ? n("connectorVerifying")
                 : status?.stored
-                  ? "Verify and replace"
-                  : "Verify and connect"}
+                  ? n("connectorVerifyReplace")
+                  : n("connectorVerifyConnect")}
             </button>
             {status?.stored && (
               <button
@@ -682,7 +691,7 @@ export function ProviderConnector({
                 disabled={busy !== ""}
                 className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
               >
-                Cancel
+                {n("connectorCancel")}
               </button>
             )}
           </div>
@@ -702,10 +711,10 @@ export function ProviderConnector({
       {busy !== "" && (
         <span className="sr-only" role="status" aria-live="polite">
           {busy === "load"
-            ? `Checking ${descriptor.name}`
+            ? n("connectorSrChecking", { provider: descriptor.name })
             : busy === "save"
-              ? `Saving ${descriptor.name}`
-              : `Disconnecting ${descriptor.name}`}
+              ? n("connectorSrSaving", { provider: descriptor.name })
+              : n("connectorSrDisconnecting", { provider: descriptor.name })}
         </span>
       )}
     </article>

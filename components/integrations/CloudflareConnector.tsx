@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslator } from "@/lib/i18n/context";
+import { renderWithLiterals } from "./literals";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DmarcRemediation } from "./DmarcRemediation";
 
@@ -41,6 +44,9 @@ export function CloudflareConnector({
   orgId: string;
   orgName: string;
 }) {
+  const tr = useTranslator();
+  const c = (key: Parameters<typeof tr.t<"integrations">>[1], values?: Record<string, string | number>) =>
+    tr.t("integrations", key, values);
   const [connection, setConnection] = useState<Connection | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [busy, setBusy] = useState<Busy>("load");
@@ -70,7 +76,7 @@ export function CloudflareConnector({
         throw new Error(
           await responseError(
             response,
-            "Could not check the Cloudflare connection.",
+            tr.t("integrations", "cfErrCheck"),
           ),
         );
       }
@@ -84,12 +90,13 @@ export function CloudflareConnector({
       setLoadError(
         error instanceof Error
           ? error.message
-          : "Could not check the Cloudflare connection.",
+          : tr.t("integrations", "cfErrCheck"),
       );
     } finally {
       setBusy("");
     }
-  }, [orgId]);
+    // tr is memoized on the locale, so this does not re-run every render.
+  }, [orgId, tr]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -101,7 +108,7 @@ export function CloudflareConnector({
     if (busy) return;
     const normalizedToken = token.trim();
     if (!normalizedToken) {
-      setActionError("Enter a Cloudflare API token.");
+      setActionError(c("cfErrEnterToken"));
       return;
     }
     setBusy("save");
@@ -115,7 +122,7 @@ export function CloudflareConnector({
       });
       if (!response.ok) {
         throw new Error(
-          await responseError(response, "Could not connect Cloudflare."),
+          await responseError(response, c("cfErrConnect")),
         );
       }
       const data = (await response.json()) as { connection: Connection };
@@ -129,7 +136,7 @@ export function CloudflareConnector({
       setActionError(
         error instanceof Error
           ? error.message
-          : "Network error. Nothing was saved.",
+          : c("connectorErrNetworkSave"),
       );
     } finally {
       setBusy("");
@@ -154,7 +161,7 @@ export function CloudflareConnector({
       );
       if (!response.ok) {
         throw new Error(
-          await responseError(response, "Could not disconnect Cloudflare."),
+          await responseError(response, c("cfErrDisconnect")),
         );
       }
       setConnection(null);
@@ -165,7 +172,7 @@ export function CloudflareConnector({
       setActionError(
         error instanceof Error
           ? error.message
-          : "Network error. The connection was not removed.",
+          : c("connectorErrNetworkDelete"),
       );
     } finally {
       setBusy("");
@@ -180,7 +187,7 @@ export function CloudflareConnector({
       aria-busy={busy !== ""}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="mono text-[12px] text-ink-faint">Organization</span>
+        <span className="mono text-[12px] text-ink-faint">{c("cfOrganization")}</span>
         <strong className="text-sm font-medium text-ink">{orgName}</strong>
         <span
           role="status"
@@ -194,12 +201,12 @@ export function CloudflareConnector({
           }`}
         >
           {busy === "load" || loadState === "loading"
-            ? "Checking…"
+            ? c("connectorBadgeChecking")
             : loadState === "error"
-              ? "Status unknown"
+              ? c("connectorBadgeStatusUnknown")
               : connection
-                ? "Connected"
-                : "Not connected"}
+                ? c("connectorBadgeConnected")
+                : c("connectorBadgeNotConnected")}
         </span>
       </div>
 
@@ -216,7 +223,7 @@ export function CloudflareConnector({
             disabled={busy !== ""}
             className="mt-3 min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
           >
-            Retry status check
+            {c("cfRetryStatus")}
           </button>
           {!connection && (
             <button
@@ -225,7 +232,7 @@ export function CloudflareConnector({
               disabled={busy !== ""}
               className="ml-2 mt-3 min-h-11 rounded-lg border border-risk-high/30 px-3 text-sm text-risk-high transition hover:bg-risk-high/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high disabled:opacity-50"
             >
-              Replace or connect anyway
+              {c("cfReplaceAnyway")}
             </button>
           )}
         </div>
@@ -234,12 +241,11 @@ export function CloudflareConnector({
       {loadState !== "loading" && connection ? (
         <div className="mt-3 rounded-lg border border-signal/30 bg-signal/5 p-3">
           <div className="mono flex flex-wrap items-center gap-x-2 text-[12px] text-signal">
-            <span>Connected for {orgName}</span>
+            <span>{c("cfConnectedFor", { organization: orgName })}</span>
             <span className="text-ink-faint">· {connection.accountHint}</span>
           </div>
           <div className="mt-2 text-sm text-ink-soft">
-            {connection.zones.length} zone
-            {connection.zones.length === 1 ? "" : "s"} this token can act on:
+            {c("cfZonesLine", { count: connection.zones.length })}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {connection.zones.map((zone) => (
@@ -263,7 +269,7 @@ export function CloudflareConnector({
               disabled={busy !== ""}
               className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
             >
-              {busy === "load" ? "Checking…" : "Refresh status"}
+              {busy === "load" ? c("connectorBadgeChecking") : c("cfRefreshStatus")}
             </button>
             <button
               type="button"
@@ -271,13 +277,12 @@ export function CloudflareConnector({
               disabled={busy !== ""}
               className="min-h-11 rounded-lg border border-risk-high/30 px-3 text-sm text-risk-high transition hover:bg-risk-high/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high disabled:opacity-50"
             >
-              {busy === "delete" ? "Disconnecting…" : "Disconnect"}
+              {busy === "delete" ? c("connectorDisconnecting") : c("connectorDisconnect")}
             </button>
           </div>
           {loadState === "error" && (
             <p className="mt-3 text-xs leading-5 text-ink-faint">
-              Remediation controls are paused until the connection status can be
-              checked.
+              {c("cfPaused")}
             </p>
           )}
           <fieldset
@@ -300,13 +305,13 @@ export function CloudflareConnector({
             .join(" ")}
         >
           <div className="text-sm font-medium text-ink">
-            Connect Cloudflare for {orgName}
+            {c("cfConnectHeading", { organization: orgName })}
           </div>
           <label
             htmlFor="cf-token"
             className="mono mt-3 block text-[12px] uppercase tracking-wide text-ink-faint"
           >
-            Cloudflare API token
+            {c("cfTokenLabel")}
           </label>
           <div className="mt-2 flex flex-col gap-2 sm:flex-row">
             <input
@@ -317,7 +322,7 @@ export function CloudflareConnector({
                 setToken(event.target.value);
                 setActionError(null);
               }}
-              placeholder="Paste your scoped token"
+              placeholder={c("cfTokenPlaceholder")}
               autoComplete="off"
               spellCheck={false}
               required
@@ -330,18 +335,16 @@ export function CloudflareConnector({
               aria-pressed={showToken}
               className="min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
             >
-              {showToken ? "Hide token" : "Show token"}
+              {showToken ? c("cfHideToken") : c("cfShowToken")}
             </button>
           </div>
           <p id={helpId} className="mt-2 text-xs leading-5 text-ink-faint">
-            Create a scoped token under Cloudflare{" "}
-            <span className="text-ink-soft">My Profile → API Tokens</span> with{" "}
-            <span className="text-ink-soft">Zone:Read</span> and{" "}
-            <span className="text-ink-soft">DNS:Edit</span> only for the zones
-            you want OUTSIDE to manage. The token is encrypted and never shown
-            again.
-            {allowUnknownReplace &&
-              " You explicitly chose to continue while status is unknown. Saving this token may replace an existing connection."}
+            {renderWithLiterals(c("cfHelp"), {
+              path: "My Profile → API Tokens",
+              read: "Zone:Read",
+              edit: "DNS:Edit",
+            })}
+            {allowUnknownReplace && ` ${c("cfHelpUnknown")}`}
           </p>
           {actionError && (
             <p
@@ -358,24 +361,24 @@ export function CloudflareConnector({
             className="mt-3 min-h-11 rounded-lg border border-signal/40 bg-signal/10 px-4 text-sm font-medium text-signal transition hover:bg-signal/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
           >
             {busy === "save"
-              ? "Verifying with Cloudflare…"
-              : "Verify and connect"}
+              ? c("cfVerifying")
+              : c("connectorVerifyConnect")}
           </button>
         </form>
       ) : loadState === "loading" ? (
         <div className="mt-3 min-h-11" role="status" aria-live="polite">
           <span className="text-sm text-ink-faint">
-            Checking Cloudflare connection…
+            {c("cfCheckingConnection")}
           </span>
         </div>
       ) : null}
       {busy !== "" && (
         <span className="sr-only" role="status" aria-live="polite">
           {busy === "load"
-            ? "Checking Cloudflare"
+            ? c("cfSrChecking")
             : busy === "save"
-              ? "Saving Cloudflare"
-              : "Disconnecting Cloudflare"}
+              ? c("cfSrSaving")
+              : c("cfSrDisconnecting")}
         </span>
       )}
     </div>
