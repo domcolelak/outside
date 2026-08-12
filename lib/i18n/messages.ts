@@ -29,6 +29,7 @@ import enAccount from "@/messages/en/account.json";
 import enBilling from "@/messages/en/billing.json";
 import enGuardian from "@/messages/en/guardian.json";
 import enChronos from "@/messages/en/chronos.json";
+import enIntegrations from "@/messages/en/integrations.json";
 import enAssess from "@/messages/en/assess.json";
 import enSupport from "@/messages/en/support.json";
 import skCommon from "@/messages/sk/common.json";
@@ -42,6 +43,7 @@ import skAccount from "@/messages/sk/account.json";
 import skBilling from "@/messages/sk/billing.json";
 import skGuardian from "@/messages/sk/guardian.json";
 import skChronos from "@/messages/sk/chronos.json";
+import skIntegrations from "@/messages/sk/integrations.json";
 import skAssess from "@/messages/sk/assess.json";
 import skSupport from "@/messages/sk/support.json";
 import csCommon from "@/messages/cs/common.json";
@@ -55,6 +57,7 @@ import csAccount from "@/messages/cs/account.json";
 import csBilling from "@/messages/cs/billing.json";
 import csGuardian from "@/messages/cs/guardian.json";
 import csChronos from "@/messages/cs/chronos.json";
+import csIntegrations from "@/messages/cs/integrations.json";
 import csAssess from "@/messages/cs/assess.json";
 import csSupport from "@/messages/cs/support.json";
 import huCommon from "@/messages/hu/common.json";
@@ -68,6 +71,7 @@ import huAccount from "@/messages/hu/account.json";
 import huBilling from "@/messages/hu/billing.json";
 import huGuardian from "@/messages/hu/guardian.json";
 import huChronos from "@/messages/hu/chronos.json";
+import huIntegrations from "@/messages/hu/integrations.json";
 import huAssess from "@/messages/hu/assess.json";
 import huSupport from "@/messages/hu/support.json";
 import plCommon from "@/messages/pl/common.json";
@@ -81,16 +85,17 @@ import plAccount from "@/messages/pl/account.json";
 import plBilling from "@/messages/pl/billing.json";
 import plGuardian from "@/messages/pl/guardian.json";
 import plChronos from "@/messages/pl/chronos.json";
+import plIntegrations from "@/messages/pl/integrations.json";
 import plAssess from "@/messages/pl/assess.json";
 import plSupport from "@/messages/pl/support.json";
 
 /** Namespaces are separate files so no locale becomes one unreviewable blob. */
 const BUNDLES = {
-  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport, support: enSupport, finding: enFinding, account: enAccount, billing: enBilling, guardian: enGuardian, assess: enAssess, chronos: enChronos },
-  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport, support: skSupport, finding: skFinding, account: skAccount, billing: skBilling, guardian: skGuardian, assess: skAssess, chronos: skChronos },
-  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport, support: csSupport, finding: csFinding, account: csAccount, billing: csBilling, guardian: csGuardian, assess: csAssess, chronos: csChronos },
-  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport, support: huSupport, finding: huFinding, account: huAccount, billing: huBilling, guardian: huGuardian, assess: huAssess, chronos: huChronos },
-  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport, support: plSupport, finding: plFinding, account: plAccount, billing: plBilling, guardian: plGuardian, assess: plAssess, chronos: plChronos },
+  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport, support: enSupport, finding: enFinding, account: enAccount, billing: enBilling, guardian: enGuardian, assess: enAssess, chronos: enChronos, integrations: enIntegrations },
+  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport, support: skSupport, finding: skFinding, account: skAccount, billing: skBilling, guardian: skGuardian, assess: skAssess, chronos: skChronos, integrations: skIntegrations },
+  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport, support: csSupport, finding: csFinding, account: csAccount, billing: csBilling, guardian: csGuardian, assess: csAssess, chronos: csChronos, integrations: csIntegrations },
+  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport, support: huSupport, finding: huFinding, account: huAccount, billing: huBilling, guardian: huGuardian, assess: huAssess, chronos: huChronos, integrations: huIntegrations },
+  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport, support: plSupport, finding: plFinding, account: plAccount, billing: plBilling, guardian: plGuardian, assess: plAssess, chronos: plChronos, integrations: plIntegrations },
 } as const;
 
 export type Namespace = keyof (typeof BUNDLES)["en"];
