@@ -182,6 +182,23 @@ test.describe("public experience in five languages", () => {
     }
   });
 
+  test("the integrations page and its provider descriptions are translated", async ({ page }) => {
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    await page.goto("/integrations");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pripojte spravodajstvo a nápravu");
+
+    const body = await page.locator("body").innerText();
+    // Provider descriptions render for signed-out visitors too.
+    expect(body).toContain("Expozícia v únikoch pre domény, ktoré ste overili");
+    for (const english of ["Connect intelligence and remediation", "Read-only data sources", "Breach exposure for domains"]) {
+      expect(body, `integrations still shows "${english}"`).not.toContain(english);
+    }
+    // Other companies' product names must survive translation.
+    for (const name of ["AbuseIPDB", "GreyNoise", "SecurityTrails", "VirusTotal", "Censys"]) {
+      expect(body, `${name} was translated away`).toContain(name);
+    }
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);
