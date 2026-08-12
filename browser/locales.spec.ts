@@ -206,6 +206,22 @@ test.describe("public experience in five languages", () => {
     }
   });
 
+  test("the capability registry is translated", async ({ page }) => {
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    await page.goto("/capabilities");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Čo dokáže OUTSIDE zistiť");
+
+    const body = await page.locator("body").innerText();
+    expect(body).toContain("Objavovanie cez Certificate Transparency");
+    for (const english of ["What OUTSIDE can detect", "Certificate Transparency discovery", "Always on", "Passive"]) {
+      expect(body, `capabilities still shows "${english}"`).not.toContain(english);
+    }
+    // Standards and vendors keep their names in every language.
+    for (const literal of ["crt.sh", "CISA KEV", "EPSS", "SecurityTrails", "Shodan"]) {
+      expect(body, `${literal} was translated away`).toContain(literal);
+    }
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);
