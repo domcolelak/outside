@@ -207,7 +207,15 @@ test.describe("public experience in five languages", () => {
   });
 
   test("the capability registry is translated", async ({ page }) => {
+    // Every page inside AppShell redirects to /login without a session —
+    // account, assess, billing, capabilities, chronos, guardian, integrations.
+    const email = `locale-capabilities-${Date.now()}@example.invalid`;
+    await page.goto("/login");
     await page.request.post("/api/locale", { data: { locale: "sk" } });
+    expect((await page.request.post("/api/auth/signup", {
+      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
+    })).ok()).toBe(true);
+
     await page.goto("/capabilities");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Čo dokáže OUTSIDE zistiť");
 
