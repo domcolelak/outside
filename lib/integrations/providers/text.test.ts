@@ -49,6 +49,20 @@ describe("provider descriptions", () => {
     expect(providerSummaryKey("not_a_provider")).toBeNull();
   });
 
+  it("keeps a slot for each Cloudflare literal in every language", () => {
+    // The help sentence names three labels a customer has to find in
+    // Cloudflare's own interface. They are placed by the translation rather
+    // than fixed in the markup, so every language can order the sentence its
+    // own way — which means a dropped placeholder silently removes the label
+    // instead of leaving it in English. That is the failure this catches.
+    for (const { code } of LOCALES) {
+      const help = getTranslator(code).t("integrations", "cfHelp");
+      for (const slot of ["{path}", "{read}", "{edit}"]) {
+        expect(help, `${code} lost ${slot} from cfHelp`).toContain(slot);
+      }
+    }
+  });
+
   it("does not translate the providers' own product names", () => {
     // AbuseIPDB and Censys are other companies' products, and route53:List-
     // HostedZones is an API permission. A translated one sends a customer
