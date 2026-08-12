@@ -1,0 +1,15 @@
+{
+  "kicker": "Chronos · časostroj zabezpečení",
+  "title": "Jak se tento povrch měnil v čase",
+  "intro": "Rekonstrukce a přehrání stavu k danému okamžiku napříč zaznamenanou historií ověřeného cíle — co přibylo, co zmizelo, co se změnilo a jak se hýbala ochranná pozice. Vyšší skóre znamená silnější ochranu a každá změna stojí na pozorováních, která byla skutečně zaznamenána.",
+  "targetPlaceholder": "vasefirma.com",
+  "replay": "Přehrát historii",
+  "loading": "Načítá se…",
+  "signInRequired": "Chcete-li vidět historii cíle, přihlaste se.",
+  "planRequired": "Chronos vyžaduje plán Professional nebo Agency.",
+  "noHistory": "Pro tento cíl zatím není zaznamenána historie — Chronos se doplňuje, jak přibývají skeny Guardianu.",
+  "loadFailed": "Historii se nepodařilo načíst.",
+  "networkError": "Chyba sítě.",
+  "protectionPosture": "ochranná pozice",
+  "noPoints": "Zatím žádné zaznamenané body."
+}

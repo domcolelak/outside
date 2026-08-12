@@ -1,0 +1,15 @@
+{
+  "kicker": "Chronos · security time machine",
+  "title": "How this surface changed over time",
+  "intro": "Point-in-time reconstruction and replay across a verified target's recorded history — what appeared, what disappeared, what changed, and how protection posture moved. Higher scores indicate stronger protection, and every change is grounded in observations that were actually recorded.",
+  "targetPlaceholder": "yourcompany.com",
+  "replay": "Replay history",
+  "loading": "Loading…",
+  "signInRequired": "Sign in to view a target's history.",
+  "planRequired": "Chronos requires a Professional or Agency plan.",
+  "noHistory": "No recorded history for this target yet — Chronos fills in as Guardian scans accumulate.",
+  "loadFailed": "Could not load history.",
+  "networkError": "Network error.",
+  "protectionPosture": "protection posture",
+  "noPoints": "No recorded points yet."
+}

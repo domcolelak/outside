@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslator } from "@/lib/i18n/context";
 
 interface AssetChange { canonical: string; label: string; change: "added" | "removed" | "modified"; details: string[] }
 interface Diff { from: { observedAt: string } | null; exposureScoreDelta: number; assetChanges: AssetChange[]; summary: string }
@@ -14,6 +15,8 @@ const CHANGE_META: Record<AssetChange["change"], { mark: string; color: string }
 };
 
 function ChronosView() {
+  const tr = useTranslator();
+  const cx = (key: Parameters<typeof tr.t<"chronos">>[1]) => tr.t("chronos", key);
   const params = useSearchParams();
   const [target, setTarget] = useState(params.get("target") ?? "");
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -26,14 +29,14 @@ function ChronosView() {
     try {
       const orgId = params.get("orgId");
       const res = await fetch(`/api/chronos?target=${encodeURIComponent(t)}${orgId ? `&orgId=${encodeURIComponent(orgId)}` : ""}`);
-      if (res.status === 401) { setState("error"); setMessage("Sign in to view a target's history."); return; }
-      if (res.status === 402) { setState("error"); setMessage("Chronos requires a Professional or Agency plan."); return; }
-      if (res.status === 404) { setState("error"); setMessage("No recorded history for this target yet — Chronos fills in as Guardian scans accumulate."); return; }
-      if (!res.ok) { setState("error"); setMessage("Could not load history."); return; }
+      if (res.status === 401) { setState("error"); setMessage(cx("signInRequired")); return; }
+      if (res.status === 402) { setState("error"); setMessage(cx("planRequired")); return; }
+      if (res.status === 404) { setState("error"); setMessage(cx("noHistory")); return; }
+      if (!res.ok) { setState("error"); setMessage(cx("loadFailed")); return; }
       const data = await res.json();
       setSteps(data.steps ?? []);
       setState("done");
-    } catch { setState("error"); setMessage("Network error."); }
+    } catch { setState("error"); setMessage(cx("networkError")); }
   };
 
   useEffect(() => {
@@ -47,17 +50,15 @@ function ChronosView() {
 
   return (
     <>
-        <div className="mono text-[12px] uppercase tracking-widest text-signal">Chronos · security time machine</div>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">How this surface changed over time</h1>
+        <div className="mono text-[12px] uppercase tracking-widest text-signal">{cx("kicker")}</div>
+        <h1 className="mt-2 text-3xl font-semibold text-ink">{cx("title")}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
-          Point-in-time reconstruction and replay across a verified target&apos;s recorded history — what appeared, what
-          disappeared, what changed, and how protection posture moved. Higher scores indicate stronger protection, and
-          every change is grounded in observations that were actually recorded.
+          {cx("intro")}
         </p>
 
         <form onSubmit={(e) => { e.preventDefault(); load(target); }} className="mt-6 flex gap-2">
-          <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="yourcompany.com" className="mono flex-1 rounded-lg border border-line bg-base-950 px-3 py-2 text-sm" />
-          <button disabled={state === "loading"} className="rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950 disabled:opacity-50">{state === "loading" ? "Loading…" : "Replay history"}</button>
+          <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder={cx("targetPlaceholder")} className="mono flex-1 rounded-lg border border-line bg-base-950 px-3 py-2 text-sm" />
+          <button disabled={state === "loading"} className="rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950 disabled:opacity-50">{state === "loading" ? cx("loading") : cx("replay")}</button>
         </form>
 
         {state === "error" && (
@@ -70,9 +71,9 @@ function ChronosView() {
               <li key={s.scanId} className="relative border-l border-line pl-6">
                 <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full" style={{ background: s.diff.exposureScoreDelta > 0 ? "#38e1c3" : s.diff.exposureScoreDelta < 0 ? "#ff8a5b" : "#6b7793" }} />
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="mono text-sm text-ink">{new Date(s.observedAt).toLocaleString()}</span>
+                  <span className="mono text-sm text-ink">{tr.formatDate(s.observedAt, { dateStyle: "medium", timeStyle: "short" })}</span>
                   <span className="mono text-xs text-ink-faint">
-                    protection posture <span className="text-ink">{s.exposureScore}/100</span>
+                    {cx("protectionPosture")} <span className="text-ink">{s.exposureScore}/100</span>
                     {s.diff.from && s.diff.exposureScoreDelta !== 0 && (
                       <span className={s.diff.exposureScoreDelta > 0 ? "text-signal" : "text-risk-high"}> ({s.diff.exposureScoreDelta > 0 ? "+" : ""}{s.diff.exposureScoreDelta})</span>
                     )}
@@ -95,7 +96,7 @@ function ChronosView() {
         )}
 
         {state === "done" && steps.length === 0 && (
-          <div className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">No recorded points yet.</div>
+          <div className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">{cx("noPoints")}</div>
         )}
       </>
   );

@@ -157,6 +157,31 @@ test.describe("public experience in five languages", () => {
     }
   });
 
+  test("Assess and Chronos are written in the chosen language", async ({ page }) => {
+    const email = `locale-assess-${Date.now()}@example.invalid`;
+    await page.goto("/login");
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    expect((await page.request.post("/api/auth/signup", {
+      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
+    })).ok()).toBe(true);
+
+    await page.goto("/assess");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bezpečné, overené posúdenie zabezpečenia");
+    const assess = await page.locator("body").innerText();
+    // The check catalogue renders without a run, so its wording is assertable.
+    expect(assess).toContain("Platnosť a životnosť TLS certifikátu");
+    for (const english of ["Safe, verified security assessment", "Run assessment", "TLS certificate validity"]) {
+      expect(assess, `Assess still shows "${english}"`).not.toContain(english);
+    }
+
+    await page.goto("/chronos");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Ako sa tento povrch menil v čase");
+    const chronos = await page.locator("body").innerText();
+    for (const english of ["How this surface changed", "Replay history"]) {
+      expect(chronos, `Chronos still shows "${english}"`).not.toContain(english);
+    }
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);

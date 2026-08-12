@@ -1,0 +1,15 @@
+{
+  "kicker": "Chronos · biztonsági időgép",
+  "title": "Hogyan változott ez a felület az idők során",
+  "intro": "Adott időpontra vonatkozó rekonstrukció és visszajátszás egy igazolt célpont rögzített előzményein — mi jelent meg, mi tűnt el, mi változott, és hogyan mozdult a védelmi helyzet. A magasabb pontszám erősebb védelmet jelent, és minden változás ténylegesen rögzített megfigyeléseken alapul.",
+  "targetPlaceholder": "azoncege.com",
+  "replay": "Előzmények visszajátszása",
+  "loading": "Betöltés…",
+  "signInRequired": "A célpont előzményeinek megtekintéséhez jelentkezzen be.",
+  "planRequired": "A Chronos Professional vagy Agency csomagot igényel.",
+  "noHistory": "Ehhez a célponthoz még nincs rögzített előzmény — a Chronos a Guardian vizsgálatainak gyűlésével töltődik fel.",
+  "loadFailed": "Az előzményeket nem sikerült betölteni.",
+  "networkError": "Hálózati hiba.",
+  "protectionPosture": "védelmi helyzet",
+  "noPoints": "Még nincsenek rögzített pontok."
+}

@@ -1,0 +1,15 @@
+{
+  "kicker": "Chronos · wehikuł czasu bezpieczeństwa",
+  "title": "Jak ta powierzchnia zmieniała się w czasie",
+  "intro": "Rekonstrukcja i odtworzenie stanu na dany moment w zapisanej historii zweryfikowanego celu — co się pojawiło, co zniknęło, co się zmieniło i jak przesuwała się pozycja ochronna. Wyższy wynik oznacza silniejszą ochronę, a każda zmiana opiera się na obserwacjach, które faktycznie zapisano.",
+  "targetPlaceholder": "twojafirma.com",
+  "replay": "Odtwórz historię",
+  "loading": "Wczytywanie…",
+  "signInRequired": "Zaloguj się, aby zobaczyć historię celu.",
+  "planRequired": "Chronos wymaga planu Professional lub Agency.",
+  "noHistory": "Dla tego celu nie ma jeszcze zapisanej historii — Chronos uzupełnia się w miarę przybywania skanowań Guardiana.",
+  "loadFailed": "Nie udało się wczytać historii.",
+  "networkError": "Błąd sieci.",
+  "protectionPosture": "pozycja ochronna",
+  "noPoints": "Brak zapisanych punktów."
+}
