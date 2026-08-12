@@ -1,0 +1,18 @@
+{
+  "workspaceKicker": "Guardian munkaterület",
+  "paywallBadge": "Prémium folyamatos felderítés",
+  "paywallTitleLine1": "Elemzői szintű összefüggések.",
+  "paywallTitleLine2": "Minden ütemezett vizsgálatnál.",
+  "paywallBody": "A Guardian az igazolt megfigyelésekből változáselemzést, Exposure Driftet, élő kontrollokat, visszakövethető javaslatokat és vezetőségi riportot készít — ha a figyelés és az ütemező be van állítva.",
+  "paywallStat1Value": "Naponta",
+  "paywallStat1Label": "Alapértelmezett figyelés",
+  "paywallStat1Detail": "Az érdemi külső változásokat az ütemezett vizsgálatok után összevetjük.",
+  "paywallStat2Value": "10",
+  "paywallStat2Label": "Élő kontrollok",
+  "paywallStat2Detail": "Bizonyítékokkal alátámasztott védelmi helyzet, amely minden vizsgálattal fejlődik.",
+  "paywallStat3Value": "0",
+  "paywallStat3Label": "Kitalált megállapítás",
+  "paywallStat3Detail": "Minden következtetés visszavezethető egy megfigyelésre.",
+  "paywallUnlock": "Guardian feloldása",
+  "paywallDemo": "Nézze meg a 20 másodperces bemutatót"
+}

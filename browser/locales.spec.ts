@@ -128,6 +128,35 @@ test.describe("public experience in five languages", () => {
     }
   });
 
+  test("billing and the Guardian paywall are written in the chosen language", async ({ page }) => {
+    // Billing is where money changes hands and the paywall is what sells the
+    // plan, so English on either is more costly than English anywhere else.
+    const email = `locale-billing-${Date.now()}@example.invalid`;
+    await page.goto("/login");
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    expect((await page.request.post("/api/auth/signup", {
+      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
+    })).ok()).toBe(true);
+
+    await page.goto("/billing");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Plány a predplatné");
+    const billing = await page.locator("body").innerText();
+    for (const english of ["Plans & subscription", "Current plan", "Interactive asset graph", "Up to 5 monitored domains"]) {
+      expect(billing, `billing still shows "${english}"`).not.toContain(english);
+    }
+    // Product names stay as they are in every language.
+    expect(billing).toContain("Professional");
+    expect(billing).toContain("Agency");
+
+    // A new workspace is on the free plan, so Guardian shows the paywall.
+    await page.goto("/guardian");
+    const guardian = await page.locator("body").innerText();
+    expect(guardian).toContain("Odomknúť Guardian");
+    for (const english of ["Analyst-grade context", "Unlock Guardian", "Fabricated findings"]) {
+      expect(guardian, `the paywall still shows "${english}"`).not.toContain(english);
+    }
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);
