@@ -57,7 +57,7 @@ export function generateFindings(assets: Asset[], edges: Edge[], now: string, ke
         assetId: asset.id,
         category: "non-production-exposure",
         textKey: "nonProdExposure",
-        textValues: { label: asset.label },
+        textValues: { label: asset.label, token: env.token ?? "" },
         observation: `${asset.label} is publicly reachable.`,
         inference: env.label,
         concern: "Non-production environments often carry weaker controls, test data, or debug surfaces and may not be intended for public exposure.",

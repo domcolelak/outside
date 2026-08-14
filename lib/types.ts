@@ -89,6 +89,12 @@ export interface Signal {
   assurance: Assurance;
   confidence: number; // 0..1
   rationale: string;
+  /**
+   * The classifier's own description of what it matched, kept separately from
+   * the label so a finding can put it inside a translated sentence rather than
+   * parsing it back out of English prose.
+   */
+  token?: string;
 }
 
 export interface Asset {

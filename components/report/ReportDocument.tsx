@@ -171,10 +171,10 @@ export function ReportDocument({ result, locale = DEFAULT_LOCALE }: { result: Sc
               <Text style={{ fontSize: 9, color: INK }}>{f.assetId && assets.find((a) => a.id === f.assetId)?.label}</Text>
               <Text style={s.label7}>{r("labelObserved")}</Text>
               <Text style={s.fieldText}>{text.observation}</Text>
-              {f.inference && (
+              {text.inference && (
                 <>
                   <Text style={s.label7}>{r("labelInferred")}</Text>
-                  <Text style={s.fieldText}>{f.inference}</Text>
+                  <Text style={s.fieldText}>{text.inference}</Text>
                 </>
               )}
               <Text style={s.label7}>{r("labelConcern")}</Text>
