@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { findingText } from "./finding-text";
 import { generateFindings } from "@/lib/analysis/findings";
 import { generateMisconfigurationFindings } from "@/lib/analysis/misconfig";
+import { correlateKnownVulnerabilities } from "@/lib/analysis/vulnerabilities";
 import { LOCALES } from "@/lib/i18n/locales";
 import type { Asset, Finding, FindingTextKey } from "@/lib/types";
 import { getTranslator } from "@/lib/i18n/messages";
@@ -127,6 +128,30 @@ describe("finding wording", () => {
     expect(findingText(newAsset, "sk").inference).toBeUndefined();
   });
 
+  it("resolves an advisory's own wording from its reference", () => {
+    // Built by the real correlator. The advisory's title and recommendation
+    // belong to the entry, not to the finding shape, so they are looked up
+    // from CVE-2021-41773 rather than stored on the finding.
+    const subject = asset({
+      label: "www.acme.example",
+      signals: [],
+      attrs: { technologies: ["Apache/2.4.49"] },
+    } as Partial<Asset>);
+    const finding = correlateKnownVulnerabilities([subject], "2026-03-01T00:00:00.000Z")[0]!;
+    expect(finding.textKey).toBe("vulnerability");
+
+    const sk = findingText(finding, "sk");
+    expect(sk.title).toBe("Prechod adresárom a RCE v Apache HTTP Server");
+    // The banner, the reference and both version numbers are evidence.
+    expect(sk.observation).toContain("Apache/2.4.49");
+    expect(sk.recommendation).toContain("2.4.51");
+    expect(sk.recommendation).toContain("2.4.50");
+    expect(sk.inference).toContain("CVE-2021-41773");
+    // The concern opens with the advisory's summary, then the shared caveat.
+    expect(sk.concern).toContain("httpd 2.4.49");
+    expect(sk.concern).not.toContain("{");
+  });
+
   it("has wording for every key the type allows", () => {
     // Declared as a Record over the union, so adding a FindingTextKey without
     // catalog entries fails to compile rather than reaching a customer as a
@@ -150,6 +175,9 @@ describe("finding wording", () => {
       maliciousAddress: true,
       domainFlagged: true,
       breachExposure: true,
+      // Its title and recommendation are the advisory's, spliced in as values,
+      // so the four shared messages are templates rather than sentences.
+      vulnerability: true,
     };
 
     for (const key of Object.keys(ALL) as FindingTextKey[]) {

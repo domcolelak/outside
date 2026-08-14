@@ -154,7 +154,10 @@ export type FindingTextKey =
   | "adverseReputation"
   | "maliciousAddress"
   | "domainFlagged"
-  | "breachExposure";
+  | "breachExposure"
+  // The curated advisory set. Its title, summary and recommendation vary per
+  // entry and are resolved from the advisory reference, not from this key.
+  | "vulnerability";
 
 export interface Finding {
   id: string;
