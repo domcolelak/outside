@@ -78,6 +78,8 @@ export function generateExposedServiceFindings(assets: Asset[], now: string): Fi
       confidence: 0.6,
       assetId: asset.id,
       category: "exposed-service",
+      textKey: hasDatastore ? "exposedDatastore" : "exposedAdminService",
+      textValues: { label: asset.label, count: risky.length, list },
       observation: `Censys observed ${risky.length} sensitive non-web service(s) on an address ${asset.label} resolves to: ${list}.`,
       inference: "Datastores and remote-administration services exposed to the public internet are high-value targets for brute forcing, unauthenticated access, and known-CVE exploitation.",
       concern: "Censys reports what it observed on the address, not that the service is reachable-and-vulnerable from everywhere or that it belongs to this system — on shared hosting it may be a neighbour's. Treat it as a prioritized item to confirm and lock down, not a confirmed breach.",

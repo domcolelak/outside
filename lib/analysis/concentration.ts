@@ -28,6 +28,13 @@ export function generateConcentrationFindings(assets: Asset[], edges: Edge[], no
       confidence: 0.85,
       assetId: spof.node.id,
       category: "infrastructure-concentration",
+      textKey: "concentration",
+      textValues: {
+        count: n,
+        node: spof.node.label,
+        kind: spof.node.kind,
+        sample: sample ? `: ${sample}${n > 5 ? "…" : ""}` : "",
+      },
       observation: `${n} asset(s) in the external surface depend on ${spof.node.label} (${spof.node.kind})${sample ? `: ${sample}${n > 5 ? "…" : ""}` : ""}.`,
       inference: "A shared node that a large part of the surface hangs on concentrates blast radius: a failure, outage, or compromise of it impacts every dependent asset simultaneously.",
       concern: "This is a resilience and availability observation about the topology, not a confirmed vulnerability. Its value is prioritizing redundancy and reducing the reach of a single failure or compromise.",
