@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { findingText } from "./finding-text";
 import { generateFindings } from "@/lib/analysis/findings";
+import { generateMisconfigurationFindings } from "@/lib/analysis/misconfig";
 import { LOCALES } from "@/lib/i18n/locales";
-import type { Asset, Finding } from "@/lib/types";
+import type { Asset, Finding, FindingTextKey } from "@/lib/types";
+import { getTranslator } from "@/lib/i18n/messages";
 
 /**
  * Finding wording, in the reader's language, without losing the evidence.
@@ -74,6 +76,66 @@ describe("finding wording", () => {
     const text = findingText(legacy, "sk");
     expect(text.title).toBe(legacy.title);
     expect(text.observation).toBe(legacy.observation);
+  });
+
+  it("carries evidence through an enrichment finding's translated sentences", () => {
+    // Built from the real misconfiguration generator rather than a hand-made
+    // finding, so this breaks if the generator stops emitting its key or its
+    // values stop matching the placeholders the catalog expects.
+    const subject = asset({
+      label: "www.acme.example",
+      signals: [],
+      attrs: { technologies: [], missingHeaders: ["strict-transport-security", "x-content-type-options"] },
+    } as Partial<Asset>);
+    const finding = generateMisconfigurationFindings([subject], "2026-03-01T00:00:00.000Z")[0]!;
+    expect(finding.textKey).toBe("missingHeaders");
+
+    const sk = findingText(finding, "sk");
+    expect(sk.title).toBe("Chýbajúce bezpečnostné hlavičky HTTP");
+    // The hostname, the count and the header names are evidence, not prose.
+    expect(sk.observation).toContain("www.acme.example");
+    expect(sk.observation).toContain("2");
+    expect(sk.observation).toContain("strict-transport-security");
+    expect(sk.recommendation).toContain("x-content-type-options");
+    expect(sk.observation).not.toContain("{");
+  });
+
+  it("has wording for every key the type allows", () => {
+    // Declared as a Record over the union, so adding a FindingTextKey without
+    // catalog entries fails to compile rather than reaching a customer as a
+    // bare key. The four fields are then checked in all five languages.
+    const ALL: Record<FindingTextKey, true> = {
+      shadowAsset: true,
+      nonProdExposure: true,
+      authSurface: true,
+      newAsset: true,
+      mailSecurity: true,
+      missingHeaders: true,
+      httpsDowngrade: true,
+      certExpired: true,
+      certExpiring: true,
+      domainLapsed: true,
+      domainExpiring: true,
+      exposedDatastore: true,
+      exposedAdminService: true,
+      concentration: true,
+      adverseReputation: true,
+      maliciousAddress: true,
+      domainFlagged: true,
+      breachExposure: true,
+    };
+
+    for (const key of Object.keys(ALL) as FindingTextKey[]) {
+      for (const { code } of LOCALES) {
+        const t = getTranslator(code);
+        for (const field of ["Title", "Observation", "Concern", "Recommendation"]) {
+          const messageKey = `${key}${field}`;
+          const text = t.t("finding", messageKey as never);
+          expect(text, `${key}${field} is missing in ${code}`).not.toBe(messageKey);
+          expect(text.trim().length, `${key}${field} is empty in ${code}`).toBeGreaterThan(4);
+        }
+      }
+    }
   });
 
   it("gives every keyed finding a translation in every language", () => {

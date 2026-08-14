@@ -133,7 +133,22 @@ export type FindingTextKey =
   | "nonProdExposure"
   | "authSurface"
   | "newAsset"
-  | "mailSecurity";
+  | "mailSecurity"
+  // Enrichment-only generators: these fire on verified targets, or when an
+  // operator's provider key is configured, so many scans never produce them.
+  | "missingHeaders"
+  | "httpsDowngrade"
+  | "certExpired"
+  | "certExpiring"
+  | "domainLapsed"
+  | "domainExpiring"
+  | "exposedDatastore"
+  | "exposedAdminService"
+  | "concentration"
+  | "adverseReputation"
+  | "maliciousAddress"
+  | "domainFlagged"
+  | "breachExposure";
 
 export interface Finding {
   id: string;
