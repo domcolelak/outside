@@ -25,7 +25,8 @@ const asset = (over: Partial<Asset> = {}): Asset => ({
   lastObservedAt: "2026-03-01T00:00:00.000Z",
   discoveredVia: ["dns"],
   evidence: [],
-  signals: [{ code: "env.nonprod", label: "Non-production naming", confidence: 0.8, rationale: "Hostname begins with staging." }],
+  // The shape the real classifier emits, token and all.
+  signals: [{ code: "env.nonprod", label: "Possible non-production environment (staging)", confidence: 0.8, rationale: "Hostname begins with staging.", token: "staging" }],
   priority: "high",
   orgConfidence: 1,
   attrs: { technologies: [] },
@@ -38,7 +39,7 @@ describe("finding wording", () => {
   it("carries a key so it can be read in another language later", () => {
     const finding = findingFor(asset());
     expect(finding.textKey).toBe("nonProdExposure");
-    expect(finding.textValues).toEqual({ label: "staging.acme.example" });
+    expect(finding.textValues).toEqual({ label: "staging.acme.example", token: "staging" });
   });
 
   it("reads in the requested language", () => {
@@ -98,6 +99,32 @@ describe("finding wording", () => {
     expect(sk.observation).toContain("strict-transport-security");
     expect(sk.recommendation).toContain("x-content-type-options");
     expect(sk.observation).not.toContain("{");
+  });
+
+  it("translates the inference line, including the classifier's own word", () => {
+    // The inference was the last English line inside an otherwise translated
+    // finding — visible as one English sentence under a Slovak heading.
+    const finding = findingFor(asset());
+    expect(finding.inference).toBe("Possible non-production environment (staging)");
+
+    const sk = findingText(finding, "sk");
+    expect(sk.inference).toBe("Možné neprodukčné prostredie (staging)");
+
+    // A descriptive token is translated with the sentence; "staging" happens to
+    // be the same word in Slovak, so assert one that is not.
+    const legacy = findingFor(asset({
+      label: "legacy.acme.example",
+      signals: [{ code: "env.nonprod", label: "Possible non-production environment (legacy naming)", confidence: 0.8, rationale: "r", token: "legacy naming" }],
+    } as Partial<Asset>));
+    expect(findingText(legacy, "sk").inference).toBe("Možné neprodukčné prostredie (staré pomenovanie)");
+  });
+
+  it("leaves a finding with no inference without one", () => {
+    // Not every finding infers anything, and inventing an empty line would put
+    // a stray heading in the report.
+    const newAsset = findingFor(asset({ signals: [], attrs: { technologies: [], newlyObserved: true } } as Partial<Asset>));
+    expect(newAsset.textKey).toBe("newAsset");
+    expect(findingText(newAsset, "sk").inference).toBeUndefined();
   });
 
   it("has wording for every key the type allows", () => {

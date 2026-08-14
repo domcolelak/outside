@@ -48,6 +48,7 @@ export function environmentSignal(host: string): Signal | null {
   return {
     code: "env.nonprod",
     label: `Possible non-production environment (${m.label})`,
+    token: m.label,
     assurance: "inferred",
     confidence: m.weight,
     rationale: `Hostname contains a strong non-production naming token ("${m.label}"). Naming is an intent signal, not proof of environment.`,
