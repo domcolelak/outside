@@ -248,6 +248,19 @@ export function correlateKnownVulnerabilities(assets: Asset[], now: string, kev:
           confidence,
           assetId: asset.id,
           category: "known-vulnerability",
+          textKey: "vulnerability",
+          textValues: {
+            label: asset.label,
+            tech: tech.raw,
+            ref: vuln.ref,
+            cvss: vuln.cvss.toFixed(1),
+            kev: kevListed ? ", CISA KEV" : "",
+            epss: epssScore ? `, EPSS ${(epssScore.score * 100).toFixed(0)}%` : "",
+            // The advisory's own wording is resolved at render time from its
+            // reference; these two notes travel with the finding.
+            kevNote,
+            epssNote,
+          },
           observation: `${asset.label} disclosed ${tech.raw} in its response headers.`,
           inference: `${tech.raw} matches ${vuln.ref} (CVSS ${vuln.cvss.toFixed(1)}${kevListed ? ", CISA KEV" : ""}${epssScore ? `, EPSS ${(epssScore.score * 100).toFixed(0)}%` : ""}).`,
           concern: `${vuln.summary}${kevNote}${epssNote} A version banner is not proof the running build is vulnerable — distributions sometimes backport fixes without changing the reported version — so treat this as a prioritized item to confirm, not a confirmed exploit.`,

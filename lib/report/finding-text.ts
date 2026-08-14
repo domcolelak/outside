@@ -21,6 +21,7 @@
 import type { Finding } from "@/lib/types";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { getTranslator, type MessageKey } from "@/lib/i18n/messages";
+import { vulnerabilityTextKey } from "@/lib/analysis/vulnerability-text";
 
 export interface FindingText {
   title: string;
@@ -70,6 +71,24 @@ export function findingText(finding: Finding, locale: Locale = DEFAULT_LOCALE): 
   // parenthetical is not the one English word left in a Slovak sentence.
   if (typeof values.token === "string" && TOKEN_KEY[values.token]) {
     values.token = t.t("finding", TOKEN_KEY[values.token] as MessageKey<"finding">);
+  }
+
+  // A vulnerability finding's title, summary and recommendation belong to the
+  // advisory rather than to the finding shape, so they are resolved from its
+  // reference and fed to the shared sentences as values. An advisory the
+  // catalog does not describe keeps the English the entry already carries.
+  if (finding.textKey === "vulnerability" && typeof values.ref === "string") {
+    const advisory = (field: "Title" | "Summary" | "Recommendation", fallback: string) => {
+      const key = vulnerabilityTextKey(values.ref as string, field);
+      if (!key) return fallback;
+      const rendered = t.t("finding", key);
+      return rendered === key ? fallback : rendered;
+    };
+    values.title = advisory("Title", finding.title);
+    values.recommendation = advisory("Recommendation", finding.recommendation);
+    // The concern is the advisory's summary plus a shared caveat, so the
+    // summary goes in as a value rather than being a sentence of its own.
+    values.summary = advisory("Summary", "");
   }
 
   const translated = {} as FindingText;
