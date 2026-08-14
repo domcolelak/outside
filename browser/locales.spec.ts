@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 /**
  * The five-language public experience, in a real browser.
@@ -106,18 +106,43 @@ test.describe("public experience in five languages", () => {
     await expect(alert).toHaveText("Nesprávny e-mail alebo heslo.");
   });
 
-  test("the signed-in workspace is written in the chosen language", async ({ page }) => {
+  /**
+   * The signed-in screens, all on one account.
+   *
+   * These were a test each with a signup each. /api/auth/signup allows six per
+   * client per minute, so as they accumulated the suite began tripping its own
+   * rate limit in CI — a failure that looks like a broken page and is not one.
+   * One account, created once, also matches what is being tested: a person
+   * moving between screens, not five people each visiting one.
+   */
+  test.describe("signed in", () => {
+    test.describe.configure({ mode: "serial" });
+
+    let page: Page;
+
+    test.beforeAll(async ({ browser }, testInfo) => {
+      const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+      page = await context.newPage();
+      await page.goto("/login");
+      await page.request.post("/api/locale", { data: { locale: "sk" } });
+      const signup = await page.request.post("/api/auth/signup", {
+        data: {
+          email: `locale-suite-${Date.now()}@example.invalid`,
+          name: "Locale Tester",
+          password: "a-long-enough-password",
+        },
+      });
+      expect(signup.ok(), "the shared account could not be created").toBe(true);
+    });
+
+    test.afterAll(async () => {
+      await page?.context().close();
+    });
+
+  test("the signed-in workspace is written in the chosen language", async () => {
     // The screen every signed-in person lands on. Asserted against a real
     // session, because most of its copy lives in client components that only
     // render once the page is actually interactive.
-    const email = `locale-workspace-${Date.now()}@example.invalid`;
-    await page.goto("/login");
-    await page.request.post("/api/locale", { data: { locale: "sk" } });
-    const signup = await page.request.post("/api/auth/signup", {
-      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
-    });
-    expect(signup.ok()).toBe(true);
-
     await page.goto("/account");
     await expect(page.locator("html")).toHaveAttribute("lang", "sk");
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Vitajte");
@@ -128,16 +153,9 @@ test.describe("public experience in five languages", () => {
     }
   });
 
-  test("billing and the Guardian paywall are written in the chosen language", async ({ page }) => {
+  test("billing and the Guardian paywall are written in the chosen language", async () => {
     // Billing is where money changes hands and the paywall is what sells the
     // plan, so English on either is more costly than English anywhere else.
-    const email = `locale-billing-${Date.now()}@example.invalid`;
-    await page.goto("/login");
-    await page.request.post("/api/locale", { data: { locale: "sk" } });
-    expect((await page.request.post("/api/auth/signup", {
-      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
-    })).ok()).toBe(true);
-
     await page.goto("/billing");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Plány a predplatné");
     const billing = await page.locator("body").innerText();
@@ -157,14 +175,7 @@ test.describe("public experience in five languages", () => {
     }
   });
 
-  test("Assess and Chronos are written in the chosen language", async ({ page }) => {
-    const email = `locale-assess-${Date.now()}@example.invalid`;
-    await page.goto("/login");
-    await page.request.post("/api/locale", { data: { locale: "sk" } });
-    expect((await page.request.post("/api/auth/signup", {
-      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
-    })).ok()).toBe(true);
-
+  test("Assess and Chronos are written in the chosen language", async () => {
     await page.goto("/assess");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bezpečné, overené posúdenie zabezpečenia");
     const assess = await page.locator("body").innerText();
@@ -182,16 +193,7 @@ test.describe("public experience in five languages", () => {
     }
   });
 
-  test("the integrations page and its provider descriptions are translated", async ({ page }) => {
-    // /integrations redirects to /login when signed out, so this needs a
-    // session — the descriptions only render for someone who could connect.
-    const email = `locale-integrations-${Date.now()}@example.invalid`;
-    await page.goto("/login");
-    await page.request.post("/api/locale", { data: { locale: "sk" } });
-    expect((await page.request.post("/api/auth/signup", {
-      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
-    })).ok()).toBe(true);
-
+  test("the integrations page and its provider descriptions are translated", async () => {
     await page.goto("/integrations");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pripojte spravodajstvo a nápravu");
 
@@ -206,16 +208,7 @@ test.describe("public experience in five languages", () => {
     }
   });
 
-  test("the capability registry is translated", async ({ page }) => {
-    // Every page inside AppShell redirects to /login without a session —
-    // account, assess, billing, capabilities, chronos, guardian, integrations.
-    const email = `locale-capabilities-${Date.now()}@example.invalid`;
-    await page.goto("/login");
-    await page.request.post("/api/locale", { data: { locale: "sk" } });
-    expect((await page.request.post("/api/auth/signup", {
-      data: { email, name: "Locale Tester", password: "a-long-enough-password" },
-    })).ok()).toBe(true);
-
+  test("the capability registry is translated", async () => {
     await page.goto("/capabilities");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Čo dokáže OUTSIDE zistiť");
 
@@ -228,6 +221,7 @@ test.describe("public experience in five languages", () => {
     for (const literal of ["crt.sh", "CISA KEV", "EPSS", "SecurityTrails", "Shodan"]) {
       expect(body, `${literal} was translated away`).toContain(literal);
     }
+  });
   });
 
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
