@@ -18,6 +18,8 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 | **Attacker View** — an evidence-backed replay of how each hostname became publicly observable. Discovery only, never exploitation. | **Guardian** — continuous change intelligence, Exposure Drift, and traceable recommendations after every scheduled scan. |
 | ![Integrations](docs/media/outside-integrations.png) | ![Findings and posture](docs/media/outside-findings.png) |
 | **Integrations** — organization-scoped, encrypted BYOK onboarding with provider-specific setup links, connection checks, and an explicitly separated write-capable Cloudflare workflow. | **Findings & posture** — protection posture with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. |
+| ![Support assistant in Slovak](docs/media/outside-support-sk.png) | |
+| **Five languages, end to end** — the product in Slovak, including the FAQ and its assistant. Answers come from reviewed content: a question is matched deterministically first, and a model is only ever asked to pick one FAQ entry from an allowed list, never to write the reply. | |
 
 > Screenshots use deterministic synthetic data and a synthetic local workspace—never customer data. Public demo captures can be regenerated with `node scripts/capture-screenshots.mjs [baseUrl]`; authenticated Guardian and Integrations captures require a disposable verified test workspace.
 

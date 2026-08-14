@@ -24,10 +24,10 @@ Independent penetration testing, managed PostgreSQL PITR evidence, production ke
 | Gate | Required evidence |
 | --- | --- |
 | Install and supply chain | Reproducible `npm ci`; production audit at high severity; locked-package licence policy; repository secret scan. |
-| Unit/regression | `159` tests across `38` files, including auth/session, tenant isolation, SSRF/DNS rebinding, scoring/evidence, Guardian recovery, Stripe ordering, export safety, caching, graph correctness, and production configuration. |
+| Unit/regression | `799` tests across `124` files, including auth/session, tenant isolation, SSRF/DNS rebinding, scoring/evidence, Guardian recovery, Stripe ordering, export safety, caching, graph correctness, message-catalogue parity across five languages, and production configuration. The file count is asserted by `lib/docs/readiness.test.ts`, so this row cannot quietly go stale again. |
 | Static validation | ESLint with zero warnings, strict TypeScript, Prisma schema validation, and production Next.js build. |
 | PostgreSQL | PostgreSQL 16 clean migrations, `13` integration workflows, historical-checkpoint upgrade, transactional/tenant/lease/advisory-lock coverage, logical dump, isolated restore, and post-restore reads. |
-| Browser | Five production-build Chromium journeys covering landing/auth accessibility, hardened signup session contract, authenticated workspace rendering, deterministic demo and Attacker View, mobile overflow, and a 120-request liveness budget. |
+| Browser | Production-build Chromium journeys across three specs: landing/auth accessibility, hardened signup session contract, deterministic demo and Attacker View, a 120-request liveness budget, mobile overflow, and the five-language public and signed-in experience (landing, sign-in, workspace, billing, Guardian paywall, Assess, Chronos, integrations, capability registry). |
 | Container | Migration image, non-root production image, real PostgreSQL readiness, and deterministic demo smoke test. |
 | Terraform | Reproducible `go.sum`, `go mod tidy` cleanliness, and `go test ./...`. |
 | Performance regression | 1,000-node Barnes-Hut ceiling plus browser liveness p95 under the deliberately generous release threshold. These are regression gates, not customer-facing SLOs. |
