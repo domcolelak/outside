@@ -146,7 +146,7 @@ export function ProviderConnector({
           throw new Error(
             await responseError(
               response,
-              `Could not check ${descriptor.name}.`,
+              tr.t("integrations", "connectorErrCheck", { provider: descriptor.name }),
             ),
           );
         }
@@ -157,13 +157,14 @@ export function ProviderConnector({
         setLoadError(
           error instanceof Error
             ? error.message
-            : `Could not check ${descriptor.name}.`,
+            : tr.t("integrations", "connectorErrCheck", { provider: descriptor.name }),
         );
       } finally {
         setBusy("");
       }
     },
-    [api, descriptor.name, orgId],
+    // tr is memoized on the locale, so this does not re-run every render.
+    [api, descriptor.name, orgId, tr],
   );
 
   useEffect(() => {
@@ -218,7 +219,7 @@ export function ProviderConnector({
         throw new Error(
           await responseError(
             response,
-            `Could not connect ${descriptor.name}.`,
+            n("connectorErrConnect", { provider: descriptor.name }),
           ),
         );
       }
@@ -247,7 +248,7 @@ export function ProviderConnector({
     if (busy) return;
     if (
       !window.confirm(
-        `Disconnect ${descriptor.name}? OUTSIDE will stop using this organization’s key until you reconnect it.`,
+        n("connectorConfirmDisconnect", { provider: descriptor.name }),
       )
     ) {
       return;
@@ -263,7 +264,7 @@ export function ProviderConnector({
         throw new Error(
           await responseError(
             response,
-            `Could not disconnect ${descriptor.name}.`,
+            n("connectorErrDisconnect", { provider: descriptor.name }),
           ),
         );
       }
