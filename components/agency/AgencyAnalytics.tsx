@@ -1,4 +1,6 @@
 "use client";
+
+import { useTranslator } from "@/lib/i18n/context";
 import { useCallback, useEffect, useState } from "react";
 
 type BillingClient = {
@@ -43,6 +45,9 @@ export function AgencyAnalytics({
   agencyId: string;
   canManageBilling: boolean;
 }) {
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   const [data, setData] = useState<Data | null>(null);
   const load = useCallback(
     () =>
@@ -57,7 +62,7 @@ export function AgencyAnalytics({
   if (!data)
     return (
       <section className="panel p-5 text-sm text-ink-faint">
-        Loading usage analytics…
+        {g("analyticsLoading")}
       </section>
     );
   const maximum = Math.max(
@@ -89,25 +94,24 @@ export function AgencyAnalytics({
       <div className="panel p-5">
         <div className="flex justify-between">
           <div>
-            <h2 className="text-lg font-medium">Usage analytics</h2>
+            <h2 className="text-lg font-medium">{g("analyticsHeading")}</h2>
             <p className="mt-1 text-xs text-ink-faint">
-              Portfolio operations over the last 30 days.
+              {g("analyticsSubtitle")}
             </p>
           </div>
           <div className="mono text-[11px] text-ink-faint">
-            {data.utilization.apiCalls} API calls · {data.utilization.reports}{" "}
-            reports
+            {g("analyticsApiReports", { api: data.utilization.apiCalls, reports: data.utilization.reports })}
           </div>
         </div>
         <div
           className="mt-6 flex h-32 items-end gap-1"
           role="img"
-          aria-label={`Thirty-day activity chart with ${data.utilization.apiCalls} API calls and ${data.utilization.reports} reports`}
+          aria-label={g("analyticsChartLabel", { api: data.utilization.apiCalls, reports: data.utilization.reports })}
         >
           {data.series.map((point) => (
             <div
               key={point.date}
-              title={`${point.date}: ${point.scans} scans, ${point.reports} reports, ${point.api} API, ${point.changes} changes`}
+              title={g("analyticsBarTitle", { date: point.date, scans: point.scans, reports: point.reports, api: point.api, changes: point.changes })}
               className="min-w-0 flex-1 rounded-t bg-signal/50"
               style={{
                 height: `${Math.max(3, ((point.scans + point.reports + point.api + point.changes) / maximum) * 100)}%`,
@@ -120,21 +124,21 @@ export function AgencyAnalytics({
             <b>
               {data.utilization.activeClients}/{data.utilization.totalClients}
             </b>
-            <div className="text-[11px] text-ink-faint">active clients</div>
+            <div className="text-[11px] text-ink-faint">{g("analyticsActiveClients")}</div>
           </div>
           <div className="rounded-sm border border-line p-3">
             <b>{data.utilization.activeSeats}</b>
-            <div className="text-[11px] text-ink-faint">active seats</div>
+            <div className="text-[11px] text-ink-faint">{g("analyticsActiveSeats")}</div>
           </div>
           <div className="rounded-sm border border-line p-3">
             <b>{data.utilization.pendingJobs}</b>
-            <div className="text-[11px] text-ink-faint">queued jobs</div>
+            <div className="text-[11px] text-ink-faint">{g("analyticsQueuedJobs")}</div>
           </div>
         </div>
       </div>
       {canManageBilling && data.billing ? (
         <div className="panel p-5">
-          <h2 className="text-lg font-medium">Billing hierarchy</h2>
+          <h2 className="text-lg font-medium">{g("billingHierarchyHeading")}</h2>
           <div className="mt-4 space-y-2">
             {Object.entries(data.billing.revenueByCurrency).map(
               ([currency, cents]) => (
@@ -142,7 +146,7 @@ export function AgencyAnalytics({
                   key={currency}
                   className="flex justify-between rounded-sm border border-line p-3 text-sm"
                 >
-                  <span>Managed MRR</span>
+                  <span>{g("managedMrrHeading")}</span>
                   <b>
                     {(cents / 100).toLocaleString()} {currency}
                   </b>
@@ -152,34 +156,34 @@ export function AgencyAnalytics({
           </div>
           <div className="mt-4 text-xs text-ink-soft">
             {data.reseller.parent
-              ? `Resold by ${data.reseller.parent.name}`
-              : "Direct agency workspace"}{" "}
-            · {data.reseller.children.length} downstream reseller workspace(s)
+              ? g("analyticsResoldBy", { parent: data.reseller.parent.name })
+              : g("directWorkspace")}{" "}
+            {g("analyticsDownstream", { count: data.reseller.children.length })}
           </div>
           <a
             href={`/api/agency/billing/export?agencyId=${agencyId}`}
             className="mt-5 inline-block rounded-sm border border-signal/30 px-3 py-2 text-xs text-signal"
           >
-            Export billing CSV
+            {g("analyticsExportCsv")}
           </a>
         </div>
       ) : (
         <div className="panel p-5">
-          <h2 className="text-lg font-medium">Workspace hierarchy</h2>
+          <h2 className="text-lg font-medium">{g("workspaceHierarchyHeading")}</h2>
           <p className="mt-2 text-sm text-ink-soft">
-            Commercial billing data is restricted to billing roles.
+            {g("analyticsBillingRestricted")}
           </p>
           <div className="mt-4 text-xs text-ink-soft">
             {data.reseller.parent
-              ? `Resold by ${data.reseller.parent.name}`
-              : "Direct agency workspace"}{" "}
-            · {data.reseller.children.length} downstream reseller workspace(s)
+              ? g("analyticsResoldBy", { parent: data.reseller.parent.name })
+              : g("directWorkspace")}{" "}
+            {g("analyticsDownstream", { count: data.reseller.children.length })}
           </div>
         </div>
       )}
       {canManageBilling && data.billing && (
         <div className="panel p-5 xl:col-span-2">
-          <h2 className="text-lg font-medium">Client billing management</h2>
+          <h2 className="text-lg font-medium">{g("clientBillingHeading")}</h2>
           <div className="mt-4 grid gap-2">
             {data.billing.clients.map((client) => (
               <form
@@ -194,17 +198,17 @@ export function AgencyAnalytics({
                   </small>
                 </span>
                 <select
-                  aria-label={`Billing mode for ${client.name}`}
+                  aria-label={g("analyticsBillingModeLabel", { client: client.name })}
                   name="mode"
                   defaultValue={client.mode}
                   className="rounded-sm border border-line bg-base-950 px-2 py-1 text-xs"
                 >
-                  <option value="agency">Agency paid</option>
-                  <option value="direct">Client direct</option>
-                  <option value="reseller">Reseller</option>
+                  <option value="agency">{g("billingAgencyPaid")}</option>
+                  <option value="direct">{g("billingClientDirect")}</option>
+                  <option value="reseller">{g("billingReseller")}</option>
                 </select>
                 <input
-                  aria-label={`Monthly price for ${client.name}`}
+                  aria-label={g("analyticsMonthlyPriceLabel", { client: client.name })}
                   name="price"
                   type="number"
                   min="0"
@@ -213,14 +217,14 @@ export function AgencyAnalytics({
                   className="rounded-sm border border-line bg-base-950 px-2 py-1 text-xs"
                 />
                 <input
-                  aria-label={`Currency for ${client.name}`}
+                  aria-label={g("analyticsCurrencyLabel", { client: client.name })}
                   name="currency"
                   maxLength={3}
                   defaultValue={client.currency}
                   className="rounded-sm border border-line bg-base-950 px-2 py-1 text-xs"
                 />
                 <button className="rounded-sm border border-signal/30 px-3 py-1 text-xs text-signal">
-                  Save
+                  {g("analyticsSave")}
                 </button>
               </form>
             ))}
