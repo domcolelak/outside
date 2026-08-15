@@ -1,5 +1,8 @@
 "use client";
 
+import { useTranslator } from "@/lib/i18n/context";
+import { renderWithLiterals } from "./literals";
+
 import { useCallback, useEffect, useState } from "react";
 
 interface Preview {
@@ -19,6 +22,9 @@ interface ZoneState {
  * destination. The exact record is shown before anything is written.
  */
 export function DmarcRemediation({ orgId }: { orgId: string }) {
+  const tr = useTranslator();
+  const d = (key: Parameters<typeof tr.t<"integrations">>[1], values?: Record<string, string | number>) =>
+    tr.t("integrations", key, values);
   const [zones, setZones] = useState<ZoneState[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +40,14 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
       const res = await fetch(`/api/integrations/cloudflare/dmarc?orgId=${encodeURIComponent(orgId)}`, { credentials: "include" });
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
-        throw new Error(typeof detail?.error === "string" ? detail.error : "Could not load your Cloudflare zones.");
+        throw new Error(typeof detail?.error === "string" ? detail.error : tr.t("integrations", "dmarcLoadFailed"));
       }
       setZones((await res.json()).zones ?? []);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Could not load your Cloudflare zones.");
+      setLoadError(err instanceof Error ? err.message : tr.t("integrations", "dmarcLoadFailed"));
     }
-  }, [orgId]);
+    // tr is memoized on the locale, so this does not re-run every render.
+  }, [orgId, tr]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -50,8 +57,8 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
   async function act(target: string, apply: boolean) {
     const confirmed = window.confirm(
       apply
-        ? `Create the previewed DMARC policy for ${target}? This changes live DNS.`
-        : `Remove the DMARC policy OUTSIDE created for ${target}?`,
+        ? d("dmarcConfirmApply", { domain: target })
+        : d("dmarcConfirmRollback", { domain: target }),
     );
     if (!confirmed) return;
     setBusy(target);
@@ -68,10 +75,10 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
             method: "DELETE",
             credentials: "include",
           });
-      if (!res.ok) setError((await res.json()).error ?? "The change was not applied.");
+      if (!res.ok) setError((await res.json()).error ?? d("dmarcChangeFailed"));
       else await load();
     } catch {
-      setError("Network error. Nothing was changed.");
+      setError(d("dmarcNetworkError"));
     }
     setBusy(null);
   }
@@ -85,19 +92,19 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
           onClick={() => void load()}
           className="underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
         >
-          Try again
+          {d("dmarcTryAgain")}
         </button>
       </div>
     );
   }
-  if (!zones) return <div className="mono mt-3 text-[11px] text-ink-faint">Loading domains…</div>;
+  if (!zones) return <div className="mono mt-3 text-[11px] text-ink-faint">{d("dmarcLoadingDomains")}</div>;
   if (zones.length === 0) return null;
 
   return (
     <div className="mt-4 border-t border-line pt-3">
-      <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Guided remediation · DMARC monitoring</div>
+      <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{d("dmarcHeading")}</div>
       <p className="mono mt-1 text-[11px] leading-5 text-ink-faint">
-        Adds a DMARC policy in monitor mode (<span className="text-ink-soft">p=none</span>). It blocks no mail and requests no reports because no report destination is configured. OUTSIDE first checks that no DMARC policy already exists, verifies the write, and keeps a rollback handle.
+        {renderWithLiterals(d("dmarcExplainer"), { policy: "p=none" })}
       </p>
       {error && <p role="alert" aria-live="assertive" className="mono mt-2 text-[11px] text-risk-high">{error}</p>}
 
@@ -107,11 +114,11 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="mono text-[12px] text-ink">{zone.name}</span>
               {zone.applied ? (
-                <span className="mono text-[11px] text-signal">✓ applied {new Date(zone.applied.appliedAt).toLocaleDateString()}</span>
+                <span className="mono text-[11px] text-signal">{d("dmarcApplied", { date: tr.formatDate(zone.applied.appliedAt) })}</span>
               ) : zone.verified ? (
-                <span className="mono text-[11px] text-ink-faint">not applied</span>
+                <span className="mono text-[11px] text-ink-faint">{d("dmarcNotApplied")}</span>
               ) : (
-                <span className="mono text-[11px] text-risk-medium">verify this domain first</span>
+                <span className="mono text-[11px] text-risk-medium">{d("dmarcVerifyFirst")}</span>
               )}
 
               <div className="ml-auto flex items-center gap-2">
@@ -122,7 +129,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                     aria-controls={`dmarc-preview-${zone.name}`}
                     className="mono min-h-11 rounded-md border border-line px-3 py-2 text-xs text-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
                   >
-                    {expanded === zone.name ? "Hide record" : "Preview record"}
+                    {expanded === zone.name ? d("dmarcHideRecord") : d("dmarcPreviewRecord")}
                   </button>
                 )}
                 {zone.verified && !zone.applied && (
@@ -131,7 +138,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                     disabled={busy === zone.name}
                     className="mono min-h-11 rounded-md border border-signal/40 bg-signal/10 px-3 py-2 text-xs text-signal hover:bg-signal/15 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
                   >
-                    {busy === zone.name ? "Applying…" : "Apply"}
+                    {busy === zone.name ? d("dmarcApplying") : d("dmarcApply")}
                   </button>
                 )}
                 {zone.applied && (
@@ -140,7 +147,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                     disabled={busy === zone.name}
                     className="mono min-h-11 rounded-md border border-risk-high/40 px-3 py-2 text-xs text-risk-high hover:bg-risk-high/5 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high"
                   >
-                    {busy === zone.name ? "Rolling back…" : "Roll back"}
+                    {busy === zone.name ? d("dmarcRollingBack") : d("dmarcRollback")}
                   </button>
                 )}
               </div>
@@ -148,7 +155,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
 
             {expanded === zone.name && (
               <div id={`dmarc-preview-${zone.name}`} className="mt-2 rounded-md border border-line bg-base-900 p-2">
-                <div className="mono text-[11px] text-ink-faint">This exact record will be created:</div>
+                <div className="mono text-[11px] text-ink-faint">{d("dmarcExactRecord")}</div>
                 <pre className="mono mt-1 overflow-x-auto text-[11px] text-ink-soft">{zone.preview.record.type}  {zone.preview.record.name}
 {zone.preview.record.content}</pre>
               </div>

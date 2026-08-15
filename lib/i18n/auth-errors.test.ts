@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { LOCALES } from "./locales";
 import { getTranslator } from "./messages";
 import enAuth from "@/messages/en/auth.json";
+import { AUTH_ERROR_KEYS, authErrorMessage } from "@/lib/auth/error-keys";
 
 /**
  * Every failure code the auth routes can return must have a message.
@@ -35,11 +36,18 @@ function codesInSource(): string[] {
   return [...codes].sort();
 }
 
-/** login/page.tsx maps codes to catalog keys; read that map from its source. */
+/**
+ * The map lives in lib/auth/error-keys.ts and is shared by sign-in and password
+ * reset, so it can simply be imported.
+ *
+ * It used to be embedded in login/page.tsx and this read it out of the source
+ * text with a regular expression — which is exactly what broke, and broke
+ * quietly, the moment the map moved: an empty match reads as "no codes are
+ * mapped", so every code failed at once rather than the test saying the map had
+ * gone missing.
+ */
 function mappedCodes(): Record<string, string> {
-  const source = readFileSync(join(process.cwd(), "app/login/page.tsx"), "utf8");
-  const block = source.match(/const ERROR_KEYS[^=]*=\s*\{([^}]*)\}/s)?.[1] ?? "";
-  return Object.fromEntries([...block.matchAll(/(\w+):\s*"(\w+)"/g)].map((m) => [m[1]!, m[2]!]));
+  return AUTH_ERROR_KEYS;
 }
 
 describe("auth failure messages", () => {
@@ -57,6 +65,27 @@ describe("auth failure messages", () => {
         const rendered = getTranslator(code).t("auth", key as never);
         expect(rendered, `${code}/auth.${key} is unresolved`).not.toBe(key);
       }
+    }
+  });
+
+  it("falls back to the server's own wording for an unknown code", () => {
+    // A code added on the server before its message exists must degrade to
+    // English, not to a blank alert.
+    const t = getTranslator("sk");
+    const message = authErrorMessage(
+      { code: "some_new_code", error: "Something specific went wrong." },
+      (key) => t.t("auth", key),
+    );
+    expect(message).toBe("Something specific went wrong.");
+  });
+
+  it("never answers with nothing", () => {
+    // No code, a non-string code, an absent message and a blank one. A form
+    // that fails silently is worse than one that fails vaguely.
+    const t = getTranslator("sk");
+    for (const response of [{}, { code: 42 }, { error: "" }, { error: "   " }]) {
+      const message = authErrorMessage(response, (key) => t.t("auth", key));
+      expect(message.trim().length).toBeGreaterThan(4);
     }
   });
 

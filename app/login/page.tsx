@@ -6,28 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Wordmark } from "@/components/Wordmark";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { useTranslator } from "@/lib/i18n/context";
+import { authErrorMessage } from "@/lib/auth/error-keys";
 import type { MessageKey } from "@/lib/i18n/messages";
-
-/**
- * Server error codes to catalog keys.
- *
- * The API answers with a stable code and an English string. The code is what
- * gets translated; the string is the fallback, so a code added on the server
- * before its message exists degrades to English rather than to nothing.
- */
-const ERROR_KEYS: Record<string, MessageKey<"auth">> = {
-  rate_limited: "errorRateLimited",
-  invalid_request: "errorInvalidRequest",
-  invalid_credentials: "errorInvalidCredentials",
-  invalid_email: "errorInvalidEmail",
-  missing_name: "errorMissingName",
-  email_taken: "errorEmailTaken",
-  sso_required: "errorSsoRequired",
-  // Too short and too long are different fixes for the person typing.
-  password_too_short: "errorPasswordTooShort",
-  password_too_long: "errorPasswordTooLong",
-  reset_link_invalid: "errorResetLinkInvalid",
-};
 
 function AuthForm() {
   const router = useRouter();
@@ -63,10 +43,7 @@ function AuthForm() {
       const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) {
-        // Translate by code; fall back to the server's own wording, then to a
-        // generic message, so a failure always says something.
-        const key = typeof data.code === "string" ? ERROR_KEYS[data.code] : undefined;
-        setError(key ? a(key) : data.error ?? a("errorGeneric"));
+        setError(authErrorMessage(data, a));
         setBusy(false);
         return;
       }
@@ -158,7 +135,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="grid-backdrop pointer-events-none fixed inset-0" />
       <div className="relative">
-        <Suspense fallback={<div className="text-ink-soft">Loading…</div>}>
+        {/* Rendered before the client bundle resolves the query string, so it
+            cannot read the locale provider — hence a mark rather than a word. */}
+        <Suspense fallback={<div className="text-ink-soft">…</div>}>
           <AuthForm />
         </Suspense>
       </div>
