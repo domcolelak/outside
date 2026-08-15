@@ -1,4 +1,6 @@
 "use client";
+
+import { useTranslator } from "@/lib/i18n/context";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { PortfolioOverview } from "@/lib/agency/types";
@@ -8,7 +10,18 @@ const healthStyle = {
   at_risk: "border-risk-high/30 bg-risk-high/5 text-risk-high",
   unknown: "border-line bg-base-800 text-ink-faint",
 };
+const HEALTH_KEY = {
+  healthy: "healthHealthy",
+  watch: "healthWatch",
+  at_risk: "healthAtRisk",
+  unknown: "healthUnknown",
+} as const;
+
 export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
+
   const [data, setData] = useState(initial),
     [query, setQuery] = useState(""),
     [results, setResults] = useState<
@@ -57,13 +70,13 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
       );
       if (!r.ok) {
         const body = await r.json().catch(() => null);
-        throw new Error(body?.error ?? "The bulk operation could not be scheduled.");
+        throw new Error(body?.error ?? g("bulkNotScheduled"));
       }
       const freshResponse = await fetch(`/api/agency?agencyId=${data.workspace.id}`);
-      if (!freshResponse.ok) throw new Error("The operation was scheduled, but the portfolio could not be refreshed.");
+      if (!freshResponse.ok) throw new Error(g("bulkScheduledNoRefresh"));
       setData(await freshResponse.json());
     } catch (cause) {
-      setOperationError(cause instanceof Error ? cause.message : "The bulk operation failed.");
+      setOperationError(cause instanceof Error ? cause.message : g("bulkFailed"));
     } finally {
       setBusy("");
     }
@@ -75,15 +88,13 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
         <div className="relative flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
           <div>
             <div className="mono text-[11px] uppercase tracking-[.22em] text-signal">
-              Portfolio Guardian · live
+              {g("kicker")}
             </div>
             <h1 className="mt-3 text-3xl font-semibold text-gradient md:text-5xl">
               {data.workspace.name}
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-ink-soft">
-              One deterministic view across {data.clients.length} customer
-              organizations. No fabricated findings. Every signal remains
-              traceable to client evidence.
+              {g("intro", { count: data.clients.length })}
             </p>
           </div>
           <div className="flex gap-3">
@@ -91,7 +102,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
               href="/account"
               className="rounded-lg border border-line px-4 py-2 text-xs text-ink-soft"
             >
-              Workspace
+              {g("workspaceLink")}
             </Link>
             <span className="rounded-lg border border-signal/20 bg-signal/5 px-4 py-2 mono text-xs text-signal">
               {data.role}
@@ -101,12 +112,12 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
       </section>
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         {[
-          [data.portfolioScore ?? "—", "Portfolio posture /100"],
-          [data.clients.length, "Customers"],
-          [data.totalAssets, "Assets"],
-          [data.criticalFindings, "Critical"],
-          [data.slaBreaches, "SLA breached"],
-          [data.unknownClients, "Need data"],
+          [data.portfolioScore ?? "—", g("statPortfolioPosture")],
+          [data.clients.length, g("statCustomers")],
+          [data.totalAssets, g("statAssets")],
+          [data.criticalFindings, g("statCritical")],
+          [data.slaBreaches, g("statSlaBreached")],
+          [data.unknownClients, g("statNeedData")],
         ].map(([v, l]) => (
           <div key={l} className="panel p-4">
             <div className="text-2xl font-semibold text-ink">{v}</div>
@@ -121,9 +132,9 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-                Portfolio posture heatmap
+                {g("heatmapKicker")}
               </div>
-              <h2 className="mt-1 text-lg font-medium">Customer posture</h2>
+              <h2 className="mt-1 text-lg font-medium">{g("heatmapHeading")}</h2>
             </div>
             <div className="flex gap-2">
               <button
@@ -131,14 +142,14 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
                 onClick={() => operation("scan")}
                 className="rounded-md border border-line px-3 py-2 mono text-[11px] text-ink-soft disabled:opacity-40"
               >
-                {busy === "scan" ? "Scheduling…" : "Bulk scan"}
+                {busy === "scan" ? g("bulkScanBusy") : g("bulkScan")}
               </button>
               <button
                 disabled={!selected.length || !!busy}
                 onClick={() => operation("report")}
                 className="rounded-md bg-signal px-3 py-2 mono text-[11px] font-semibold text-base-950 disabled:opacity-40"
               >
-                {busy === "report" ? "Generating…" : "Bulk reports"}
+                {busy === "report" ? g("bulkReportsBusy") : g("bulkReports")}
               </button>
             </div>
           </div>
@@ -175,25 +186,25 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
                     </span>
                     {item.exposureScore !== null && (
                       <span className="mono ml-1 text-[11px] uppercase opacity-70">
-                        /100 posture
+                        {g("postureSuffix")}
                       </span>
                     )}
                   </span>
                   <span className="mono text-[11px] uppercase">
-                    {item.health.replace("_", " ")}
+                    {g(HEALTH_KEY[item.health])}
                   </span>
                 </div>
                 <div className="mt-3 flex gap-3 text-[11px] opacity-80">
-                  <span>{item.assets} assets</span>
-                  <span>{item.openRecommendations} open</span>
-                  <span>{item.slaBreaches} SLA</span>
+                  <span>{g("cardAssets", { count: item.assets })}</span>
+                  <span>{g("cardOpen", { count: item.openRecommendations })}</span>
+                  <span>{g("cardSla", { count: item.slaBreaches })}</span>
                 </div>
               </label>
             ))}
           </div>
           {!data.clients.length && (
             <div className="mt-8 rounded-xl border border-dashed border-line p-10 text-center text-sm text-ink-faint">
-              Link customer organizations to activate the portfolio.
+              {g("emptyPortfolio")}
             </div>
           )}
         </div>
@@ -202,10 +213,10 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
             Cross-customer search
           </div>
           <input
-            aria-label="Search all customer evidence"
+            aria-label={g("searchLabel")}
             value={query}
             onChange={(e) => void search(e.target.value)}
-            placeholder="Asset, hostname, technology, finding…"
+            placeholder={g("searchPlaceholder")}
             className="mt-3 w-full rounded-lg border border-line bg-base-950 px-3 py-2.5 text-sm outline-hidden focus:border-signal/40"
           />
           <div className="scroll-thin mt-3 max-h-[430px] space-y-2 overflow-auto">
