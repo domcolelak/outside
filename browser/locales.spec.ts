@@ -178,9 +178,12 @@ test.describe("public experience in five languages", () => {
   test("Assess and Chronos are written in the chosen language", async () => {
     await page.goto("/assess");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bezpečné, overené posúdenie zabezpečenia");
+
+    // The heading is server-rendered but the check catalogue arrives from
+    // /api/assess, so it has to be waited for. Reading innerText once raced
+    // that fetch and passed only while the response happened to be quick.
+    await expect(page.getByText("Platnosť a životnosť TLS certifikátu")).toBeVisible({ timeout: 20_000 });
     const assess = await page.locator("body").innerText();
-    // The check catalogue renders without a run, so its wording is assertable.
-    expect(assess).toContain("Platnosť a životnosť TLS certifikátu");
     for (const english of ["Safe, verified security assessment", "Run assessment", "TLS certificate validity"]) {
       expect(assess, `Assess still shows "${english}"`).not.toContain(english);
     }
