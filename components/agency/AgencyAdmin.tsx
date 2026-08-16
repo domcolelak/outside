@@ -1,4 +1,6 @@
 "use client";
+
+import { useTranslator } from "@/lib/i18n/context";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type {
@@ -23,6 +25,14 @@ type AdminData = {
   reports: AgencyReport[];
   keys: AgencyApiKey[];
 };
+const ROLE_KEY = {
+  owner: "roleOwner",
+  admin: "roleAdmin",
+  manager: "roleManager",
+  analyst: "roleAnalyst",
+  billing: "roleBilling",
+  viewer: "roleViewer",
+} as const;
 const input =
   "w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-sm text-ink outline-hidden focus:border-signal/40";
 function ReportDelivery({
@@ -33,6 +43,9 @@ function ReportDelivery({
   reportId: string;
 }) {
   const [status, setStatus] = useState("");
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   return (
     <form
       className="mt-3 flex gap-2"
@@ -49,19 +62,19 @@ function ReportDelivery({
             body: JSON.stringify({ to: recipient }),
           },
         );
-        setStatus(response.ok ? "Queued" : "Failed");
+        setStatus(response.ok ? g("adminQueued") : g("adminFailed"));
       }}
     >
       <input
         name="recipient"
         type="email"
         required
-        aria-label="Report recipient"
-        placeholder="client@example.com"
+        aria-label={g("adminReportRecipient")}
+        placeholder={g("invitePlaceholder")}
         className="min-w-0 flex-1 rounded-sm border border-line bg-base-950 px-2 py-1 text-[11px]"
       />
       <button className="rounded-sm border border-line px-2 text-[11px]">
-        Send
+        {g("adminSend")}
       </button>
       {status && (
         <span className="self-center text-[11px] text-ink-faint">{status}</span>
@@ -77,6 +90,9 @@ function BulkScheduler({
   clients: AgencyClient[];
 }) {
   const [status, setStatus] = useState("");
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   return (
     <form
       className="panel p-5"
@@ -84,7 +100,7 @@ function BulkScheduler({
         event.preventDefault();
         const form = new FormData(event.currentTarget),
           clientOrgIds = form.getAll("clients");
-        if (!clientOrgIds.length) return setStatus("Select clients");
+        if (!clientOrgIds.length) return setStatus(g("adminSelectClients"));
         const response = await fetch(
           `/api/agency/operations?agencyId=${agencyId}`,
           {
@@ -102,17 +118,17 @@ function BulkScheduler({
         );
         setStatus(
           response.ok
-            ? "Scan schedule saved"
-            : ((await response.json()).error ?? "Failed"),
+            ? g("adminScanScheduleSaved")
+            : ((await response.json()).error ?? g("adminFailed")),
         );
       }}
     >
-      <h2 className="text-lg font-medium">Bulk scan scheduling</h2>
+      <h2 className="text-lg font-medium">{g("adminBulkScanHeading")}</h2>
       <p className="mt-1 text-xs text-ink-faint">
-        Schedule existing verified monitors up to 30 days ahead.
+        {g("adminBulkScanSubtitle")}
       </p>
       <input
-        aria-label="Scheduled scan time"
+        aria-label={g("adminScheduledScanTime")}
         name="scheduledFor"
         type="datetime-local"
         required
@@ -135,7 +151,7 @@ function BulkScheduler({
         ))}
       </div>
       <button className="mt-4 rounded-sm bg-signal px-4 py-2 text-xs font-semibold text-base-950">
-        Save schedule
+        {g("adminSaveSchedule")}
       </button>
       {status && <span className="ml-3 text-xs text-ink-soft">{status}</span>}
     </form>
@@ -152,9 +168,12 @@ function SeatRoleEditor({
     body: Record<string, unknown>,
   ) => Promise<unknown>;
 }) {
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   return (
     <section className="panel p-5">
-      <h2 className="text-lg font-medium">Seat role management</h2>
+      <h2 className="text-lg font-medium">{g("adminSeatRoles")}</h2>
       <div className="mt-4 grid gap-2">
         {members.map((member) => (
           <div
@@ -163,7 +182,7 @@ function SeatRoleEditor({
           >
             <span className="mono text-xs">{member.userId}</span>
             <select
-              aria-label={`Role for member ${member.userId}`}
+              aria-label={g("adminRoleForMember", { member: member.userId })}
               defaultValue={member.role}
               disabled={member.role === "owner"}
               onChange={(event) =>
@@ -174,17 +193,17 @@ function SeatRoleEditor({
               }
               className="rounded-sm border border-line bg-base-950 px-2 py-1 text-xs"
             >
-              <option>admin</option>
-              <option>manager</option>
-              <option>analyst</option>
-              <option>billing</option>
-              <option>viewer</option>
-              {member.role === "owner" && <option>owner</option>}
+              <option value="admin">{g("roleAdmin")}</option>
+              <option value="manager">{g("roleManager")}</option>
+              <option value="analyst">{g("roleAnalyst")}</option>
+              <option value="billing">{g("roleBilling")}</option>
+              <option value="viewer">{g("roleViewer")}</option>
+              {member.role === "owner" && <option value="owner">{g("roleOwner")}</option>}
             </select>
             <span
               className={`mono text-[11px] uppercase ${member.active ? "text-signal" : "text-ink-faint"}`}
             >
-              {member.active ? "active" : "inactive"}
+              {member.active ? g("adminMemberActive") : g("adminMemberInactive")}
             </span>
           </div>
         ))}
@@ -201,8 +220,13 @@ export function AgencyAdmin({
   role: AgencyRole;
 }) {
   const [data, setData] = useState<AdminData | null>(null);
-  const [message, setMessage] = useState("");
+  // Outcome and wording travel together; the banner used to compare the text
+  // to the literal "Saved", which cannot survive translation.
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [secret, setSecret] = useState("");
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   const load = useCallback(async () => {
     const [portfolio, groups, team, operations, keys] = await Promise.all([
       fetch(`/api/agency?agencyId=${agencyId}`).then((response) =>
@@ -244,7 +268,7 @@ export function AgencyAdmin({
     method: string,
     body: Record<string, unknown>,
   ) {
-    setMessage("");
+    setMessage(null);
     const response = await fetch(
       `${url}${url.includes("?") ? "&" : "?"}agencyId=${agencyId}`,
       {
@@ -255,17 +279,17 @@ export function AgencyAdmin({
     );
     const result = await response.json();
     if (!response.ok) {
-      setMessage(result.error ?? "Operation failed");
+      setMessage({ ok: false, text: result.error ?? g("adminOperationFailed") });
       return null;
     }
-    setMessage("Saved");
+    setMessage({ ok: true, text: g("adminSaved") });
     await load();
     return result;
   }
   if (!data)
     return (
       <div className="panel p-8 text-sm text-ink-soft">
-        Loading Agency Operations Center…
+        {g("adminLoading")}
       </div>
     );
   const mrr = data.clients.reduce(
@@ -277,25 +301,28 @@ export function AgencyAdmin({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="mono text-[11px] uppercase tracking-[.2em] text-signal">
-            Agency Operations Center
+            {g("adminKicker")}
           </div>
           <h1 className="mt-2 text-3xl font-semibold text-gradient">
-            Manage {data.workspace.name}
+            {g("adminManageTitle", { workspace: data.workspace.name })}
           </h1>
           <p className="mt-2 text-sm text-ink-soft">
-            Clients, service delivery, brand, seats, reports and API access.
+            {g("adminSubtitle")}
           </p>
         </div>
         <div className="mono text-[11px] text-ink-faint">
-          {role} · {(mrr / 100).toLocaleString()}{" "}
-          {data.clients[0]?.currency ?? "EUR"} managed MRR
+          {g("adminManagedMrr", {
+            role: ROLE_KEY[role as keyof typeof ROLE_KEY] ? g(ROLE_KEY[role as keyof typeof ROLE_KEY]) : role,
+            amount: tr.formatNumber(mrr / 100),
+            currency: data.clients[0]?.currency ?? "EUR",
+          })}
         </div>
       </div>
       {message && (
         <div
-          className={`rounded-lg border px-4 py-3 text-sm ${message === "Saved" ? "border-signal/20 bg-signal/5 text-signal" : "border-risk-high/30 text-risk-high"}`}
+          className={`rounded-lg border px-4 py-3 text-sm ${message.ok ? "border-signal/20 bg-signal/5 text-signal" : "border-risk-high/30 text-risk-high"}`}
         >
-          {message}
+          {message.text}
         </div>
       )}
       <section className="grid gap-6 xl:grid-cols-2">
@@ -321,10 +348,10 @@ export function AgencyAdmin({
             });
           }}
         >
-          <h2 className="text-lg font-medium">Brand and operating mode</h2>
+          <h2 className="text-lg font-medium">{g("adminBrandHeading")}</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-ink-soft">
-              Agency name
+              {g("adminAgencyName")}
               <input
                 name="name"
                 defaultValue={data.workspace.name}
@@ -332,7 +359,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Logo URL
+              {g("adminLogoUrl")}
               <input
                 name="logoUrl"
                 type="url"
@@ -341,7 +368,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Primary color
+              {g("adminPrimaryColor")}
               <input
                 name="primaryColor"
                 type="color"
@@ -350,7 +377,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Accent color
+              {g("adminAccentColor")}
               <input
                 name="accentColor"
                 type="color"
@@ -359,7 +386,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Support email
+              {g("adminSupportEmail")}
               <input
                 name="supportEmail"
                 type="email"
@@ -368,7 +395,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Verified custom domain
+              {g("adminCustomDomain")}
               <input
                 name="customDomain"
                 defaultValue={data.workspace.branding.customDomain ?? ""}
@@ -376,7 +403,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Email sender
+              {g("adminEmailSender")}
               <input
                 name="emailFromName"
                 defaultValue={data.workspace.branding.emailFromName ?? ""}
@@ -384,7 +411,7 @@ export function AgencyAdmin({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Reseller parent ID
+              {g("adminResellerParent")}
               <input
                 name="resellerParentId"
                 defaultValue={data.workspace.resellerParentId ?? ""}
@@ -393,7 +420,7 @@ export function AgencyAdmin({
             </label>
           </div>
           <label className="mt-3 block text-xs text-ink-soft">
-            Email footer
+            {g("adminEmailFooter")}
             <textarea
               name="emailFooter"
               defaultValue={data.workspace.branding.emailFooter ?? ""}
@@ -408,7 +435,7 @@ export function AgencyAdmin({
                 defaultChecked={data.workspace.branding.whiteLabel}
                 className="mr-2 accent-signal"
               />
-              White-label mode
+              {g("adminWhiteLabel")}
             </label>
             <label className="text-xs">
               <input
@@ -417,15 +444,15 @@ export function AgencyAdmin({
                 defaultChecked={data.workspace.consultantMode}
                 className="mr-2 accent-signal"
               />
-              Consultant mode
+              {g("adminConsultantMode")}
             </label>
           </div>
           <button className="mt-5 rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950">
-            Save workspace
+            {g("adminSaveWorkspace")}
           </button>
         </form>
         <div className="panel p-5">
-          <h2 className="text-lg font-medium">Customer groups</h2>
+          <h2 className="text-lg font-medium">{g("adminGroupsHeading")}</h2>
           <form
             className="mt-4 flex gap-2"
             onSubmit={async (event) => {
@@ -442,21 +469,21 @@ export function AgencyAdmin({
             }}
           >
             <input
-              aria-label="Group name"
+              aria-label={g("adminGroupName")}
               name="name"
               required
-              placeholder="Group name"
+              placeholder={g("adminGroupName")}
               className={input}
             />
             <input
-              aria-label="Group color"
+              aria-label={g("adminGroupColor")}
               name="color"
               type="color"
               defaultValue="#5b8cff"
               className="w-28 rounded-lg border border-line bg-base-950 px-2"
             />
             <button className="rounded-lg border border-signal/30 px-4 text-xs text-signal">
-              Add
+              {g("adminAdd")}
             </button>
           </form>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -483,11 +510,10 @@ export function AgencyAdmin({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-medium">
-              Clients and service delivery
+              {g("adminClientsHeading")}
             </h2>
             <p className="mt-1 text-xs text-ink-faint">
-              Routing, SLA, reports, notes and shared findings live in each
-              client workspace.
+              {g("adminClientsSubtitle")}
             </p>
           </div>
         </div>
@@ -501,12 +527,12 @@ export function AgencyAdmin({
               <div className="font-medium">{client.organizationName}</div>
               <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
                 {data.groups.find((group) => group.id === client.groupId)
-                  ?.name ?? "Ungrouped"}{" "}
+                  ?.name ?? g("ungrouped")}{" "}
                 · {client.serviceTier}
               </div>
               <div className="mt-4 flex justify-between text-[11px] text-ink-soft">
-                <span>{client.portalMode} portal</span>
-                <span>{client.slaResponseMinutes}m SLA</span>
+                <span>{g("adminClientPortal", { mode: client.portalMode })}</span>
+                <span>{g("adminClientSla", { minutes: client.slaResponseMinutes })}</span>
                 <span>{client.billingMode}</span>
               </div>
             </Link>
@@ -515,7 +541,7 @@ export function AgencyAdmin({
       </section>
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="panel p-5">
-          <h2 className="text-lg font-medium">Seats and invitations</h2>
+          <h2 className="text-lg font-medium">{g("adminSeatsHeading")}</h2>
           <form
             className="mt-4 grid gap-2 sm:grid-cols-[1fr_130px_auto]"
             onSubmit={async (event) => {
@@ -532,22 +558,22 @@ export function AgencyAdmin({
             }}
           >
             <input
-              aria-label="Seat invitation email"
+              aria-label={g("adminSeatEmail")}
               name="email"
               type="email"
               required
-              placeholder="analyst@agency.com"
+              placeholder={g("adminSeatEmailPlaceholder")}
               className={input}
             />
-            <select aria-label="Seat role" name="role" className={input}>
-              <option>analyst</option>
-              <option>manager</option>
-              <option>admin</option>
-              <option>billing</option>
-              <option>viewer</option>
+            <select aria-label={g("adminSeatRole")} name="role" className={input}>
+              <option value="analyst">{g("roleAnalyst")}</option>
+              <option value="manager">{g("roleManager")}</option>
+              <option value="admin">{g("roleAdmin")}</option>
+              <option value="billing">{g("roleBilling")}</option>
+              <option value="viewer">{g("roleViewer")}</option>
             </select>
             <button className="rounded-lg bg-signal px-4 text-xs font-semibold text-base-950">
-              Invite
+              {g("adminInvite")}
             </button>
           </form>
           <div className="mt-4 space-y-2">
@@ -559,7 +585,7 @@ export function AgencyAdmin({
                 <div>
                   <div className="mono text-xs">{member.userId}</div>
                   <div className="text-[11px] text-ink-faint">
-                    {member.role} · {member.active ? "active" : "inactive"}
+                    {member.role} · {member.active ? g("adminMemberActive") : g("adminMemberInactive")}
                   </div>
                 </div>
                 {member.role !== "owner" && (
@@ -572,7 +598,7 @@ export function AgencyAdmin({
                     }
                     className="rounded-sm border border-line px-2 py-1 text-[11px]"
                   >
-                    {member.active ? "Deactivate" : "Activate"}
+                    {member.active ? g("adminDeactivate") : g("adminActivate")}
                   </button>
                 )}
               </div>
@@ -584,7 +610,7 @@ export function AgencyAdmin({
           </div>
         </div>
         <div className="panel p-5">
-          <h2 className="text-lg font-medium">Agency API</h2>
+          <h2 className="text-lg font-medium">{g("adminApiHeading")}</h2>
           <form
             className="mt-4 flex gap-2"
             onSubmit={async (event) => {
@@ -603,20 +629,20 @@ export function AgencyAdmin({
             }}
           >
             <input
-              aria-label="API key name"
+              aria-label={g("adminApiKeyName")}
               name="name"
               required
-              placeholder="Automation key"
+              placeholder={g("adminApiKeyPlaceholder")}
               className={input}
             />
             <button className="rounded-lg border border-signal/30 px-4 text-xs text-signal">
-              Create key
+              {g("adminCreateKey")}
             </button>
           </form>
           {secret && (
             <div className="mt-3 rounded-lg border border-risk-medium/30 bg-risk-medium/5 p-3">
               <div className="text-[11px] text-risk-medium">
-                Copy now — shown once
+                {g("adminCopyNow")}
               </div>
               <code className="mt-2 block break-all text-xs">{secret}</code>
             </div>
@@ -636,7 +662,7 @@ export function AgencyAdmin({
                   }
                   className="text-risk-high"
                 >
-                  Revoke
+                  {g("adminRevoke")}
                 </button>
               </div>
             ))}
@@ -652,7 +678,7 @@ export function AgencyAdmin({
         canManageBilling={hasAgencyPermission(role, "billing:manage")}
       />
       <section className="panel p-5">
-        <h2 className="text-lg font-medium">Report center</h2>
+        <h2 className="text-lg font-medium">{g("adminReportCenter")}</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {data.reports.map((report) => (
             <div key={report.id} className="rounded-xl border border-line p-4">
@@ -665,14 +691,14 @@ export function AgencyAdmin({
                 href={`/api/agency/reports/${report.id}?agencyId=${agencyId}`}
                 className="mt-4 inline-block text-xs text-signal"
               >
-                Download PDF →
+                {g("adminDownloadPdf")}
               </Link>
               <ReportDelivery agencyId={agencyId} reportId={report.id} />
             </div>
           ))}
           {!data.reports.length && (
             <p className="text-sm text-ink-faint">
-              Generate reports from the portfolio or client workspace.
+              {g("adminNoReports")}
             </p>
           )}
         </div>
