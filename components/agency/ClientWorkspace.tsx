@@ -1,4 +1,6 @@
 "use client";
+
+import { useTranslator } from "@/lib/i18n/context";
 import { useCallback, useEffect, useState } from "react";
 import type {
   AgencyClientView,
@@ -33,17 +35,20 @@ function SlaQueue({
   onAction: (id: string, action: "acknowledge" | "resolve") => Promise<boolean>;
 }) {
   const open = events.filter((item) => item.status !== "resolved");
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   return (
     <section className="panel p-5">
       <div className="flex items-end justify-between">
         <div>
           <div className="mono text-[11px] uppercase text-ink-faint">
-            Service-level workflow
+            {g("slaKicker")}
           </div>
-          <h2 className="mt-1 text-lg font-medium">SLA queue</h2>
+          <h2 className="mt-1 text-lg font-medium">{g("slaHeading")}</h2>
         </div>
         <span className="text-xs text-risk-high">
-          {open.filter((item) => item.breached).length} breached
+          {g("slaBreachedCount", { count: open.filter((item) => item.breached).length })}
         </span>
       </div>
       <div className="mt-4 grid gap-2">
@@ -59,8 +64,11 @@ function SlaQueue({
                 )?.title ?? item.findingId}
               </div>
               <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
-                {item.priority} · due {new Date(item.dueAt).toLocaleString()} ·{" "}
-                {item.status}
+                {g("slaItemMeta", {
+                  priority: item.priority,
+                  date: tr.formatDate(item.dueAt, { dateStyle: "medium", timeStyle: "short" }),
+                  status: item.status,
+                })}
               </div>
             </div>
             <div className="flex gap-2">
@@ -69,25 +77,31 @@ function SlaQueue({
                   onClick={() => onAction(item.id, "acknowledge")}
                   className="rounded-sm border border-line px-3 py-1 text-[11px]"
                 >
-                  Acknowledge
+                  {g("slaAcknowledge")}
                 </button>
               )}
               <button
                 onClick={() => onAction(item.id, "resolve")}
                 className="rounded-sm border border-signal/30 px-3 py-1 text-[11px] text-signal"
               >
-                Resolve
+                {g("slaResolve")}
               </button>
             </div>
           </div>
         ))}
         {!open.length && (
-          <p className="text-sm text-ink-faint">No open SLA items.</p>
+          <p className="text-sm text-ink-faint">{g("slaEmpty")}</p>
         )}
       </div>
     </section>
   );
 }
+const SEVERITY_KEY = {
+  critical: "severityCritical",
+  high: "severityHigh",
+  medium: "severityMedium",
+} as const;
+
 export function ClientWorkspace({
   agencyId,
   clientId,
@@ -95,9 +109,15 @@ export function ClientWorkspace({
   agencyId: string;
   clientId: string;
 }) {
+  const tr = useTranslator();
+  const g = (key: Parameters<typeof tr.t<"agency">>[1], values?: Record<string, string | number>) =>
+    tr.t("agency", key, values);
   const [data, setData] = useState<Detail | null>(null);
   const [groups, setGroups] = useState<AgencyGroup[]>([]);
-  const [message, setMessage] = useState("");
+  // Outcome and wording travel together: the banner used to pick its colour by
+  // comparing the message to the literal "Saved", which stops working the
+  // moment that word is translated.
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const load = useCallback(async () => {
     const [detail, groupData] = await Promise.all([
       fetch(`/api/agency/clients/${clientId}?agencyId=${agencyId}`).then(
@@ -121,20 +141,20 @@ export function ClientWorkspace({
     body: Record<string, unknown>,
     method = "POST",
   ) {
-    setMessage("");
+    setMessage(null);
     const response = await fetch(`${url}?agencyId=${agencyId}`, {
       method,
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
     const result = await response.json();
-    setMessage(response.ok ? "Saved" : (result.error ?? "Operation failed"));
+    setMessage({ ok: response.ok, text: response.ok ? g("saved") : (result.error ?? g("operationFailed")) });
     if (response.ok) await load();
     return response.ok;
   }
   if (!data)
     return (
-      <div className="panel p-8 text-ink-soft">Loading client workspace…</div>
+      <div className="panel p-8 text-ink-soft">{g("workspaceLoading")}</div>
     );
   const canManageClients = hasAgencyPermission(data.role, "clients:manage");
   const canManageBilling = hasAgencyPermission(data.role, "billing:manage");
@@ -152,31 +172,33 @@ export function ClientWorkspace({
           <div>
             <div className="mono text-[11px] uppercase tracking-[.2em] text-signal">
               {data.workspace.consultantMode
-                ? "Consultant engagement"
-                : "Managed service client"}
+                ? g("consultantEngagement")
+                : g("managedServiceClient")}
             </div>
             <h1 className="mt-2 text-4xl font-semibold text-gradient">
               {data.client.organizationName}
             </h1>
             <p className="mt-2 text-sm text-ink-soft">
-              {data.guardian.targets.length} monitored targets ·{" "}
-              {data.client.serviceTier} service ·{" "}
-              {data.client.slaResponseMinutes} minute SLA
+              {g("clientSummary", {
+                targets: data.guardian.targets.length,
+                tier: data.client.serviceTier,
+                minutes: data.client.slaResponseMinutes,
+              })}
             </p>
           </div>
           <div className="mono text-[11px] text-ink-faint">
-            Portal: {data.client.portalMode}
+            {g("portalModeLabel", { mode: data.client.portalMode })}
             {canManageBilling && data.client.billingMode
-              ? ` · Billing: ${data.client.billingMode}`
+              ? g("billingModeLabel", { mode: data.client.billingMode })
               : ""}
           </div>
         </div>
       </section>
       {message && (
         <div
-          className={`rounded-lg border px-4 py-3 text-sm ${message === "Saved" ? "border-signal/20 text-signal" : "border-risk-high/30 text-risk-high"}`}
+          className={`rounded-lg border px-4 py-3 text-sm ${message.ok ? "border-signal/20 text-signal" : "border-risk-high/30 text-risk-high"}`}
         >
-          {message}
+          {message.text}
         </div>
       )}
       <section className="grid gap-6 xl:grid-cols-[.8fr_1.2fr]">
@@ -228,44 +250,44 @@ export function ClientWorkspace({
             }
           }}
         >
-          <h2 className="text-lg font-medium">Client configuration</h2>
+          <h2 className="text-lg font-medium">{g("clientConfiguration")}</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-ink-soft">
-              Status
+              {g("fieldStatus")}
               <select
                 name="status"
                 defaultValue={data.client.status}
                 disabled={!canManageClients}
                 className={`${input} mt-1`}
               >
-                <option>onboarding</option>
-                <option>active</option>
-                <option>paused</option>
-                <option>offboarded</option>
+                <option value="onboarding">{g("statusOnboarding")}</option>
+                <option value="active">{g("statusActive")}</option>
+                <option value="paused">{g("statusPaused")}</option>
+                <option value="offboarded">{g("statusOffboarded")}</option>
               </select>
             </label>
             <label className="text-xs text-ink-soft">
-              Portal
+              {g("fieldPortal")}
               <select
                 name="portalMode"
                 defaultValue={data.client.portalMode}
                 disabled={!canManageClients}
                 className={`${input} mt-1`}
               >
-                <option>disabled</option>
-                <option>readonly</option>
-                <option>collaborative</option>
+                <option value="disabled">{g("portalDisabled")}</option>
+                <option value="readonly">{g("portalReadonly")}</option>
+                <option value="collaborative">{g("portalCollaborative")}</option>
               </select>
             </label>
             <label className="text-xs text-ink-soft">
-              Group
+              {g("fieldGroup")}
               <select
                 name="groupId"
                 defaultValue={data.client.groupId ?? ""}
                 disabled={!canManageClients}
                 className={`${input} mt-1`}
               >
-                <option value="">Ungrouped</option>
+                <option value="">{g("ungrouped")}</option>
                 {groups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.name}
@@ -274,7 +296,7 @@ export function ClientWorkspace({
               </select>
             </label>
             <label className="text-xs text-ink-soft">
-              Service tier
+              {g("fieldServiceTier")}
               <input
                 name="serviceTier"
                 defaultValue={data.client.serviceTier}
@@ -283,7 +305,7 @@ export function ClientWorkspace({
               />
             </label>
             <label className="text-xs text-ink-soft">
-              SLA response minutes
+              {g("fieldSlaMinutes")}
               <input
                 name="sla"
                 type="number"
@@ -296,21 +318,21 @@ export function ClientWorkspace({
             {canManageBilling && (
               <>
                 <label className="text-xs text-ink-soft">
-                  Billing mode
+                  {g("fieldBillingMode")}
                   <select
                     name="billingMode"
                     defaultValue={data.client.billingMode}
                     className={`${input} mt-1`}
                   >
-                    <option value="agency">Agency paid</option>
-                    <option value="direct">Client direct</option>
-                    <option value="reseller">Reseller</option>
+                    <option value="agency">{g("billingAgencyPaid")}</option>
+                    <option value="direct">{g("billingClientDirect")}</option>
+                    <option value="reseller">{g("billingReseller")}</option>
                   </select>
                 </label>
                 {!data.workspace.consultantMode && (
                   <>
                     <label className="text-xs text-ink-soft">
-                      Monthly price
+                      {g("fieldMonthlyPrice")}
                       <input
                         name="price"
                         type="number"
@@ -323,7 +345,7 @@ export function ClientWorkspace({
                       />
                     </label>
                     <label className="text-xs text-ink-soft">
-                      Currency
+                      {g("fieldCurrency")}
                       <input
                         name="currency"
                         maxLength={3}
@@ -338,25 +360,25 @@ export function ClientWorkspace({
           </div>
           <div className="mt-4 border-t border-line pt-4">
             <div className="mono text-[11px] uppercase text-ink-faint">
-              Client-specific notification routing
+              {g("routingHeading")}
             </div>
             <label className="mt-3 block text-xs text-ink-soft">
-              Email recipients
+              {g("fieldEmailRecipients")}
               <input
                 name="emails"
                 disabled={!canManageClients}
                 defaultValue={(routing.emails ?? []).join(", ")}
-                placeholder="soc@client.com, ciso@client.com"
+                placeholder={g("emailsPlaceholder")}
                 className={`${input} mt-1`}
               />
             </label>
             <label className="mt-3 block text-xs text-ink-soft">
-              Guardian channel IDs
+              {g("fieldChannelIds")}
               <input
                 name="channels"
                 disabled={!canManageClients}
                 defaultValue={(routing.channelIds ?? []).join(", ")}
-                placeholder="Channel IDs, comma separated"
+                placeholder={g("channelsPlaceholder")}
                 className={`${input} mt-1`}
               />
             </label>
@@ -373,14 +395,14 @@ export function ClientWorkspace({
                     ).includes(severity)}
                     className="mr-1 accent-signal"
                   />
-                  {severity}
+                  {g(SEVERITY_KEY[severity as keyof typeof SEVERITY_KEY])}
                 </label>
               ))}
             </div>
           </div>
           {(canManageClients || canManageBilling) && (
             <button className="mt-5 rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950">
-              Save client
+              {g("saveClient")}
             </button>
           )}
         </form>
@@ -388,10 +410,9 @@ export function ClientWorkspace({
           <div className="panel p-5">
             <div className="flex justify-between">
               <div>
-                <h2 className="text-lg font-medium">Analyst notes</h2>
+                <h2 className="text-lg font-medium">{g("portalNotes")}</h2>
                 <p className="mt-1 text-xs text-ink-faint">
-                  Internal by default. Shared notes are visible in the client
-                  portal.
+                  {g("notesSubtitle")}
                 </p>
               </div>
             </div>
@@ -411,24 +432,24 @@ export function ClientWorkspace({
               }}
             >
               <textarea
-                aria-label="Analyst note"
+                aria-label={g("noteLabel")}
                 name="body"
                 required
                 maxLength={5000}
                 className={`${input} min-h-24`}
-                placeholder="Add evidence-backed context, decisions or follow-up…"
+                placeholder={g("notePlaceholder")}
               />
               <div className="mt-2 flex justify-between">
                 <select
-                  aria-label="Note visibility"
+                  aria-label={g("noteVisibilityLabel")}
                   name="visibility"
                   className="rounded-sm border border-line bg-base-950 px-2 text-xs"
                 >
-                  <option value="internal">Internal only</option>
-                  <option value="shared">Share with client</option>
+                  <option value="internal">{g("noteInternal")}</option>
+                  <option value="shared">{g("noteShared")}</option>
                 </select>
                 <button className="rounded-sm border border-signal/30 px-3 py-2 text-xs text-signal">
-                  Add note
+                  {g("addNote")}
                 </button>
               </div>
             </form>
@@ -442,15 +463,15 @@ export function ClientWorkspace({
                     {note.body}
                   </div>
                   <div className="mono mt-2 text-[11px] uppercase text-ink-faint">
-                    {note.visibility} ·{" "}
-                    {new Date(note.createdAt).toLocaleString()}
+                    {note.visibility === "shared" ? g("noteVisibilityShared") : g("noteVisibilityInternal")} ·{" "}
+                    {tr.formatDate(note.createdAt, { dateStyle: "medium", timeStyle: "short" })}
                   </div>
                 </div>
               ))}
             </div>
           </div>
           <div className="panel p-5">
-            <h2 className="text-lg font-medium">Client portal and reporting</h2>
+            <h2 className="text-lg font-medium">{g("portalReportingHeading")}</h2>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 onClick={() =>
@@ -461,7 +482,7 @@ export function ClientWorkspace({
                 }
                 className="rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950"
               >
-                Generate branded report
+                {g("generateReport")}
               </button>
               <button
                 onClick={() =>
@@ -472,7 +493,7 @@ export function ClientWorkspace({
                 }
                 className="rounded-lg border border-line px-4 py-2 text-xs"
               >
-                Generate executive digest
+                {g("generateDigest")}
               </button>
             </div>
             <form
@@ -492,15 +513,15 @@ export function ClientWorkspace({
               }}
             >
               <input
-                aria-label="Client portal invitation email"
+                aria-label={g("inviteEmailLabel")}
                 name="email"
                 type="email"
                 required
-                placeholder="client@example.com"
+                placeholder={g("invitePlaceholder")}
                 className={input}
               />
               <button className="rounded-lg border border-signal/30 px-3 text-xs text-signal">
-                Invite to portal
+                {g("inviteToPortal")}
               </button>
             </form>
           </div>
@@ -517,14 +538,14 @@ export function ClientWorkspace({
         <div className="flex items-end justify-between">
           <div>
             <div className="mono text-[11px] uppercase text-ink-faint">
-              Shared findings workflow
+              {g("sharedFindingsKicker")}
             </div>
             <h2 className="mt-1 text-lg font-medium">
-              Guardian recommendations
+              {g("guardianRecommendations")}
             </h2>
           </div>
           <span className="text-xs text-ink-faint">
-            {shared.size} shared with client
+            {g("sharedWithClientCount", { count: shared.size })}
           </span>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
@@ -546,12 +567,14 @@ export function ClientWorkspace({
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-[11px] text-ink-faint">
-                    {recommendation.affectedAssets.length} affected assets ·{" "}
-                    {Math.round(recommendation.confidence * 100)}% confidence
+                    {g("affectedConfidence", {
+                      assets: recommendation.affectedAssets.length,
+                      confidence: Math.round(recommendation.confidence * 100),
+                    })}
                   </span>
                   {shared.has(recommendation.id) ? (
                     <span className="mono text-[11px] uppercase text-signal">
-                      Shared
+                      {g("statusShared")}
                     </span>
                   ) : (
                     <button
@@ -564,7 +587,7 @@ export function ClientWorkspace({
                       }
                       className="rounded-sm border border-signal/30 px-3 py-1.5 text-[11px] text-signal"
                     >
-                      Share with client
+                      {g("shareWithClient")}
                     </button>
                   )}
                 </div>
