@@ -227,6 +227,22 @@ test.describe("public experience in five languages", () => {
   });
   });
 
+  test("the scan screen is written in the chosen language", async ({ page }) => {
+    // Public: no session needed, unlike everything inside AppShell.
+    await page.request.post("/api/locale", { data: { locale: "sk" } });
+    await page.goto("/scan?target=northstar&mode=demo");
+
+    // The empty state and the running scan share this screen; assert the header,
+    // which is present either way.
+    await expect(page.locator("body")).toContainText("Pasívny vonkajší pohľad", { timeout: 20_000 });
+    const body = await page.locator("body").innerText();
+    for (const english of ["Passive external view", "New scan", "Guided tour"]) {
+      expect(body, `the scan screen still shows "${english}"`).not.toContain(english);
+    }
+    // Attacker View is the product's name for the replay and stays in English.
+    expect(body).toContain("Attacker View");
+  });
+
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
     const rejected = await page.request.post("/api/locale", { data: { locale: "de" } });
     expect(rejected.status()).toBe(400);

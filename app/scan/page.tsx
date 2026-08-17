@@ -1,6 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslator } from "@/lib/i18n/context";
+
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useScan } from "@/components/useScan";
@@ -42,6 +44,11 @@ function ScanView() {
     if (scan.status === "done" && params.get("present") === "1" && !autoPresented.current) { autoPresented.current = true; setAttacker(true); }
   }, [params, scan.status]);
 
+  const tr = useTranslator();
+  const sc = useCallback(
+    (key: Parameters<typeof tr.t<"scan">>[1]) => tr.t("scan", key),
+    [tr],
+  );
   const [query, setQuery] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<Set<string>>(new Set());
 
@@ -74,19 +81,20 @@ function ScanView() {
   }, [query, priorityFilter, scan.assets]);
 
   const tourSteps = useMemo<WalkthroughStep[]>(() => [
-    { eyebrow: "External surface", title: "The graph is the shared mental model", body: "Every node is an entity resolved from public observations. Select any node to inspect why it exists.", selector: "[data-tour='graph']" },
-    { eyebrow: "Asset inspection", title: "Evidence stays one click away", body: "The asset lens separates routing, technology, signals, confidence and discovery provenance.", selector: "[data-tour='asset-lens']", action: () => setSelectedId(scan.assets.find((asset) => asset.kind !== "root_domain")?.id ?? scan.assets[0]?.id ?? null) },
-    { eyebrow: "Explainability", title: "Posture is transparent", body: "The right rail explains score impact, findings, historical changes and report-ready summaries.", selector: "[data-tour='intelligence']", action: () => setSelectedId(null) },
-    { eyebrow: "Cinematic replay", title: "Tell the story in under twenty seconds", body: "Attacker View replays discovery—not exploitation—with each reveal connected to literal evidence.", selector: "[data-tour='attacker']" },
-  ], [scan.assets]);
+    { eyebrow: sc("tour1Eyebrow"), title: sc("tour1Title"), body: sc("tour1Body"), selector: "[data-tour='graph']" },
+    { eyebrow: sc("tour2Eyebrow"), title: sc("tour2Title"), body: sc("tour2Body"), selector: "[data-tour='asset-lens']", action: () => setSelectedId(scan.assets.find((asset) => asset.kind !== "root_domain")?.id ?? scan.assets[0]?.id ?? null) },
+    { eyebrow: sc("tour3Eyebrow"), title: sc("tour3Title"), body: sc("tour3Body"), selector: "[data-tour='intelligence']", action: () => setSelectedId(null) },
+    { eyebrow: sc("tour4Eyebrow"), title: sc("tour4Title"), body: sc("tour4Body"), selector: "[data-tour='attacker']" },
+    // sc reads through the translator, which is memoized on the locale.
+  ], [scan.assets, sc]);
 
   if (!target) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
         <div className="w-full max-w-xl text-center">
           <Link href="/"><Wordmark className="mx-auto h-6" /></Link>
-          <h1 className="mt-6 text-2xl font-semibold text-ink">Start a scan</h1>
-          <p className="mt-2 text-sm text-ink-soft">Enter a domain to map its external surface.</p>
+          <h1 className="mt-6 text-2xl font-semibold text-ink">{sc("startTitle")}</h1>
+          <p className="mt-2 text-sm text-ink-soft">{sc("startBody")}</p>
           <div className="mt-6 flex justify-center"><HeroInput /></div>
         </div>
       </div>
@@ -101,33 +109,33 @@ function ScanView() {
           <div className="hidden items-center gap-2 md:flex">
             <span className="mono rounded-md border border-line px-2 py-1 text-xs text-ink">{scan.result?.target ?? target}</span>
             <span className="mono rounded-md border border-line px-2 py-1 text-[12px] uppercase tracking-wider text-ink-faint">
-              {mode === "demo" || scan.result?.isDemo ? "Demo" : "Passive external view"}
+              {mode === "demo" || scan.result?.isDemo ? sc("modeDemo") : sc("modePassive")}
             </span>
             {scan.result && !scan.result.isDemo && (
               verifyStatus === "verified" ? (
                 <span className="mono rounded-md border border-signal/40 bg-signal/10 px-2 py-1 text-[12px] uppercase tracking-wider text-signal">
-                  ✓ Verified organization
+                  {sc("verified")}
                 </span>
               ) : (
                 <button
                   onClick={() => setVerifyOpen(true)}
                   className="mono rounded-md border border-risk-medium/30 px-2 py-1 text-[12px] uppercase tracking-wider text-risk-medium transition hover:bg-risk-medium/10"
                 >
-                  Unverified — verify ownership
+                  {sc("unverified")}
                 </button>
               )
             )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {scan.status === "done" && <button onClick={() => setWalkthrough(true)} className="mono hidden rounded-lg border border-line px-3 py-2 text-[11px] uppercase text-ink-faint transition hover:border-signal/30 hover:text-signal md:block">Guided tour</button>}
+          {scan.status === "done" && <button onClick={() => setWalkthrough(true)} className="mono hidden rounded-lg border border-line px-3 py-2 text-[11px] uppercase text-ink-faint transition hover:border-signal/30 hover:text-signal md:block">{sc("guidedTour")}</button>}
           {scan.status === "done" && (
             <button data-tour="attacker" onClick={() => setAttacker(true)} className="mono rounded-lg border border-signal/30 bg-signal/10 px-3 py-2 text-[11px] uppercase tracking-wider text-signal hover:bg-signal/20">
-              ▶ Attacker View
+              {sc("attackerView")}
             </button>
           )}
           {scan.status === "done" && <PresentationControls name={`outside-${scan.result?.target ?? target}`} onPresent={() => setAttacker(true)} className="hidden md:flex"/>}
-          <Link href="/" className="mono text-xs text-ink-soft hover:text-ink">New scan</Link>
+          <Link href="/" className="mono text-xs text-ink-soft hover:text-ink">{sc("newScan")}</Link>
         </div>
       </header>
 
@@ -229,6 +237,8 @@ function GraphControls({
   priorityFilter: Set<string>;
   setPriorityFilter: (s: Set<string>) => void;
 }) {
+  const tr = useTranslator();
+  const sc = (key: Parameters<typeof tr.t<"scan">>[1]) => tr.t("scan", key);
   const toggle = (key: string) => {
     const next = new Set(priorityFilter);
     if (next.has(key)) next.delete(key);
@@ -242,10 +252,10 @@ function GraphControls({
           <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
         </svg>
         <input
-          aria-label="Search graph assets"
+          aria-label={sc("searchLabel")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search assets…"
+          placeholder={sc("searchPlaceholder")}
           className="mono w-36 bg-transparent text-xs text-ink placeholder:text-ink-faint focus:outline-hidden"
         />
         {query && (
@@ -273,13 +283,15 @@ function GraphControls({
 }
 
 function GraphLegend() {
+  const tr = useTranslator();
+  const sc = (key: Parameters<typeof tr.t<"scan">>[1]) => tr.t("scan", key);
   const items = [
-    { c: "#e8edf6", l: "Root" },
-    { c: "#ff5b6e", l: "Critical" },
-    { c: "#ff8a5b", l: "High" },
-    { c: "#f5c451", l: "Medium" },
-    { c: "#5b8cff", l: "Low" },
-    { c: "#38e1c3", l: "Info" },
+    { c: "#e8edf6", l: sc("legendRoot") },
+    { c: "#ff5b6e", l: sc("legendCritical") },
+    { c: "#ff8a5b", l: sc("legendHigh") },
+    { c: "#f5c451", l: sc("legendMedium") },
+    { c: "#5b8cff", l: sc("legendLow") },
+    { c: "#38e1c3", l: sc("legendInfo") },
   ];
   return (
     <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-line bg-base-900/70 px-3 py-2 backdrop-blur-sm">
