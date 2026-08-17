@@ -38,7 +38,8 @@ if (!token) throw new Error("Unable to authenticate the private Umami administra
 
 const authorization = { authorization: `Bearer ${token}` };
 const existing = await request(`/api/websites/${websiteId}`, { headers: authorization });
-if (existing.status === 404) {
+const existingWebsite = existing.ok ? await existing.json() : null;
+if (existing.status === 404 || (existing.ok && existingWebsite === null)) {
   const created = await request("/api/websites", {
     method: "POST",
     headers: authorization,
@@ -47,6 +48,12 @@ if (existing.status === 404) {
   if (!created.ok) throw new Error(`Unable to create the OUTSIDE analytics site (${created.status})`);
 } else if (!existing.ok) {
   throw new Error(`Unable to verify the OUTSIDE analytics site (${existing.status})`);
+}
+
+const verified = await request(`/api/websites/${websiteId}`, { headers: authorization });
+const verifiedWebsite = verified.ok ? await verified.json() : null;
+if (!verified.ok || verifiedWebsite?.id !== websiteId) {
+  throw new Error(`Unable to verify the created OUTSIDE analytics site (${verified.status})`);
 }
 
 if (authenticatedWith !== adminPassword) {
