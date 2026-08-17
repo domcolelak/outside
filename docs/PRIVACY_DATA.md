@@ -10,6 +10,7 @@ This document describes product behavior, not legal advice or a claim of complia
 - Guardian snapshots, findings, recommendations, notifications, and reports preserve deterministic history and explain changes.
 - Agency and Enterprise records contain client relationships, analyst notes, ownership, policies, audit metadata, integration delivery state, and billing allocation.
 - Operational logs and metrics support security, reliability, capacity planning, and incident response. Metrics deliberately avoid domain and tenant labels; structured logs can still contain pseudonymous operational identifiers.
+- Self-hosted website analytics stores anonymized page paths, referrer origin/internal path, browser/device/OS/language/country and allow-listed product/UTM events. It uses no cookies or local storage, respects Do Not Track, strips query strings/fragments, excludes token routes and does not accept tenant IDs, domains, emails, finding text or secrets as event properties.
 
 OUTSIDE does not collect payment-card data. Stripe hosts payment entry and sends signed billing events. Passwords are stored only as salted password hashes; reset, invite, session, and API-token secrets are stored as hashes or signed values as appropriate.
 
@@ -25,11 +26,15 @@ Data is sent to a provider only when that capability is configured:
 - The optional AI provider receives only the bounded interpretation input selected by the application. AI is not an evidence source and cannot mutate evidence or scoring. Operators must assess whether enabling it is appropriate for their data policy.
 - Public discovery providers receive the domain or public lookup required for the observation.
 
+The Umami analytics application and its dedicated PostgreSQL database run inside the operator-controlled stack. Only the tracker script and event-ingestion path are public; the dashboard/API listener is bound to host loopback and requires an SSH tunnel plus administrator authentication.
+
 Maintain an operator-controlled subprocessor register containing legal entity, service, region, purpose, retention, and contract owner. Repository documentation cannot establish the operator's actual subprocessor list.
 
 ## Retention, export, and deletion
 
 Guardian and operational retention is organization-scoped and bounded by configured policy. Evidence snapshots follow snapshot retention. Email outbox, usage events, webhook idempotency records, Enterprise delivery records, and ticket links are removed by the authenticated retention job after their configured windows.
+
+Website analytics sessions and their dependent events are removed daily after `OUTSIDE_ANALYTICS_RETENTION_DAYS` (730 days by default). Analytics logical backups are separately encrypted and expire through the configured backup-retention window.
 
 Enterprise audit records are immutable and are not silently deleted. A customer-specific archive/deletion procedure must reconcile contractual retention, security evidence, and applicable law before destructive action. Database backups expire according to the infrastructure policy and are not directly modified by application deletion.
 

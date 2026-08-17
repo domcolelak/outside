@@ -8,10 +8,34 @@
 {$STAGING_DOMAIN:outside.test} {
 	tls internal
 	encode zstd gzip
-	reverse_proxy app:3000 {
-		header_up Host {host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto https
+	@analyticsScript {
+		path /insights.js
+		method GET HEAD
+	}
+	handle @analyticsScript {
+		reverse_proxy analytics:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+		}
+	}
+	@analyticsCollect {
+		path /api/insights
+		method POST
+	}
+	handle @analyticsCollect {
+		reverse_proxy analytics:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+		}
+	}
+	handle {
+		reverse_proxy app:3000 {
+			header_up Host {host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+		}
 	}
 	log {
 		output stdout

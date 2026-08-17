@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslator } from "@/lib/i18n/context";
+import { trackProductEvent } from "@/lib/analytics/client";
 
 export function CheckoutButton({ orgId, plan, current, label }: { orgId: string; plan: string; current: boolean; label: string }) {
   const t = useTranslator();
@@ -14,6 +15,7 @@ export function CheckoutButton({ orgId, plan, current, label }: { orgId: string;
       const res = await fetch("/api/billing/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ orgId, plan }) });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error ?? t.t("billing", "checkoutUnavailable"));
+      trackProductEvent("checkout_started", { plan });
       window.location.href = data.url;
     } catch (e) {
       setError((e as Error).message);

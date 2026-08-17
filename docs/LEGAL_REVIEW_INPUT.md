@@ -13,6 +13,7 @@ This is an engineering inventory, not legal advice or a compliance claim. Counse
 | Agency/Enterprise | client relationships, ownership, SLA, API/audit/integration delivery state | customer/agency | PostgreSQL | selected integration providers |
 | Billing | Stripe customer/subscription identifiers and signed event state; no card data | Stripe/customer | PostgreSQL and Stripe | accounting/support systems chosen by operator |
 | Operations | bounded structured logs, low-cardinality metrics, request/scan/provider IDs, resource data | application/infrastructure | operator logging/metrics systems | operator on-call provider |
+| Website analytics | anonymized page paths without query/fragment, referrer origin/internal path, device/browser/OS/language/country, pageviews and allow-listed product/UTM events | website visitor | self-hosted Umami PostgreSQL | none by default |
 | Support/pilot | customer-submitted feedback, support correspondence and operator notes | customer/operator | approved support system | assigned support staff |
 
 Passwords are salted hashes. Reset, invitation, API-token and public-share secrets are stored as hashes or signed tokens as appropriate. Guardian/Enterprise integration credentials are AES-256-GCM encrypted. Encryption keys and database passwords are external secret-manager data and are not recoverable from a database backup.
@@ -31,7 +32,7 @@ Likely configured recipients include the hosting/database/backup/observability v
 
 ## Public links, cookies and analytics
 
-Public report grants are random, hashed, tenant-scoped, expiring and revocable; recipients may still download or redistribute content. Authentication uses necessary secure cookies. Product funnel telemetry is designed without tenant/domain metric labels, but the operator must inventory the actual analytics, cookie, log and support configuration before publishing a notice.
+Public report grants are random, hashed, tenant-scoped, expiring and revocable; recipients may still download or redistribute content. Authentication uses necessary secure cookies. Self-hosted Umami is cookie-free, respects Do Not Track, strips query strings/fragments and excludes token-bearing report, invitation and password-reset routes. Its product properties are allow-listed to journey mode, plan name and validated UTM codes; tenant IDs, domains, email, finding text and secrets are rejected by convention and client minimization. Analytics administration is loopback-only, records use bounded automated retention, and backups are encrypted. Counsel and the operator must still verify the lawful basis, objection/consent requirements, retention window and published notice for each target jurisdiction.
 
 ## Claims requiring counsel or independent evidence
 

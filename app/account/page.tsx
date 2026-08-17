@@ -8,6 +8,7 @@ import { VerifyEmailBanner } from "@/components/account/VerifyEmailBanner";
 import { getEnterpriseStore } from "@/lib/enterprise/store";
 import { currentLocale } from "@/lib/i18n/server";
 import { getTranslator, type MessageKey } from "@/lib/i18n/messages";
+import { AccountFunnelEvents } from "@/components/analytics/AccountFunnelEvents";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,11 @@ export const dynamic = "force-dynamic";
 const PLAN_KEYS: Record<string, MessageKey<"account">> = { free: "planFree", professional: "planProfessional", agency: "planAgency" };
 const ROLE_KEYS: Record<string, MessageKey<"account">> = { owner: "roleOwner", admin: "roleAdmin", analyst: "roleAnalyst", viewer: "roleViewer" };
 
-export default async function AccountPage({ searchParams }: { searchParams: Promise<{ emailVerification?: string }> }) {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ emailVerification?: string; billing?: string }> }) {
   const ctx = await getSessionContext();
   if (!ctx) redirect("/login");
-  const notice = (await searchParams).emailVerification;
+  const query = await searchParams;
+  const notice = query.emailVerification;
   const { locale } = await currentLocale();
   const t = getTranslator(locale);
   const a = (key: MessageKey<"account">, values?: Record<string, string | number>) => t.t("account", key, values);
@@ -28,6 +30,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
+        <AccountFunnelEvents emailVerified={notice === "complete"} checkoutCompleted={query.billing === "success"} />
         <VerifyEmailBanner verified={!!ctx.user.emailVerifiedAt} email={ctx.user.email} notice={notice === "complete" || notice === "invalid" ? notice : undefined} />
 
         <div>

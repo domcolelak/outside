@@ -64,6 +64,44 @@ groups:
 
   - name: outside-warning
     rules:
+      - alert: OutsideAnalyticsBackupMissing
+        expr: absent(outside_analytics_backup_last_success_unixtime) or time() - outside_analytics_backup_last_success_unixtime > 93600
+        for: 10m
+        labels: { severity: warning, owner: growth }
+        annotations:
+          summary: No successful encrypted analytics backup in 26 hours
+          action: Inspect analytics-backup logs and storage, run a manual analytics backup, and verify its manifest.
+
+      - alert: OutsideAnalyticsBackupFailed
+        expr: |
+          (outside_analytics_backup_last_failure_unixtime unless outside_analytics_backup_last_success_unixtime)
+          or
+          outside_analytics_backup_last_failure_unixtime > outside_analytics_backup_last_success_unixtime
+        for: 1m
+        labels: { severity: warning, owner: growth }
+        annotations:
+          summary: The latest encrypted analytics backup attempt failed
+          action: Inspect analytics-backup logs, database reachability and storage, then run and verify a manual analytics backup.
+
+      - alert: OutsideAnalyticsRetentionMissing
+        expr: absent(outside_analytics_retention_last_success_unixtime) or time() - outside_analytics_retention_last_success_unixtime > 93600
+        for: 10m
+        labels: { severity: warning, owner: growth }
+        annotations:
+          summary: Analytics retention has not completed in 26 hours
+          action: Inspect analytics-retention logs and database reachability; restore the daily retention run before the configured window is exceeded.
+
+      - alert: OutsideAnalyticsRetentionFailed
+        expr: |
+          (outside_analytics_retention_last_failure_unixtime unless outside_analytics_retention_last_success_unixtime)
+          or
+          outside_analytics_retention_last_failure_unixtime > outside_analytics_retention_last_success_unixtime
+        for: 1m
+        labels: { severity: warning, owner: growth }
+        annotations:
+          summary: The latest analytics retention run failed
+          action: Inspect analytics-retention logs and schema compatibility, then verify a successful bounded retention run.
+
       - alert: OutsideGuardianQueueOld
         expr: outside_guardian_queue_oldest_age_seconds > 900
         for: 10m

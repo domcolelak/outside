@@ -63,8 +63,10 @@ APP_VERSION="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
 APP_VERSION="${APP_VERSION:-0.0.0}"
 CONFIGURED_APP_IMAGE="$(grep -E '^OUTSIDE_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
 CONFIGURED_MIGRATOR_IMAGE="$(grep -E '^OUTSIDE_MIGRATOR_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
+CONFIGURED_BACKUP_IMAGE="$(grep -E '^OUTSIDE_BACKUP_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
 : "${CONFIGURED_APP_IMAGE:?OUTSIDE_IMAGE must be set in $ENV_FILE}"
 : "${CONFIGURED_MIGRATOR_IMAGE:?OUTSIDE_MIGRATOR_IMAGE must be set in $ENV_FILE}"
+: "${CONFIGURED_BACKUP_IMAGE:?OUTSIDE_BACKUP_IMAGE must be set in $ENV_FILE}"
 
 image_repository() {
   local reference="${1%@*}"
@@ -77,10 +79,11 @@ safe_version="$(printf '%s' "$APP_VERSION" | tr -c 'A-Za-z0-9_.-' '-')"
 local_tag="${safe_version}-local-${GIT_SHA:0:12}"
 OUTSIDE_IMAGE="$(image_repository "$CONFIGURED_APP_IMAGE"):${local_tag}"
 OUTSIDE_MIGRATOR_IMAGE="$(image_repository "$CONFIGURED_MIGRATOR_IMAGE"):${local_tag}"
-export OUTSIDE_IMAGE OUTSIDE_MIGRATOR_IMAGE
+OUTSIDE_BACKUP_IMAGE="$(image_repository "$CONFIGURED_BACKUP_IMAGE"):${local_tag}"
+export OUTSIDE_IMAGE OUTSIDE_MIGRATOR_IMAGE OUTSIDE_BACKUP_IMAGE
 
 echo "==> Deploying ${GIT_SHA} (built ${BUILD_TIME})"
-echo "==> Source-build images: ${OUTSIDE_IMAGE}, ${OUTSIDE_MIGRATOR_IMAGE}"
+echo "==> Source-build images: ${OUTSIDE_IMAGE}, ${OUTSIDE_MIGRATOR_IMAGE}, ${OUTSIDE_BACKUP_IMAGE}"
 
 BUILD_ARGS=(
   --build-arg "APP_VERSION=$APP_VERSION"
@@ -91,12 +94,37 @@ BUILD_ARGS=(
 COMPOSE=(docker compose --env-file "$ENV_FILE" -f ops/staging/compose.yaml)
 [ -f ops/staging/compose.public.yaml ] && COMPOSE+=(-f ops/staging/compose.public.yaml)
 
-echo "==> Building app and migrator from the same commit"
+echo "==> Building app, migrator and backup from the same commit"
 docker build --target runner "${BUILD_ARGS[@]}" -t "$OUTSIDE_IMAGE" .
 docker build --target migrator "${BUILD_ARGS[@]}" -t "$OUTSIDE_MIGRATOR_IMAGE" .
+docker build -t "$OUTSIDE_BACKUP_IMAGE" ops/staging/backup
 "${COMPOSE[@]}" config --quiet
-echo "==> Applying migrations before recreating the app"
-"${COMPOSE[@]}" up -d --force-recreate migrate app
+echo "==> Starting private analytics and applying its idempotent bootstrap"
+"${COMPOSE[@]}" up -d analytics-db analytics
+"${COMPOSE[@]}" up -d --force-recreate analytics-bootstrap
+ANALYTICS_BOOTSTRAP_CID="$("${COMPOSE[@]}" ps -q --all analytics-bootstrap)"
+[ -n "$ANALYTICS_BOOTSTRAP_CID" ] || { echo "!! Analytics bootstrap container was not created" >&2; exit 1; }
+for _ in $(seq 1 60); do
+  bootstrap_status="$(docker inspect --format '{{.State.Status}}' "$ANALYTICS_BOOTSTRAP_CID" 2>/dev/null || echo missing)"
+  if [ "$bootstrap_status" = "exited" ]; then
+    bootstrap_exit="$(docker inspect --format '{{.State.ExitCode}}' "$ANALYTICS_BOOTSTRAP_CID")"
+    if [ "$bootstrap_exit" = "0" ]; then
+      echo "==> Analytics bootstrap completed."
+      break
+    fi
+    "${COMPOSE[@]}" logs --no-color analytics-bootstrap >&2
+    echo "!! Analytics bootstrap failed with exit code ${bootstrap_exit}" >&2
+    exit 1
+  fi
+  [ "$bootstrap_status" = "dead" ] && { echo "!! Analytics bootstrap container died" >&2; exit 1; }
+  sleep 2
+done
+[ "${bootstrap_status:-missing}" = "exited" ] || { echo "!! Analytics bootstrap did not finish in time" >&2; exit 1; }
+"${COMPOSE[@]}" up -d --force-recreate analytics-backup analytics-retention
+
+echo "==> Applying migrations before recreating the app and edge proxy"
+"${COMPOSE[@]}" up -d --force-recreate migrate app caddy
+"${COMPOSE[@]}" up -d --force-recreate backup
 
 # The app port is not published on the host (it sits behind the reverse proxy),
 # so use its liveness HEALTHCHECK and then require database readiness plus exact

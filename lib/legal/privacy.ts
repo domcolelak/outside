@@ -1,4 +1,4 @@
-export const PRIVACY_UPDATED = "24 July 2026";
+export const PRIVACY_UPDATED = "17 August 2026";
 
 export const PRIVACY_BODY = `
 This Privacy Policy explains how VeDomEll s. r. o. ("OUTSIDE", "we", "us" or "our") collects, uses, stores and protects personal data when you visit outsideguardian.eu, create an account, use the OUTSIDE platform, communicate with us or otherwise interact with our services.
@@ -223,6 +223,10 @@ OUTSIDE may use cookies, local storage and similar technologies for:
 Strictly necessary technologies may be used without optional consent where permitted by law.
 
 Analytics, advertising or other non-essential technologies will be used only where an appropriate legal basis exists and, where required, after consent has been obtained. You may withdraw consent through the available cookie controls.
+
+For basic audience and product-journey measurement, OUTSIDE operates a self-hosted Umami analytics service within its own infrastructure. The tracker does not use cookies or local storage and does not track visitors across unrelated websites. It records anonymized page views, visits, referrer origin or internal path, browser, operating system, device type, screen size, language and approximate country, together with a deliberately limited set of product events. Query strings and fragments are removed before collection; password-reset, invitation and public-report token routes are not collected. Product-event properties are restricted to the journey mode, subscription-plan name and validated UTM campaign codes. Names, email addresses, organization identifiers, domains submitted for assessment, finding text, secrets and access tokens must not be sent to analytics. Browser Do Not Track signals are respected.
+
+The analytics service receives ordinary network request metadata, including an IP address and user-agent, to process the request and derive anonymous visit statistics, but OUTSIDE does not use that information to identify a visitor or track them across websites. Analytics records are kept for the configured bounded retention period and then removed by an automated retention job; encrypted backups expire under the infrastructure backup policy. You may object to analytics processing by enabling Do Not Track or contacting security@outsideguardian.eu.
 
 EU guidance distinguishes necessary cookies from non-essential cookies and generally requires informed consent before non-essential cookies are stored or accessed.
 

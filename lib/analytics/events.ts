@@ -1,6 +1,7 @@
 export const FUNNEL_EVENTS = [
   "scan_started", "scan_completed", "scan_failed", "demo_started", "demo_completed",
   "verification_started", "domain_verified", "guardian_viewed", "checkout_started",
+  "checkout_completed", "signup_started", "signup_completed", "email_verified",
   "invite_created", "report_shared", "report_viewed", "agency_created",
 ] as const;
 export type FunnelEvent = typeof FUNNEL_EVENTS[number];
