@@ -152,6 +152,22 @@ describe("finding wording", () => {
     expect(sk.concern).not.toContain("{");
   });
 
+  it("resolves the same wording the screen and the report both need", () => {
+    // findingText existed for months wired only into the PDF, so a Slovak
+    // customer read Slovak findings on paper and English ones on the screen
+    // they actually work from. Both call sites now share this resolver; this
+    // asserts the contract they depend on — every field a card renders comes
+    // back translated from one call.
+    const finding = findingFor(asset());
+    const sk = findingText(finding, "sk");
+    for (const [field, value] of Object.entries(sk)) {
+      expect(value, `${field} came back empty`).toBeTruthy();
+      expect(value, `${field} is still English`).not.toBe(
+        finding[field as keyof typeof finding] as string,
+      );
+    }
+  });
+
   it("has wording for every key the type allows", () => {
     // Declared as a Record over the union, so adding a FindingTextKey without
     // catalog entries fails to compile rather than reaching a customer as a

@@ -232,9 +232,6 @@ test.describe("public experience in five languages", () => {
     await page.request.post("/api/locale", { data: { locale: "sk" } });
     await page.goto("/scan?target=northstar&mode=demo");
 
-    // This asserts the screen's own chrome. The panels inside it — the console,
-    // the summary rail, the asset lens — are not localized yet, so a broad
-    // "no English anywhere" assertion would be claiming more than is true.
     await expect(page.locator("body")).toContainText("Sprevádzaná prehliadka", { timeout: 20_000 });
     // Several of these labels are uppercased by CSS, and innerText returns what
     // is rendered — so compare case-insensitively rather than asserting the
@@ -245,9 +242,21 @@ test.describe("public experience in five languages", () => {
     for (const slovak of ["koreň", "kritické", "vysoké", "stredné", "nízke", "informačné"]) {
       expect(body, `the legend is missing "${slovak}"`).toContain(slovak);
     }
-    for (const english of ["guided tour", "new scan"]) {
-      expect(body, `the scan chrome still shows "${english}"`).not.toContain(english);
+    // The panels, which are the bulk of this screen.
+    for (const slovak of ["ochranná pozícia", "vonkajšie assety", "postup objavovania", "zistenia"]) {
+      expect(body, `the panels are missing "${slovak}"`).toContain(slovak);
     }
+    for (const english of [
+      "guided tour", "new scan",
+      "external assets", "web surfaces", "discovery sequence", "higher is better",
+    ]) {
+      expect(body, `the scan screen still shows "${english}"`).not.toContain(english);
+    }
+    // "Protection posture" is deliberately absent from that list: the discovery
+    // log lines come from lib/discovery/engine.ts and HistoryPanel is not
+    // localized yet, so both still emit it. Asserting its absence would fail
+    // for a reason this change is not responsible for — and asserting it after
+    // localizing only the heading would claim the screen was finished.
     // Attacker View is the product's name for the replay and stays in English.
     expect(body).toContain("attacker view");
   });

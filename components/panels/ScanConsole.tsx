@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslator } from "@/lib/i18n/context";
+
 import { useEffect, useRef } from "react";
 import type { LogLine, StageState } from "@/components/useScan";
 
@@ -11,6 +13,9 @@ const LEVEL_MARK: Record<LogLine["level"], { mark: string; color: string }> = {
 };
 
 export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; logs: LogLine[]; scanning: boolean }) {
+  const tr = useTranslator();
+  // Named sc, not s: the stage list below already binds s in its map callback.
+  const sc = (key: Parameters<typeof tr.t<"scan">>[1]) => tr.t("scan", key);
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -21,8 +26,8 @@ export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; 
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-line px-4 py-3">
-        <div className="flex items-center justify-between"><div className="mono text-[11px] uppercase tracking-[.16em] text-ink-faint">Discovery sequence</div><div className="mono text-[11px] text-signal">{complete}/{stages.length}</div></div>
-        <div role="progressbar" aria-label="Discovery sequence progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} className="mt-3 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div>
+        <div className="flex items-center justify-between"><div className="mono text-[11px] uppercase tracking-[.16em] text-ink-faint">{sc("discoverySequence")}</div><div className="mono text-[11px] text-signal">{complete}/{stages.length}</div></div>
+        <div role="progressbar" aria-label={sc("discoveryProgress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} className="mt-3 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div>
         <div className="mt-3 space-y-1.5">
           {stages.map((s) => (
             <div key={s.stage} aria-current={s.status === "active" ? "step" : undefined} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs transition ${s.status === "active" ? "border border-signal/15 bg-signal/4" : "border border-transparent"}`}>
@@ -35,7 +40,7 @@ export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; 
         </div>
       </div>
       <div ref={scrollRef} className="scroll-thin flex-1 space-y-1 overflow-y-auto px-4 py-3">
-        <span className="sr-only" role="status" aria-live="polite">{logs.at(-1)?.message ?? (scanning ? "Discovery working" : "Discovery idle")}</span>
+        <span className="sr-only" role="status" aria-live="polite">{logs.at(-1)?.message ?? (scanning ? sc("discoveryWorking") : sc("discoveryIdle"))}</span>
         {logs.map((l, i) => {
           const m = LEVEL_MARK[l.level];
           return (
