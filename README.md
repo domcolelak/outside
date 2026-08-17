@@ -2,9 +2,17 @@
 
 **Live demo: [outsideguardian.eu](https://outsideguardian.eu)** — run an anonymous external snapshot with no sign-up (`/scan?target=northstar&mode=demo`).
 
-OUTSIDE is evidence-first external attack surface management for teams and agencies. It maps public evidence for a domain, streams the scan as an interactive graph, derives deterministic findings and a protection-posture score, verifies assessment coverage, and tracks change for verified organizations.
+Give OUTSIDE one company domain and it maps what the internet already exposes about that company: hostnames, mail and DNS infrastructure, third-party dependencies, and the technology each surface discloses. It separates what was *observed* from what was *inferred*, cites the evidence behind every claim, and refuses to report anything the deterministic pipeline did not see.
 
-OUTSIDE Guardian is the premium continuous-intelligence subsystem. It retains normalized observations, correlates meaningful changes across time, calculates Exposure Drift, maintains a living security checklist, produces evidence-backed recommendations and remediation guides, groups workflow notifications, and generates weekly executive digests. Guardian never creates assets, weaknesses, or evidence that the deterministic discovery pipeline did not observe. Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP, and technology history for every persisted finding.
+It is an external visibility product, not a penetration test. Nothing it does is intrusive — no exploitation, no credential attacks, no payloads. That boundary is enforced in code, not policy.
+
+Three things distinguish it from a scanner that prints a list:
+
+- **Every conclusion is traceable.** A finding names the observation it rests on, its confidence, and what would confirm or refute it. A version banner is an item to check, never a confirmed exploit.
+- **Change is the product.** Guardian retains normalized observations, correlates what moved between scans, calculates Exposure Drift, and turns that into recommendations an analyst can act on — after every scheduled scan.
+- **It speaks five languages, everywhere.** English, Slovak, Czech, Hungarian and Polish across every screen, every e-mail, the PDF report, and each generated finding — including the sentence explaining why a finding exists. No model translates at request time; the words a customer acts on are identical on every request.
+
+Evidence Intelligence seals each scan's raw and normalized observations with SHA-256, attributes provider reliability and discovery provenance, detects correlations and contradictions, and exposes evidence graphs plus DNS, certificate, HTTP and technology history for every persisted finding.
 
 The application is a single Next.js 16 App Router deployment using TypeScript, React 19, Prisma 7, PostgreSQL 16, Tailwind CSS 4, Vitest, Playwright, and `@react-pdf/renderer`, with private self-hosted Umami audience/funnel analytics and an accompanying Go Terraform provider.
 
@@ -12,16 +20,16 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 
 |  |  |
 | --- | --- |
-| ![Landing](docs/media/outside-landing.png) | ![Live discovery graph](docs/media/outside-scan-graph.png) |
-| **Landing** — passive, public sources only; no login required for an external snapshot. | **Live discovery graph** — deterministic classification, protection posture, and Aegis incident correlation. |
-| ![Attacker View](docs/media/outside-attacker-view.png) | ![Guardian dashboard](docs/media/outside-guardian.png) |
-| **Attacker View** — an evidence-backed replay of how each hostname became publicly observable. Discovery only, never exploitation. | **Guardian** — continuous change intelligence, Exposure Drift, and traceable recommendations after every scheduled scan. |
-| ![Integrations](docs/media/outside-integrations.png) | ![Findings and posture](docs/media/outside-findings.png) |
-| **Integrations** — organization-scoped, encrypted BYOK onboarding with provider-specific setup links, connection checks, and an explicitly separated write-capable Cloudflare workflow. | **Findings & posture** — protection posture with a transparent breakdown, then evidence-grounded findings across every generator: known-vulnerability (CVE + live CISA KEV + EPSS), Censys-observed exposed services, IP/domain reputation, breach exposure, and misconfiguration. |
-| ![Support assistant in Slovak](docs/media/outside-support-sk.png) | |
-| **Five languages, end to end** — the product in Slovak, including the FAQ and its assistant. Answers come from reviewed content: a question is matched deterministically first, and a model is only ever asked to pick one FAQ entry from an allowed list, never to write the reply. | |
+| ![Landing](docs/media/sideprojectors/01-landing.png) | ![Live discovery graph](docs/media/sideprojectors/02-attack-surface.png) |
+| **One domain in, the external surface out** — no sign-up for a passive snapshot. The panel on the right replays a real discovery sequence so a visitor sees what the product produces before typing anything. | **The live scan** — the discovery sequence on the left is what the product is doing right now; the graph is the shared mental model; the right rail carries protection posture, statistics and Aegis incident correlation. |
+| ![Attacker View](docs/media/sideprojectors/07-attacker-view.png) | ![Guardian dashboard](docs/media/sideprojectors/04-guardian.png) |
+| **Attacker View** — a replay of how each hostname became publicly observable, beat by beat, each one tied to the evidence that revealed it. Discovery only, never exploitation. | **Guardian** — continuous change intelligence. Exposure Drift, a renewal horizon for certificates and domains, a correlated change timeline, and recommendations built only from deterministic evidence. |
+| ![Integrations](docs/media/sideprojectors/03-integrations.png) | ![FAQ](docs/media/sideprojectors/05-faq.png) |
+| **Bring your own keys** — every external provider connects through one encrypted store, one connection test, one usage counter and one audit trail. Keys are verified server-side, stored encrypted, and never shown again. | **Answers before the first scan** — what is observed, when verification is required, how integrations work, and what changes once monitoring starts. |
+| ![Support assistant](docs/media/sideprojectors/06-assistant.png) | |
+| **The assistant is a classifier, not an author** — it picks one entry from the reviewed FAQ and the reply is read from that catalogue. Text injected into a question can at worst route to the wrong entry; it cannot change the reply language, reveal instructions, or write prose. | |
 
-> Screenshots use deterministic synthetic data and a synthetic local workspace—never customer data. Public demo captures can be regenerated with `node scripts/capture-screenshots.mjs [baseUrl]`; authenticated Guardian and Integrations captures require a disposable verified test workspace.
+> Screenshots use deterministic synthetic data and a synthetic workspace — never customer data. The public demo is reproducible at `/scan?target=northstar&mode=demo`.
 
 ## Capability boundary
 
@@ -37,6 +45,7 @@ The application is a single Next.js 16 App Router deployment using TypeScript, R
 - Every enrichment provider is bounded and isolated: a provider failure is captured and never fails the scan, cached connection status does not silently consume quota, and a scan reports its own completeness so partial discovery is never presented as whole. Commercial-use gates reject or disable keys whose entitlement cannot be established safely.
 - Aegis change proposals remain validated previews. The Cloudflare connector is the deliberately narrow write-capable exception: an administrator can apply a DMARC TXT record only when no DMARC record exists, OUTSIDE verifies the exact write, audits it, and retains an idempotent rollback handle. Concurrent duplicate changes and disconnects with active remediations are blocked.
 - AI is optional (OpenAI) and read-only over deterministic scan results. It cannot add assets, findings, or scores, and degrades to a deterministic template. An organization can connect its own OpenAI key so explanations are billed to its account; whose key pays never changes what is sent, because secrets and personal data are redacted before any model call.
+- The public support assistant is a classifier, never an author. A question is matched against the reviewed FAQ deterministically first; only if that is inconclusive is a model asked, and it may return exactly one FAQ id from an allowed list. The reply is always read from the reviewed catalogue in the reader's language, so injected text can at worst route to the wrong entry — it cannot change the reply language, reveal instructions, or produce prose. A reply that is not a known id is discarded, and the FAQ keeps answering if the gateway is unavailable, over budget, or unconfigured.
 - Demo data is synthetic and explicitly identified as such.
 
 ## Local development
@@ -133,7 +142,13 @@ recognises, but a country code never reaches storage or a URL.
   translation.
 - Findings, change events and server errors carry stable keys alongside their
   English text. The key is translated; the text remains for records written
-  before a generator was keyed, so nothing ever renders as a bare key.
+  before a generator was keyed, so nothing ever renders as a bare key. Every
+  finding generator emits a key, and one resolver serves both the screen and the
+  PDF — a finding cannot read differently on paper than it does in the console.
+- Other companies' product names and API permissions are deliberately absent
+  from the catalogs. Translating `Zone:Read` or `route53:ListHostedZones` would
+  send a customer looking for a permission that does not exist, so tests assert
+  those literals survive translation in every language.
 - `npm run check:messages` holds every locale to the English key space,
   including plural categories and interpolation variables, and runs in CI.
   `node scripts/translations.mjs report` lists what still needs human review;
