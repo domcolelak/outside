@@ -236,17 +236,20 @@ test.describe("public experience in five languages", () => {
     // the summary rail, the asset lens — are not localized yet, so a broad
     // "no English anywhere" assertion would be claiming more than is true.
     await expect(page.locator("body")).toContainText("Sprevádzaná prehliadka", { timeout: 20_000 });
-    const body = await page.locator("body").innerText();
-    expect(body).toContain("Nový sken");
+    // Several of these labels are uppercased by CSS, and innerText returns what
+    // is rendered — so compare case-insensitively rather than asserting the
+    // casing a stylesheet happens to apply.
+    const body = (await page.locator("body").innerText()).toLowerCase();
+    expect(body).toContain("nový sken");
     // The graph legend.
-    for (const slovak of ["Koreň", "Kritické", "Vysoké", "Stredné", "Nízke", "Informačné"]) {
+    for (const slovak of ["koreň", "kritické", "vysoké", "stredné", "nízke", "informačné"]) {
       expect(body, `the legend is missing "${slovak}"`).toContain(slovak);
     }
-    for (const english of ["Guided tour", "New scan"]) {
+    for (const english of ["guided tour", "new scan"]) {
       expect(body, `the scan chrome still shows "${english}"`).not.toContain(english);
     }
     // Attacker View is the product's name for the replay and stays in English.
-    expect(body).toContain("Attacker View");
+    expect(body).toContain("attacker view");
   });
 
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {
