@@ -11,12 +11,15 @@ import { EvidenceIntelligencePanel } from "@/components/guardian/EvidenceIntelli
 import { ReportPreview } from "@/components/report/ReportPreview";
 import { ShareButton } from "@/components/share/ShareButton";
 import { TwinPanel } from "@/components/panels/TwinPanel";
+import { useTranslator } from "@/lib/i18n/context";
+import { findingText } from "@/lib/report/finding-text";
 
-const BAND_LABEL: Record<string, { label: string; color: string }> = {
-  guarded: { label: "Guarded", color: "#38e1c3" },
-  moderate: { label: "Moderate", color: "#5b8cff" },
-  elevated: { label: "Elevated", color: "#f5c451" },
-  exposed: { label: "Exposed", color: "#ff8a5b" },
+/** The band's colour is presentation; its name is copy, so it lives in the catalog. */
+const BAND: Record<string, { key: "bandGuarded" | "bandModerate" | "bandElevated" | "bandExposed"; color: string }> = {
+  guarded: { key: "bandGuarded", color: "#38e1c3" },
+  moderate: { key: "bandModerate", color: "#5b8cff" },
+  elevated: { key: "bandElevated", color: "#f5c451" },
+  exposed: { key: "bandExposed", color: "#ff8a5b" },
 };
 
 function ScoreRing({ value, color }: { value: number; color: string }) {
@@ -57,24 +60,26 @@ export function Summary({
   onSelectAsset: (id: string) => void;
   onOpenAttacker: () => void;
 }) {
+  const tr = useTranslator();
+  const s = (key: Parameters<typeof tr.t<"scan">>[1], values?: Record<string, string | number>) => tr.t("scan", key, values);
   const [showScore, setShowScore] = useState(false);
-  const band = BAND_LABEL[result.score.band]!;
+  const band = BAND[result.score.band]!;
   const { stats } = result;
 
   return (
     <div className="scroll-thin h-full space-y-4 overflow-y-auto px-4 py-4">
       {result.isDemo && (
         <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-[12px] text-accent">
-          Demo dataset — synthetic organization. Findings are illustrative, not a real scan.
+          {s("demoDataset")}
         </div>
       )}
 
       {result.coverage && !result.coverage.complete && (
         <div className={`rounded-lg border px-3 py-2 text-[12px] ${result.coverage.discoveryComplete ? "border-risk-medium/30 bg-risk-medium/5 text-risk-medium" : "border-risk-high/40 bg-risk-high/5 text-risk-high"}`}>
           <span className="font-medium">
-            {result.coverage.discoveryComplete ? "Enrichment incomplete." : "Discovery incomplete — this surface may be missing assets."}
+            {result.coverage.discoveryComplete ? s("enrichmentIncomplete") : s("discoveryIncomplete")}
           </span>{" "}
-          {result.coverage.failed.length} source{result.coverage.failed.length === 1 ? "" : "s"} incomplete: {result.coverage.failed.map((f) => f.provider).join(", ")}. Results below reflect only what was successfully observed.
+          {s("coverageDetail", { count: result.coverage.failed.length, providers: result.coverage.failed.map((f) => f.provider).join(", ") })}
         </div>
       )}
 
@@ -83,11 +88,11 @@ export function Summary({
       <div className="panel flex items-center gap-4 p-4">
         <ScoreRing value={result.score.value} color={band.color} />
         <div>
-          <div className="mono text-[12px] uppercase tracking-wider text-ink-faint">Protection posture</div>
-          <div className="mt-1 text-lg font-medium" style={{ color: band.color }}>{band.label}</div>
-          <div className="mono mt-1 text-[11px] text-ink-faint">Higher is better — how contained your surface is, not a hack probability.</div>
+          <div className="mono text-[12px] uppercase tracking-wider text-ink-faint">{s("protectionPosture")}</div>
+          <div className="mt-1 text-lg font-medium" style={{ color: band.color }}>{s(band.key)}</div>
+          <div className="mono mt-1 text-[11px] text-ink-faint">{s("higherIsBetter")}</div>
           <button onClick={() => setShowScore((v) => !v)} className="mono mt-2 text-[12px] text-signal hover:underline">
-            {showScore ? "Hide breakdown" : `Why is my posture ${result.score.value}/100?`}
+            {showScore ? s("hideBreakdown") : s("whyPosture", { value: result.score.value })}
           </button>
         </div>
       </div>
@@ -110,10 +115,10 @@ export function Summary({
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="External assets" value={stats.assets} />
-        <Stat label="Web surfaces" value={stats.webSurfaces} />
-        <Stat label="Shadow signals" value={stats.shadowAssets} tone={stats.shadowAssets ? "warn" : "ok"} />
-        <Stat label="High-priority" value={stats.highPriorityFindings} tone={stats.highPriorityFindings ? "warn" : "ok"} />
+        <Stat label={s("statAssets")} value={stats.assets} />
+        <Stat label={s("statWebSurfaces")} value={stats.webSurfaces} />
+        <Stat label={s("statShadowSignals")} value={stats.shadowAssets} tone={stats.shadowAssets ? "warn" : "ok"} />
+        <Stat label={s("statHighPriority")} value={stats.highPriorityFindings} tone={stats.highPriorityFindings ? "warn" : "ok"} />
       </div>
 
       <button
@@ -121,7 +126,7 @@ export function Summary({
         className="scan-sweep relative w-full overflow-hidden rounded-xl border border-signal/30 bg-signal/5 px-4 py-3 text-left transition hover:bg-signal/10"
       >
         <div className="mono text-[12px] uppercase tracking-wider text-signal">Attacker View</div>
-        <div className="mt-0.5 text-sm text-ink">Replay how the surface was revealed →</div>
+        <div className="mt-0.5 text-sm text-ink">{s("replayCaption")}</div>
       </button>
 
       <ReportPreview result={result} />
@@ -142,7 +147,7 @@ export function Summary({
 
       <div>
         <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
-          <span>Findings</span>
+          <span>{s("findingsHeading")}</span>
           <span>{result.findings.length}</span>
         </div>
         <div className="space-y-2">
@@ -150,7 +155,7 @@ export function Summary({
             <FindingCard key={f.id} finding={f} target={result.target} onSelect={() => onSelectAsset(f.assetId)} />
           ))}
           {result.findings.length === 0 && (
-            <div className="rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-6 text-center"><div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div><div className="mt-3 text-xs font-medium text-ink">No priority review items</div><div className="mt-1 text-[11px] leading-5 text-ink-faint">Guardian will create a finding only when deterministic observations support it.</div></div>
+            <div className="rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-6 text-center"><div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div><div className="mt-3 text-xs font-medium text-ink">{s("findingsEmptyTitle")}</div><div className="mt-1 text-[11px] leading-5 text-ink-faint">{s("findingsEmptyBody")}</div></div>
           )}
         </div>
       </div>
@@ -159,6 +164,8 @@ export function Summary({
 }
 
 function AiSummary({ result }: { result: ScanResult }) {
+  const tr = useTranslator();
+  const s = (key: Parameters<typeof tr.t<"scan">>[1], values?: Record<string, string | number>) => tr.t("scan", key, values);
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [text, setText] = useState("");
   const [source, setSource] = useState<"template" | "openai">("template");
@@ -182,16 +189,16 @@ function AiSummary({ result }: { result: ScanResult }) {
         disabled={state === "loading"}
         className="mono w-full rounded-xl border border-line px-4 py-2.5 text-left text-xs text-ink-soft transition hover:bg-base-700/40 disabled:opacity-60"
       >
-        {state === "loading" ? "Writing summary…" : state === "error" ? "Summary failed — retry" : "✦ Generate executive summary"}
+        {state === "loading" ? s("writingSummary") : state === "error" ? s("summaryFailed") : s("generateSummary")}
       </button>
     );
   }
   return (
     <div className="panel p-4">
       <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
-        <span>Executive summary</span>
+        <span>{s("executiveSummary")}</span>
         <span className={source === "openai" ? "text-signal" : "text-ink-faint"}>
-          {source === "openai" ? "AI-generated" : "Deterministic"}
+          {source === "openai" ? s("aiGenerated") : s("deterministic")}
         </span>
       </div>
       <p className="text-[13px] leading-relaxed text-ink-soft">{text}</p>
@@ -199,13 +206,13 @@ function AiSummary({ result }: { result: ScanResult }) {
   );
 }
 
-const CHANGE_META: Record<ChangeType, { mark: string; label: string; color: string }> = {
-  asset_appeared: { mark: "+", label: "New", color: "#38e1c3" },
-  asset_returned: { mark: "↻", label: "Returned", color: "#f5c451" },
-  asset_disappeared: { mark: "−", label: "Gone", color: "#6b7793" },
-  technology_changed: { mark: "≠", label: "Tech changed", color: "#5b8cff" },
-  certificate_changed: { mark: "⚿", label: "Cert changed", color: "#5b8cff" },
-  priority_changed: { mark: "▲", label: "Priority up", color: "#ff8a5b" },
+const CHANGE_META: Record<ChangeType, { mark: string; key: "changeNew" | "changeReturned" | "changeGone" | "changeTech" | "changeCert" | "changePriority"; color: string }> = {
+  asset_appeared: { mark: "+", key: "changeNew", color: "#38e1c3" },
+  asset_returned: { mark: "↻", key: "changeReturned", color: "#f5c451" },
+  asset_disappeared: { mark: "−", key: "changeGone", color: "#6b7793" },
+  technology_changed: { mark: "≠", key: "changeTech", color: "#5b8cff" },
+  certificate_changed: { mark: "⚿", key: "changeCert", color: "#5b8cff" },
+  priority_changed: { mark: "▲", key: "changePriority", color: "#ff8a5b" },
 };
 
 function Changes({
@@ -217,15 +224,17 @@ function Changes({
   onSelect: (id: string) => void;
   assetsByCanon: Map<string, string>;
 }) {
+  const tr = useTranslator();
+  const s = (key: Parameters<typeof tr.t<"scan">>[1], values?: Record<string, string | number>) => tr.t("scan", key, values);
   const c = summary.counts;
   return (
     <div>
       <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
-        <span>Since last scan</span>
+        <span>{s("sinceLastScan")}</span>
         <span className="flex gap-2">
-          {c.appeared > 0 && <span className="text-signal">+{c.appeared} new</span>}
-          {c.returned > 0 && <span className="text-risk-medium">{c.returned} returned</span>}
-          {c.disappeared > 0 && <span className="text-ink-faint">{c.disappeared} gone</span>}
+          {c.appeared > 0 && <span className="text-signal">{s("countNew", { count: c.appeared })}</span>}
+          {c.returned > 0 && <span className="text-risk-medium">{s("countReturned", { count: c.returned })}</span>}
+          {c.disappeared > 0 && <span className="text-ink-faint">{s("countGone", { count: c.disappeared })}</span>}
         </span>
       </div>
       <div className="space-y-1.5">
@@ -246,7 +255,7 @@ function Changes({
                   <div className="mono mt-0.5 text-[11px] text-ink-faint">{e.from} → {e.to}</div>
                 )}
               </div>
-              <span className="mono shrink-0 text-[11px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</span>
+              <span className="mono shrink-0 text-[11px] uppercase tracking-wide" style={{ color: meta.color }}>{s(meta.key)}</span>
             </button>
           );
         })}
@@ -265,6 +274,12 @@ function Stat({ label, value, tone = "ok" }: { label: string; value: number; ton
 }
 
 function FindingCard({ finding, target, onSelect }: { finding: Finding; target: string; onSelect: () => void }) {
+  const tr = useTranslator();
+  const s = (key: Parameters<typeof tr.t<"scan">>[1], values?: Record<string, string | number>) => tr.t("scan", key, values);
+  // The same resolver the PDF uses. Until now this layer was wired only into
+  // the report, so a Slovak reader got Slovak findings on paper and English
+  // ones on the screen they actually work from.
+  const text = findingText(finding, tr.locale);
   const [open, setOpen] = useState(false);
   const [explain, setExplain] = useState<{ state: "idle" | "loading" | "done"; text: string; source: string }>({ state: "idle", text: "", source: "" });
   const runExplain = async () => {
@@ -282,42 +297,42 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-base-700/40">
         <PriorityDot priority={finding.priority} />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] text-ink">{finding.title}</div>
+          <div className="text-[13px] text-ink">{text.title}</div>
           <div className="mono mt-0.5 truncate text-[12px] text-ink-faint">{finding.category}</div>
         </div>
         <span className="mono text-[11px] text-ink-faint">{Math.round(finding.confidence * 100)}%</span>
       </button>
       {open && (
         <div className="space-y-2.5 border-t border-line px-3 py-3 text-xs">
-          <Row label="Observed" tag="observed" text={finding.observation} />
-          {finding.inference && <Row label="Inferred" tag="inferred" text={finding.inference} />}
-          <Row label="Possible concern" tag="possible" text={finding.concern} />
+          <Row label={s("rowObserved")} tag="observed" text={text.observation} />
+          {text.inference && <Row label={s("rowInferred")} tag="inferred" text={text.inference} />}
+          <Row label={s("rowConcern")} tag="possible" text={text.concern} />
           <div>
-            <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Reasoning</div>
+            <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{s("rowReasoning")}</div>
             <p className="mt-0.5 leading-relaxed text-ink-soft">{finding.reasoning}</p>
           </div>
           <div>
-            <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Recommended review</div>
-            <p className="mt-0.5 leading-relaxed text-ink">{finding.recommendation}</p>
+            <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{s("rowRecommended")}</div>
+            <p className="mt-0.5 leading-relaxed text-ink">{text.recommendation}</p>
           </div>
           <EvidenceIntelligencePanel orgId="" target={target} findingId={finding.id} />
           {explain.state === "done" ? (
             <div className="rounded-lg border border-line bg-base-850 p-2.5">
               <div className="mono mb-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-ink-faint">
-                <span>Plain-English</span>
-                <span className={explain.source === "openai" ? "text-signal" : "text-ink-faint"}>{explain.source === "openai" ? "AI" : "Deterministic"}</span>
+                <span>{s("plainEnglish")}</span>
+                <span className={explain.source === "openai" ? "text-signal" : "text-ink-faint"}>{explain.source === "openai" ? s("explainAi") : s("deterministic")}</span>
               </div>
               <p className="leading-relaxed text-ink-soft">{explain.text}</p>
             </div>
           ) : (
             <button onClick={runExplain} disabled={explain.state === "loading"} className="mono text-[12px] text-signal hover:underline disabled:opacity-60">
-              {explain.state === "loading" ? "Explaining…" : "✦ Explain in plain English"}
+              {explain.state === "loading" ? s("explaining") : s("explainButton")}
             </button>
           )}
           <div className="flex items-center justify-between pt-1">
             <Confidence value={finding.confidence} />
             <button onClick={onSelect} className="mono text-[12px] text-signal hover:underline">
-              View asset →
+              {s("viewAsset")}
             </button>
           </div>
         </div>
