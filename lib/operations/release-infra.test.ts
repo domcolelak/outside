@@ -31,12 +31,23 @@ describe("release infrastructure contracts", () => {
     const compose = await text("ops/staging/compose.yaml");
     const publicCaddy = await text("ops/staging/proxy/Caddyfile.public");
     const internalCaddy = await text("ops/staging/proxy/Caddyfile.internal");
+    const retention = await text("ops/staging/analytics/retention.sh");
+    const backupDockerfile = await text("ops/staging/backup/Dockerfile");
+    const backupHealthcheck = await text("ops/staging/backup/backup-healthcheck.sh");
 
     expect(compose).toContain("ghcr.io/umami-software/umami:3.2.0@sha256:8edfe4beaef13f9d1300619fa264ef250a3688df9cc54d24ca830ca31cb475ec");
     expect(compose).toContain("127.0.0.1:${UMAMI_PORT:-3002}:3000");
     expect(compose).toContain("DISABLE_TELEMETRY: \"1\"");
     expect(compose).toContain("DISABLE_UPDATES: \"1\"");
+    expect(compose).toContain("PRIVATE_MODE: \"1\"");
     expect(compose).toContain("BACKUP_METRIC_PREFIX: outside_analytics_backup");
+    expect(compose).toContain("OUTSIDE_ANALYTICS_RETENTION_DAYS: ${OUTSIDE_ANALYTICS_RETENTION_DAYS:-730}");
+    expect(backupDockerfile).toContain('CMD ["/opt/outside/backup-healthcheck.sh"]');
+    expect(backupHealthcheck).toContain('metric_prefix="${BACKUP_METRIC_PREFIX:-outside_backup}"');
+    for (const table of ["event_data", "revenue", "session_data", "session_replay_saved", "session_replay", "heatmap_event", "website_event"]) {
+      expect(retention).toContain(`DELETE FROM ${table}`);
+    }
+    expect(retention.indexOf('DELETE FROM website_event')).toBeLessThan(retention.indexOf('DELETE FROM "session"'));
     for (const caddy of [publicCaddy, internalCaddy]) {
       expect(caddy).toContain("path /insights.js");
       expect(caddy).toContain("path /api/insights");

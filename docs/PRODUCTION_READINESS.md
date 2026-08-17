@@ -1,4 +1,4 @@
-# Production-readiness evidence — 2026-07-17
+# Production-readiness evidence — 2026-08-17
 
 ## Status and scope
 
@@ -18,13 +18,14 @@ Independent penetration testing, managed PostgreSQL PITR evidence, production ke
 - Deterministic evidence, confidence, scoring, recommendations, demo isolation, provider-failure visibility, and immutable evidence history.
 - Database indexes, bounded pagination and logs, DNS caching, graph culling/spatial hit testing/Barnes-Hut scaling, report concurrency, and queue/provider OpenTelemetry metrics.
 - Non-root standalone production container, migration image, readiness/liveness probes, structured logs, dependency/licence/secret gates, and operational documentation.
+- Cookie-free self-hosted audience/funnel analytics with property allow-listing, query/token-route minimization, private administration, isolated storage, encrypted backups and bounded retention.
 
 ## Automated validation contract
 
 | Gate | Required evidence |
 | --- | --- |
 | Install and supply chain | Reproducible `npm ci`; production audit at high severity; locked-package licence policy; repository secret scan. |
-| Unit/regression | `801` tests across `124` files, including auth/session, tenant isolation, SSRF/DNS rebinding, scoring/evidence, Guardian recovery, Stripe ordering, export safety, caching, graph correctness, message-catalogue parity across five languages, and production configuration. The file count is asserted by `lib/docs/readiness.test.ts`, so this row cannot quietly go stale again. |
+| Unit/regression | `820` tests across `126` files, including auth/session, tenant isolation, SSRF/DNS rebinding, scoring/evidence, Guardian recovery, Stripe ordering, analytics privacy, export safety, caching, graph correctness, message-catalogue parity across five languages, and production configuration. The file count is asserted by `lib/docs/readiness.test.ts`, so this row cannot quietly go stale again. |
 | Static validation | ESLint with zero warnings, strict TypeScript, Prisma schema validation, and production Next.js build. |
 | PostgreSQL | PostgreSQL 16 clean migrations, `13` integration workflows, historical-checkpoint upgrade, transactional/tenant/lease/advisory-lock coverage, logical dump, isolated restore, and post-restore reads. |
 | Browser | Production-build Chromium journeys across three specs: landing/auth accessibility, hardened signup session contract, deterministic demo and Attacker View, a 120-request liveness budget, mobile overflow, and the five-language public and signed-in experience (landing, sign-in, workspace, billing, Guardian paywall, Assess, Chronos, integrations, capability registry). |

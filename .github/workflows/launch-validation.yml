@@ -141,10 +141,20 @@ jobs:
           app_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q app)"
           analytics_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q analytics)"
           analytics_bootstrap_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q --all analytics-bootstrap)"
+          analytics_retention_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q analytics-retention)"
           test "$(docker inspect "${app_id}" --format '{{.Config.User}}')" = "nextjs"
           test "$(docker inspect "${app_id}" --format '{{.HostConfig.ReadonlyRootfs}}')" = "true"
           test "$(docker inspect "${analytics_id}" --format '{{.State.Health.Status}}')" = "healthy"
           test "$(docker inspect "${analytics_bootstrap_id}" --format '{{.State.ExitCode}}')" = "0"
+          test "$(docker inspect "${analytics_retention_id}" --format '{{.State.Status}}')" = "running"
+          for attempt in $(seq 1 30); do
+            if docker exec "${analytics_retention_id}" grep -q '^outside_analytics_retention_last_success_unixtime ' /metrics/outside_analytics_retention.prom; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec "${analytics_retention_id}" grep '^outside_analytics_retention_' /metrics/outside_analytics_retention.prom \
+            > launch-evidence/analytics-retention.prom
           docker compose --env-file .env.staging -f ops/staging/compose.yaml ps --format json > launch-evidence/containers.json
 
       - name: Execute real HTTPS customer journeys

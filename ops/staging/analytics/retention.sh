@@ -19,13 +19,35 @@ mkdir -p "${metrics_directory}"
 
 while true; do
   now="$(date +%s)"
-  if deleted_sessions="$(psql "${DATABASE_URL}" --no-psqlrc --set=ON_ERROR_STOP=1 --set="retention_days=${retention_days}" --tuples-only --no-align <<'SQL'
-WITH deleted AS (
-  DELETE FROM "session"
-  WHERE created_at < NOW() - make_interval(days => :retention_days)
-  RETURNING 1
-)
-SELECT count(*) FROM deleted;
+  if deleted_sessions="$(psql "${DATABASE_URL}" --no-psqlrc --quiet --set=ON_ERROR_STOP=1 --set="retention_days=${retention_days}" --tuples-only --no-align <<'SQL'
+BEGIN;
+CREATE TEMP TABLE outside_expired_session ON COMMIT DROP AS
+  SELECT session_id
+  FROM "session"
+  WHERE created_at < NOW() - make_interval(days => :retention_days);
+CREATE UNIQUE INDEX ON outside_expired_session (session_id);
+
+CREATE TEMP TABLE outside_expired_visit ON COMMIT DROP AS
+  SELECT DISTINCT visit_id FROM website_event WHERE session_id IN (SELECT session_id FROM outside_expired_session)
+  UNION
+  SELECT DISTINCT visit_id FROM session_replay WHERE session_id IN (SELECT session_id FROM outside_expired_session)
+  UNION
+  SELECT DISTINCT visit_id FROM heatmap_event WHERE session_id IN (SELECT session_id FROM outside_expired_session);
+CREATE UNIQUE INDEX ON outside_expired_visit (visit_id);
+
+DELETE FROM event_data
+USING website_event, outside_expired_session
+WHERE event_data.website_event_id = website_event.event_id
+  AND website_event.session_id = outside_expired_session.session_id;
+DELETE FROM revenue USING outside_expired_session WHERE revenue.session_id = outside_expired_session.session_id;
+DELETE FROM session_data USING outside_expired_session WHERE session_data.session_id = outside_expired_session.session_id;
+DELETE FROM session_replay_saved USING outside_expired_visit WHERE session_replay_saved.visit_id = outside_expired_visit.visit_id;
+DELETE FROM session_replay USING outside_expired_session WHERE session_replay.session_id = outside_expired_session.session_id;
+DELETE FROM heatmap_event USING outside_expired_session WHERE heatmap_event.session_id = outside_expired_session.session_id;
+DELETE FROM website_event USING outside_expired_session WHERE website_event.session_id = outside_expired_session.session_id;
+SELECT count(*) FROM outside_expired_session;
+DELETE FROM "session" USING outside_expired_session WHERE "session".session_id = outside_expired_session.session_id;
+COMMIT;
 SQL
   )"; then
     deleted_sessions="$(printf '%s' "${deleted_sessions}" | tr -d '[:space:]')"
