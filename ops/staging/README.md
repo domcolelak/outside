@@ -1,6 +1,6 @@
 # Production-like staging
 
-This stack exercises the production application and migration images with PostgreSQL 16, scheduled jobs, HTTPS, OpenTelemetry, Prometheus, Alertmanager, Grafana, host/container metrics, and encrypted logical backups. It is suitable for an isolated staging VM; it is not a claim that a single-VM Compose topology is the recommended high-availability production topology.
+This stack exercises the production application and migration images with PostgreSQL 16, scheduled jobs, HTTPS, private self-hosted Umami analytics, OpenTelemetry, Prometheus, Alertmanager, Grafana, host/container metrics, and encrypted logical backups. It is suitable for an isolated staging VM; it is not a claim that a single-VM Compose topology is the recommended high-availability production topology.
 
 ## Prerequisites
 
@@ -55,6 +55,7 @@ The public override requires a trusted certificate and makes blackbox TLS valida
 
 - Product: `APP_URL`.
 - Grafana: `http://127.0.0.1:3001` by default. The loopback-only operator listener is proxied by Caddy to avoid publishing the monitoring container directly; use an SSH tunnel rather than exposing it publicly.
+- Umami analytics: `http://127.0.0.1:3002` by default. It is loopback-only; use `ssh -L 3002:127.0.0.1:3002 <user>@<host>` and sign in as `admin` with the secret-managed `UMAMI_ADMIN_PASSWORD`. See `docs/ANALYTICS.md`.
 - Prometheus and Alertmanager have no host ports and remain on the internal monitoring network.
 - Application, scheduler, exporters, and backup processes run without root. cAdvisor is the explicit exception: it requires privileged host visibility and must only run on a dedicated staging host. Use the infrastructure provider's native container metrics in production.
 
@@ -64,7 +65,8 @@ The default Alertmanager receiver writes bounded, actionable alert summaries to 
 
 For an existing single-host source-based staging deploy, `ops/staging/deploy.sh`
 fetches one explicit revision, refuses a dirty tree, creates unique SHA-scoped
-local app and migrator tags, applies migrations, and only then recreates the app.
+local app, migrator and backup tags, bootstraps private analytics, applies
+migrations, and only then recreates the app and proxy.
 It verifies `/api/readyz` reports the exact deployed commit:
 
 ```bash
@@ -91,11 +93,20 @@ Application rollback uses the prior immutable image. Do not reverse a data migra
 
 The `backup` service immediately creates an encrypted custom-format PostgreSQL dump and then follows `BACKUP_INTERVAL_SECONDS`. Encryption uses a native age X25519 identity; the identity must be escrowed separately from database storage. Losing it makes existing backups unrecoverable.
 
+`analytics-backup` follows the same encryption and expiry policy but writes to a separate volume with an `umami-` file prefix and separate health metrics. `analytics-retention` removes sessions and dependent events older than `OUTSIDE_ANALYTICS_RETENTION_DAYS` every day.
+
 To create an additional backup:
 
 ```bash
 docker compose --env-file .env.staging -f ops/staging/compose.yaml \
   run --rm backup /opt/outside/backup.sh
+```
+
+To create an additional analytics backup:
+
+```bash
+docker compose --env-file .env.staging -f ops/staging/compose.yaml \
+  run --rm analytics-backup /opt/outside/backup.sh
 ```
 
 Restore only into a clean isolated database:

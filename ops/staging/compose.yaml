@@ -25,6 +25,7 @@ x-app-environment: &app-environment
   OUTSIDE_DATA_REGION: ${OUTSIDE_DATA_REGION:-eu}
   OUTSIDE_USAGE_RETENTION_DAYS: ${OUTSIDE_USAGE_RETENTION_DAYS:-730}
   OUTSIDE_ASSESSMENT_RETENTION_DAYS: ${OUTSIDE_ASSESSMENT_RETENTION_DAYS:-730}
+  UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
   # Optional, operator-supplied provider keys. Empty by default; each feature is
   # env-gated in code and inactive until its key is set in .env.staging.
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -103,6 +104,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      analytics-bootstrap:
+        condition: service_completed_successfully
       otel-collector:
         condition: service_started
     networks: [edge, data, monitoring]
@@ -113,6 +116,83 @@ services:
     security_opt: [no-new-privileges:true]
     mem_limit: 1g
     cpus: 2
+
+  analytics-db:
+    image: postgres:16.14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:?Set UMAMI_DB_PASSWORD}
+    command:
+      - postgres
+      - -c
+      - max_connections=40
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - log_min_duration_statement=1000
+    volumes:
+      - analytics-postgres-data:/var/lib/postgresql/data
+    networks: [analytics]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+
+  analytics:
+    image: ghcr.io/umami-software/umami:3.2.0@sha256:8edfe4beaef13f9d1300619fa264ef250a3688df9cc54d24ca830ca31cb475ec
+    restart: unless-stopped
+    init: true
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@analytics-db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:?Set UMAMI_APP_SECRET}
+      CLIENT_IP_HEADER: X-Forwarded-For
+      TRACKER_SCRIPT_NAME: insights.js
+      COLLECT_API_ENDPOINT: /api/insights
+      DISABLE_TELEMETRY: "1"
+      DISABLE_UPDATES: "1"
+      PRIVATE_MODE: "1"
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:${UMAMI_PORT:-3002}:3000
+    networks: [edge, analytics]
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:3000/api/heartbeat >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+
+  analytics-bootstrap:
+    image: ghcr.io/umami-software/umami:3.2.0@sha256:8edfe4beaef13f9d1300619fa264ef250a3688df9cc54d24ca830ca31cb475ec
+    entrypoint: ["node"]
+    command: ["/opt/outside/analytics-bootstrap.mjs"]
+    environment:
+      UMAMI_INTERNAL_URL: http://analytics:3000
+      UMAMI_ADMIN_PASSWORD: ${UMAMI_ADMIN_PASSWORD:?Set UMAMI_ADMIN_PASSWORD}
+      UMAMI_ADMIN_PASSWORD_PREVIOUS: ${UMAMI_ADMIN_PASSWORD_PREVIOUS:-}
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:?Set UMAMI_WEBSITE_ID}
+      UMAMI_SITE_DOMAIN: ${STAGING_DOMAIN:?Set STAGING_DOMAIN}
+    volumes:
+      - ./analytics/bootstrap.mjs:/opt/outside/analytics-bootstrap.mjs:ro
+    depends_on:
+      analytics:
+        condition: service_healthy
+    networks: [analytics]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+    mem_limit: 128m
 
   scheduler:
     build: ./scheduler
@@ -259,6 +339,50 @@ services:
     security_opt: [no-new-privileges:true]
     mem_limit: 256m
 
+  analytics-backup:
+    image: ${OUTSIDE_BACKUP_IMAGE:-outside-backup:local}
+    build: ./backup
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@analytics-db:5432/umami
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY:?Set BACKUP_ENCRYPTION_KEY}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_FILE_PREFIX: umami
+      BACKUP_METRIC_PREFIX: outside_analytics_backup
+    volumes:
+      - analytics-backup-data:/backups
+      - node-textfile:/metrics
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+    networks: [analytics]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+
+  analytics-retention:
+    image: postgres:16.14-alpine
+    restart: unless-stopped
+    user: postgres
+    entrypoint: ["/bin/sh", "/opt/outside/analytics-retention.sh"]
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@analytics-db:5432/umami
+      OUTSIDE_ANALYTICS_RETENTION_DAYS: ${OUTSIDE_ANALYTICS_RETENTION_DAYS:-730}
+      ANALYTICS_RETENTION_INTERVAL_SECONDS: ${ANALYTICS_RETENTION_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./analytics/retention.sh:/opt/outside/analytics-retention.sh:ro
+      - node-textfile:/metrics
+    depends_on:
+      analytics-bootstrap:
+        condition: service_completed_successfully
+    networks: [analytics]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+
   grafana:
     image: grafana/grafana:13.1.0
     restart: unless-stopped
@@ -315,12 +439,16 @@ networks:
   edge:
   data:
     internal: true
+  analytics:
+    internal: true
   monitoring:
     internal: true
 
 volumes:
   postgres-data:
+  analytics-postgres-data:
   backup-data:
+  analytics-backup-data:
   node-textfile:
   caddy-data:
   caddy-config:

@@ -7,6 +7,7 @@ import { Wordmark } from "@/components/Wordmark";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { useTranslator } from "@/lib/i18n/context";
 import { authErrorMessage } from "@/lib/auth/error-keys";
+import { trackFunnel } from "@/lib/analytics/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 function AuthForm() {
@@ -35,6 +36,7 @@ function AuthForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "signup") trackFunnel("signup_started");
     setBusy(true);
     setError(null);
     const endpoint = mode === "signup" ? "/api/auth/signup" : "/api/auth/login";
@@ -47,6 +49,7 @@ function AuthForm() {
         setBusy(false);
         return;
       }
+      if (mode === "signup") trackFunnel("signup_completed");
       const next = params.get("next");
       router.push(next && next.startsWith("/") ? next : "/account");
       router.refresh();

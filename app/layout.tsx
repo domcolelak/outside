@@ -3,6 +3,9 @@ import { APP_URL } from "@/lib/config/runtime";
 import { currentLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/context";
 import { getBundles } from "@/lib/i18n/messages";
+import { webAnalyticsConfig } from "@/lib/analytics/config";
+import { AnalyticsScript } from "@/components/analytics/AnalyticsScript";
+import { CampaignAttribution } from "@/components/analytics/CampaignAttribution";
 import "./globals.css";
 
 const SITE_URL = APP_URL;
@@ -41,9 +44,12 @@ export default async function RootLayout({
   // Resolved per request rather than hardcoded, so assistive technology and
   // browser translation see the language the page is actually written in.
   const { locale } = await currentLocale();
+  const analytics = webAnalyticsConfig();
   return (
     <html lang={locale} className="dark">
+      {analytics && <head><AnalyticsScript config={analytics} /></head>}
       <body className="min-h-screen antialiased">
+        {analytics && <CampaignAttribution />}
         {/* Resolved once here so no client component has to work out the
             language for itself, and none of them can disagree. */}
         <LocaleProvider locale={locale} bundles={getBundles(locale)}>

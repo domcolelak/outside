@@ -16,9 +16,44 @@ describe("release infrastructure contracts", () => {
     expect(source).toContain('local_tag="${safe_version}-local-${GIT_SHA:0:12}"');
     expect(source).toContain('docker build --target runner "${BUILD_ARGS[@]}" -t "$OUTSIDE_IMAGE" .');
     expect(source).toContain('docker build --target migrator "${BUILD_ARGS[@]}" -t "$OUTSIDE_MIGRATOR_IMAGE" .');
-    expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate migrate app');
+    expect(source).toContain('docker build -t "$OUTSIDE_BACKUP_IMAGE" ops/staging/backup');
+    expect(source).toContain('"${COMPOSE[@]}" up -d analytics-db analytics');
+    expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate analytics-bootstrap');
+    expect(source).toContain("Analytics bootstrap did not finish in time");
+    expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate analytics-backup analytics-retention');
+    expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate migrate app caddy');
+    expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate backup');
     expect(source).toContain("body.release?.commit!==process.env.EXPECTED_GIT_SHA");
     expect(source).not.toContain('docker build --target runner "${BUILD_ARGS[@]}" -t "$CONFIGURED_APP_IMAGE"');
+  });
+
+  it("keeps analytics administration private and exposes only the tracker ingestion surface", async () => {
+    const compose = await text("ops/staging/compose.yaml");
+    const publicCaddy = await text("ops/staging/proxy/Caddyfile.public");
+    const internalCaddy = await text("ops/staging/proxy/Caddyfile.internal");
+    const retention = await text("ops/staging/analytics/retention.sh");
+    const backupDockerfile = await text("ops/staging/backup/Dockerfile");
+    const backupHealthcheck = await text("ops/staging/backup/backup-healthcheck.sh");
+
+    expect(compose).toContain("ghcr.io/umami-software/umami:3.2.0@sha256:8edfe4beaef13f9d1300619fa264ef250a3688df9cc54d24ca830ca31cb475ec");
+    expect(compose).toContain("127.0.0.1:${UMAMI_PORT:-3002}:3000");
+    expect(compose).toContain("DISABLE_TELEMETRY: \"1\"");
+    expect(compose).toContain("DISABLE_UPDATES: \"1\"");
+    expect(compose).toContain("PRIVATE_MODE: \"1\"");
+    expect(compose).toContain("BACKUP_METRIC_PREFIX: outside_analytics_backup");
+    expect(compose).toContain("OUTSIDE_ANALYTICS_RETENTION_DAYS: ${OUTSIDE_ANALYTICS_RETENTION_DAYS:-730}");
+    expect(backupDockerfile).toContain('CMD ["/opt/outside/backup-healthcheck.sh"]');
+    expect(backupHealthcheck).toContain('metric_prefix="${BACKUP_METRIC_PREFIX:-outside_backup}"');
+    for (const table of ["event_data", "revenue", "session_data", "session_replay_saved", "session_replay", "heatmap_event", "website_event"]) {
+      expect(retention).toContain(`DELETE FROM ${table}`);
+    }
+    expect(retention.indexOf('DELETE FROM website_event')).toBeLessThan(retention.indexOf('DELETE FROM "session"'));
+    for (const caddy of [publicCaddy, internalCaddy]) {
+      expect(caddy).toContain("path /insights.js");
+      expect(caddy).toContain("path /api/insights");
+      expect(caddy).not.toContain("/api/auth");
+      expect(caddy).not.toContain("/api/websites/");
+    }
   });
 
   it("validates the public certificate while probing Caddy on the internal network", async () => {

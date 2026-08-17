@@ -70,10 +70,18 @@ jobs:
           AUDIT_IP_SALT=$(random_hex 16)
           BACKUP_ENCRYPTION_KEY=GENERATED_AFTER_BACKUP_IMAGE_BUILD
           GRAFANA_ADMIN_PASSWORD=$(random_hex 24)
+          UMAMI_DB_PASSWORD=$(random_hex 32)
+          UMAMI_APP_SECRET=$(random_hex 32)
+          UMAMI_ADMIN_PASSWORD=$(random_hex 24)
+          UMAMI_ADMIN_PASSWORD_PREVIOUS=
+          UMAMI_WEBSITE_ID=$(cat /proc/sys/kernel/random/uuid)
           OUTSIDE_DATA_REGION=eu
           OUTSIDE_EMAIL_IMMEDIATE_DELIVERY=false
           OUTSIDE_TRUST_PROXY=true
           GRAFANA_PORT=3001
+          UMAMI_PORT=3002
+          OUTSIDE_ANALYTICS_RETENTION_DAYS=730
+          ANALYTICS_RETENTION_INTERVAL_SECONDS=86400
           BACKUP_INTERVAL_SECONDS=86400
           BACKUP_RETENTION_DAYS=14
           SCHEDULER_SCAN_INTERVAL_SECONDS=300
@@ -97,7 +105,7 @@ jobs:
           docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --format json |
-            jq '{caddyPorts: .services.caddy.ports, grafanaPorts: .services.grafana.ports}' \
+            jq '{caddyPorts: .services.caddy.ports, grafanaPorts: .services.grafana.ports, analyticsPorts: .services.analytics.ports}' \
               > launch-evidence/compose-operator-ports.json
           docker compose --env-file .env.staging -f ops/staging/compose.yaml build backup
           backup_identity="$(docker run --rm --entrypoint age-keygen "${OUTSIDE_BACKUP_IMAGE}" 2>/dev/null | tail -n 1)"
@@ -128,9 +136,25 @@ jobs:
             sleep 2
           done
           jq -e --arg commit "${VALIDATED_SHA}" '.status == "ready" and .persistence == "database" and .release.commit == $commit' launch-evidence/ready.json
+          curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
+            https://outside.test:8443/insights.js > launch-evidence/analytics-tracker.js
           app_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q app)"
+          analytics_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q analytics)"
+          analytics_bootstrap_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q --all analytics-bootstrap)"
+          analytics_retention_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q analytics-retention)"
           test "$(docker inspect "${app_id}" --format '{{.Config.User}}')" = "nextjs"
           test "$(docker inspect "${app_id}" --format '{{.HostConfig.ReadonlyRootfs}}')" = "true"
+          test "$(docker inspect "${analytics_id}" --format '{{.State.Health.Status}}')" = "healthy"
+          test "$(docker inspect "${analytics_bootstrap_id}" --format '{{.State.ExitCode}}')" = "0"
+          test "$(docker inspect "${analytics_retention_id}" --format '{{.State.Status}}')" = "running"
+          for attempt in $(seq 1 30); do
+            if docker exec "${analytics_retention_id}" grep -q '^outside_analytics_retention_last_success_unixtime ' /metrics/outside_analytics_retention.prom; then
+              break
+            fi
+            sleep 1
+          done
+          docker exec "${analytics_retention_id}" grep '^outside_analytics_retention_' /metrics/outside_analytics_retention.prom \
+            > launch-evidence/analytics-retention.prom
           docker compose --env-file .env.staging -f ops/staging/compose.yaml ps --format json > launch-evidence/containers.json
 
       - name: Execute real HTTPS customer journeys
