@@ -1,8 +1,9 @@
 # Deploy OUTSIDE to a Hetzner VM (custom domain, trusted HTTPS)
 
 A single-VM production-like deployment: application, PostgreSQL, scheduler,
-Prometheus/Grafana/Alertmanager, OpenTelemetry, encrypted backups and Caddy
-with automatic Let's Encrypt HTTPS — all from `ops/staging`. Suitable for a
+private self-hosted Umami analytics, Prometheus/Grafana/Alertmanager,
+OpenTelemetry, encrypted backups and Caddy with automatic Let's Encrypt HTTPS
+— all from `ops/staging`. Suitable for a
 pilot or for demonstrating a working product to a buyer.
 
 ## What you provide (account/payment steps)
@@ -46,6 +47,9 @@ Edit `.env.staging`:
   generated set). `POSTGRES_PASSWORD`, `AUTH_SECRET`, `OUTSIDE_VERIFY_SECRET`,
   `CRON_SECRET`, `GUARDIAN_ENCRYPTION_KEY`, `ENTERPRISE_ENCRYPTION_KEY`,
   `ENTERPRISE_PROVISIONING_TOKEN`, `AUDIT_IP_SALT`, `GRAFANA_ADMIN_PASSWORD`.
+- Analytics secrets — independent hexadecimal values for `UMAMI_DB_PASSWORD`,
+  `UMAMI_APP_SECRET`, and `UMAMI_ADMIN_PASSWORD`, plus one generated UUID v4 in
+  `UMAMI_WEBSITE_ID`. Never reuse an OUTSIDE database or authentication secret.
 - `RESEND_API_KEY`, `EMAIL_FROM` — from your Resend account and verified domain.
 
 Generate the backup encryption identity once and store it **outside** the server
@@ -64,15 +68,17 @@ docker compose --env-file .env.staging -f ops/staging/compose.yaml \
 ops/staging/deploy.sh --no-pull
 ```
 
-The helper builds app and migrator images from the same clean commit, applies
-the schema before starting the app, validates readiness/release identity, and
-Caddy obtains a Let's Encrypt certificate automatically on first request.
+The helper builds app, migrator and backup images from the same clean commit,
+bootstraps the private analytics site and administrator, applies the OUTSIDE
+schema before starting the app, validates readiness/release identity, and Caddy
+obtains a Let's Encrypt certificate automatically on first request.
 
 ## 4. Verify
 
 ```bash
 curl --fail https://app.yourdomain.com/api/livez
 curl --fail https://app.yourdomain.com/api/readyz         # expects "ready"
+curl --fail https://app.yourdomain.com/insights.js        # analytics tracker only
 curl --fail --no-buffer 'https://app.yourdomain.com/api/scan?target=northstar&mode=demo' | grep '"type":"result"'
 ```
 
@@ -84,6 +90,10 @@ Stripe test keys) start a checkout.
 
 - **Grafana**: bound to `127.0.0.1:3001` on the VM. Reach it over an SSH tunnel:
   `ssh -L 3001:127.0.0.1:3001 root@<server-ip>` then open `http://localhost:3001`.
+- **Umami**: bound to `127.0.0.1:3002` on the VM. Reach it over
+  `ssh -L 3002:127.0.0.1:3002 root@<server-ip>`, open
+  `http://localhost:3002`, and sign in as `admin` using the secret-managed
+  `UMAMI_ADMIN_PASSWORD`. Never publish port 3002.
 - **Alertmanager** writes to the bundled sink by default — before real use, point
   it at an on-call destination and send a test alert.
 - **Backups**: encrypted logical dumps run on `BACKUP_INTERVAL_SECONDS`; restore
