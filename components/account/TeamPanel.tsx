@@ -43,11 +43,11 @@ export function TeamPanel({
     try {
       const res = await fetch("/api/invites", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ orgId, email, role }) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not send invite.");
+      if (!res.ok) throw new Error(data.error ?? a("teamInviteFailed"));
       setEmail("");
       setInvites((i) => [{ id: data.invite.id, email: data.invite.email, role: data.invite.role }, ...i]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send invite.");
+      setError(cause instanceof Error ? cause.message : a("teamInviteFailed"));
     } finally {
       setSendingInvite(false);
     }
