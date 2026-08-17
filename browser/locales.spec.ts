@@ -232,12 +232,18 @@ test.describe("public experience in five languages", () => {
     await page.request.post("/api/locale", { data: { locale: "sk" } });
     await page.goto("/scan?target=northstar&mode=demo");
 
-    // The empty state and the running scan share this screen; assert the header,
-    // which is present either way.
-    await expect(page.locator("body")).toContainText("Pasívny vonkajší pohľad", { timeout: 20_000 });
+    // This asserts the screen's own chrome. The panels inside it — the console,
+    // the summary rail, the asset lens — are not localized yet, so a broad
+    // "no English anywhere" assertion would be claiming more than is true.
+    await expect(page.locator("body")).toContainText("Sprevádzaná prehliadka", { timeout: 20_000 });
     const body = await page.locator("body").innerText();
-    for (const english of ["Passive external view", "New scan", "Guided tour"]) {
-      expect(body, `the scan screen still shows "${english}"`).not.toContain(english);
+    expect(body).toContain("Nový sken");
+    // The graph legend.
+    for (const slovak of ["Koreň", "Kritické", "Vysoké", "Stredné", "Nízke", "Informačné"]) {
+      expect(body, `the legend is missing "${slovak}"`).toContain(slovak);
+    }
+    for (const english of ["Guided tour", "New scan"]) {
+      expect(body, `the scan chrome still shows "${english}"`).not.toContain(english);
     }
     // Attacker View is the product's name for the replay and stays in English.
     expect(body).toContain("Attacker View");
