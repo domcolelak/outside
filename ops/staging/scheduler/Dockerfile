@@ -1,4 +1,12 @@
 FROM node:24.18.0-alpine
+ARG APP_VERSION=0.0.0
+ARG GIT_SHA=unknown
+ARG BUILD_TIME=unknown
+LABEL org.opencontainers.image.title="OUTSIDE control-plane scheduler" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.created="${BUILD_TIME}" \
+      org.opencontainers.image.source="https://github.com/domcolelak/outside"
 WORKDIR /opt/outside
 ENV NODE_ENV=production
 COPY scheduler.mjs alert-sink.mjs ./

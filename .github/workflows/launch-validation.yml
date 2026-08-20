@@ -55,6 +55,7 @@ jobs:
           OUTSIDE_IMAGE=outside:${VALIDATED_SHA}
           OUTSIDE_MIGRATOR_IMAGE=outside-migrator:${VALIDATED_SHA}
           OUTSIDE_BACKUP_IMAGE=outside-backup:${VALIDATED_SHA}
+          OUTSIDE_SCHEDULER_IMAGE=outside-scheduler:${VALIDATED_SHA}
           STAGING_DOMAIN=outside.test
           APP_URL=https://outside.test:8443
           HTTPS_PORT=8443
@@ -88,6 +89,10 @@ jobs:
           SCHEDULER_AGENCY_INTERVAL_SECONDS=600
           SCHEDULER_ENTERPRISE_INTERVAL_SECONDS=60
           SCHEDULER_RETENTION_INTERVAL_SECONDS=86400
+          SCHEDULER_KEV_INTERVAL_SECONDS=86400
+          SCHEDULER_EPSS_INTERVAL_SECONDS=86400
+          SCHEDULER_EVOLUTION_INTERVAL_SECONDS=2592000
+          SCHEDULER_EVOLUTION_RETRY_SECONDS=3600
           EOF
           chmod 0600 .env.staging
           echo "127.0.0.1 outside.test" | sudo tee -a /etc/hosts >/dev/null
@@ -103,6 +108,7 @@ jobs:
           args=(--build-arg "APP_VERSION=${version}" --build-arg "GIT_SHA=${VALIDATED_SHA}" --build-arg "BUILD_TIME=${built_at}")
           docker build "${args[@]}" --target runner --tag "outside:${VALIDATED_SHA}" .
           docker build "${args[@]}" --target migrator --tag "outside-migrator:${VALIDATED_SHA}" .
+          docker build "${args[@]}" --tag "outside-scheduler:${VALIDATED_SHA}" ops/staging/scheduler
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --quiet
           docker compose --env-file .env.staging -f ops/staging/compose.yaml config --format json |
             jq '{caddyPorts: .services.caddy.ports, grafanaPorts: .services.grafana.ports, analyticsPorts: .services.analytics.ports}' \
@@ -118,6 +124,7 @@ jobs:
             "builtAt": "${built_at}",
             "applicationImageId": "$(docker image inspect "outside:${VALIDATED_SHA}" --format '{{.Id}}')",
             "migratorImageId": "$(docker image inspect "outside-migrator:${VALIDATED_SHA}" --format '{{.Id}}')",
+            "schedulerImageId": "$(docker image inspect "outside-scheduler:${VALIDATED_SHA}" --format '{{.Id}}')",
             "schemaVersion": "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)",
             "ciRun": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           }
@@ -127,7 +134,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker compose --env-file .env.staging -f ops/staging/compose.yaml up --detach --build
+          docker compose --env-file .env.staging -f ops/staging/compose.yaml up --detach
           for attempt in $(seq 1 90); do
             if curl --fail --silent --insecure --resolve outside.test:8443:127.0.0.1 \
               https://outside.test:8443/api/readyz > launch-evidence/ready.json; then
@@ -142,11 +149,21 @@ jobs:
           analytics_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q analytics)"
           analytics_bootstrap_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q --all analytics-bootstrap)"
           analytics_retention_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q analytics-retention)"
+          scheduler_id="$(docker compose --env-file .env.staging -f ops/staging/compose.yaml ps -q scheduler)"
           test "$(docker inspect "${app_id}" --format '{{.Config.User}}')" = "nextjs"
           test "$(docker inspect "${app_id}" --format '{{.HostConfig.ReadonlyRootfs}}')" = "true"
           test "$(docker inspect "${analytics_id}" --format '{{.State.Health.Status}}')" = "healthy"
           test "$(docker inspect "${analytics_bootstrap_id}" --format '{{.State.ExitCode}}')" = "0"
           test "$(docker inspect "${analytics_retention_id}" --format '{{.State.Status}}')" = "running"
+          test "$(docker inspect "${scheduler_id}" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "${VALIDATED_SHA}"
+          for attempt in $(seq 1 40); do
+            scheduler_metrics="$(docker exec "${scheduler_id}" node -e "fetch('http://127.0.0.1:9090/metrics').then(r=>r.text()).then(console.log)")"
+            if grep -Eq 'outside_scheduler_runs_total\{job="evolution",result="(success|failed)"\} [1-9][0-9]*' <<<"${scheduler_metrics}"; then
+              break
+            fi
+            sleep 2
+          done
+          grep -Eq 'outside_scheduler_runs_total\{job="evolution",result="(success|failed)"\} [1-9][0-9]*' <<<"${scheduler_metrics}"
           for attempt in $(seq 1 30); do
             if docker exec "${analytics_retention_id}" grep -q '^outside_analytics_retention_last_success_unixtime ' /metrics/outside_analytics_retention.prom; then
               break

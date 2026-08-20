@@ -195,6 +195,7 @@ services:
     mem_limit: 128m
 
   scheduler:
+    image: ${OUTSIDE_SCHEDULER_IMAGE:-outside-scheduler:local}
     build: ./scheduler
     restart: unless-stopped
     environment:
@@ -204,6 +205,10 @@ services:
       SCHEDULER_AGENCY_INTERVAL_SECONDS: ${SCHEDULER_AGENCY_INTERVAL_SECONDS:-600}
       SCHEDULER_ENTERPRISE_INTERVAL_SECONDS: ${SCHEDULER_ENTERPRISE_INTERVAL_SECONDS:-60}
       SCHEDULER_RETENTION_INTERVAL_SECONDS: ${SCHEDULER_RETENTION_INTERVAL_SECONDS:-86400}
+      SCHEDULER_KEV_INTERVAL_SECONDS: ${SCHEDULER_KEV_INTERVAL_SECONDS:-86400}
+      SCHEDULER_EPSS_INTERVAL_SECONDS: ${SCHEDULER_EPSS_INTERVAL_SECONDS:-86400}
+      SCHEDULER_EVOLUTION_INTERVAL_SECONDS: ${SCHEDULER_EVOLUTION_INTERVAL_SECONDS:-2592000}
+      SCHEDULER_EVOLUTION_RETRY_SECONDS: ${SCHEDULER_EVOLUTION_RETRY_SECONDS:-3600}
     depends_on:
       app:
         condition: service_healthy
@@ -283,6 +288,7 @@ services:
     mem_limit: 128m
 
   alert-sink:
+    image: ${OUTSIDE_SCHEDULER_IMAGE:-outside-scheduler:local}
     build: ./scheduler
     command: ["node", "alert-sink.mjs"]
     restart: unless-stopped

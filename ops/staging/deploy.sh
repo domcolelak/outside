@@ -64,9 +64,11 @@ APP_VERSION="${APP_VERSION:-0.0.0}"
 CONFIGURED_APP_IMAGE="$(grep -E '^OUTSIDE_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
 CONFIGURED_MIGRATOR_IMAGE="$(grep -E '^OUTSIDE_MIGRATOR_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
 CONFIGURED_BACKUP_IMAGE="$(grep -E '^OUTSIDE_BACKUP_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2-)"
+CONFIGURED_SCHEDULER_IMAGE="$(grep -E '^OUTSIDE_SCHEDULER_IMAGE=' "$ENV_FILE" | tail -1 | cut -d= -f2- || true)"
 : "${CONFIGURED_APP_IMAGE:?OUTSIDE_IMAGE must be set in $ENV_FILE}"
 : "${CONFIGURED_MIGRATOR_IMAGE:?OUTSIDE_MIGRATOR_IMAGE must be set in $ENV_FILE}"
 : "${CONFIGURED_BACKUP_IMAGE:?OUTSIDE_BACKUP_IMAGE must be set in $ENV_FILE}"
+CONFIGURED_SCHEDULER_IMAGE="${CONFIGURED_SCHEDULER_IMAGE:-outside-scheduler:local}"
 
 image_repository() {
   local reference="${1%@*}"
@@ -80,10 +82,11 @@ local_tag="${safe_version}-local-${GIT_SHA:0:12}"
 OUTSIDE_IMAGE="$(image_repository "$CONFIGURED_APP_IMAGE"):${local_tag}"
 OUTSIDE_MIGRATOR_IMAGE="$(image_repository "$CONFIGURED_MIGRATOR_IMAGE"):${local_tag}"
 OUTSIDE_BACKUP_IMAGE="$(image_repository "$CONFIGURED_BACKUP_IMAGE"):${local_tag}"
-export OUTSIDE_IMAGE OUTSIDE_MIGRATOR_IMAGE OUTSIDE_BACKUP_IMAGE
+OUTSIDE_SCHEDULER_IMAGE="$(image_repository "$CONFIGURED_SCHEDULER_IMAGE"):${local_tag}"
+export OUTSIDE_IMAGE OUTSIDE_MIGRATOR_IMAGE OUTSIDE_BACKUP_IMAGE OUTSIDE_SCHEDULER_IMAGE
 
 echo "==> Deploying ${GIT_SHA} (built ${BUILD_TIME})"
-echo "==> Source-build images: ${OUTSIDE_IMAGE}, ${OUTSIDE_MIGRATOR_IMAGE}, ${OUTSIDE_BACKUP_IMAGE}"
+echo "==> Source-build images: ${OUTSIDE_IMAGE}, ${OUTSIDE_MIGRATOR_IMAGE}, ${OUTSIDE_BACKUP_IMAGE}, ${OUTSIDE_SCHEDULER_IMAGE}"
 
 BUILD_ARGS=(
   --build-arg "APP_VERSION=$APP_VERSION"
@@ -94,10 +97,11 @@ BUILD_ARGS=(
 COMPOSE=(docker compose --env-file "$ENV_FILE" -f ops/staging/compose.yaml)
 [ -f ops/staging/compose.public.yaml ] && COMPOSE+=(-f ops/staging/compose.public.yaml)
 
-echo "==> Building app, migrator and backup from the same commit"
+echo "==> Building app, migrator, backup and control plane from the same commit"
 docker build --target runner "${BUILD_ARGS[@]}" -t "$OUTSIDE_IMAGE" .
 docker build --target migrator "${BUILD_ARGS[@]}" -t "$OUTSIDE_MIGRATOR_IMAGE" .
 docker build -t "$OUTSIDE_BACKUP_IMAGE" ops/staging/backup
+docker build "${BUILD_ARGS[@]}" -t "$OUTSIDE_SCHEDULER_IMAGE" ops/staging/scheduler
 "${COMPOSE[@]}" config --quiet
 echo "==> Starting private analytics and applying its idempotent bootstrap"
 "${COMPOSE[@]}" up -d analytics-db analytics
@@ -131,17 +135,70 @@ echo "==> Applying migrations before recreating the app and edge proxy"
 # release identity from inside the container.
 echo "==> Waiting for readiness"
 APP_CID="$("${COMPOSE[@]}" ps -q app)"
+app_ready=0
 for _ in $(seq 1 30); do
   status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$APP_CID" 2>/dev/null || echo missing)"
   if [ "$status" = "healthy" ]; then
     if docker exec -e "EXPECTED_GIT_SHA=${GIT_SHA}" "$APP_CID" node -e \
       "fetch('http://127.0.0.1:3000/api/readyz').then(async r=>{const body=await r.json();console.log(JSON.stringify(body));if(!r.ok||body.status!=='ready'||body.release?.commit!==process.env.EXPECTED_GIT_SHA)process.exit(1)}).catch(()=>process.exit(1))"; then
       echo "==> App is ready with the expected release identity."
-      exit 0
+      app_ready=1
+      break
     fi
   fi
   [ "$status" = "unhealthy" ] && { echo "!! App reported unhealthy" >&2; exit 1; }
   sleep 3
 done
-echo "!! App did not become ready in time" >&2
-exit 1
+[ "$app_ready" -eq 1 ] || { echo "!! App did not become ready in time" >&2; exit 1; }
+
+echo "==> Recreating the scheduled control plane from the release commit"
+"${COMPOSE[@]}" up -d --force-recreate scheduler alert-sink
+SCHEDULER_CID="$("${COMPOSE[@]}" ps -q scheduler)"
+[ -n "$SCHEDULER_CID" ] || { echo "!! Scheduler container was not created" >&2; exit 1; }
+scheduler_revision="$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$SCHEDULER_CID")"
+[ "$scheduler_revision" = "$GIT_SHA" ] || { echo "!! Scheduler image does not match the release commit" >&2; exit 1; }
+
+# The new scheduler invokes every job five seconds after startup. Require an
+# Evolution attempt so a stale control-plane image cannot hide behind an
+# otherwise healthy web application. A temporary authoritative-feed outage is
+# retried by the scheduler and must not make an unrelated app release impossible.
+scheduler_evolution_attempted() {
+  docker exec "$SCHEDULER_CID" node -e \
+    "fetch('http://127.0.0.1:9090/metrics').then(r=>r.text()).then(t=>{const matches=[...t.matchAll(/outside_scheduler_runs_total\\{job=\"evolution\",result=\"(?:success|failed)\"\\} ([0-9]+)/g)];const total=matches.reduce((sum,m)=>sum+Number(m[1]),0);if(total<1)process.exit(1)}).catch(()=>process.exit(1))"
+}
+for _ in $(seq 1 40); do
+  scheduler_status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$SCHEDULER_CID" 2>/dev/null || echo missing)"
+  if [ "$scheduler_status" = "healthy" ] && scheduler_evolution_attempted; then
+    echo "==> Scheduler is healthy and Evolution ran from the release image."
+    break
+  fi
+  [ "$scheduler_status" = "unhealthy" ] && { echo "!! Scheduler reported unhealthy" >&2; exit 1; }
+  sleep 3
+done
+[ "${scheduler_status:-missing}" = "healthy" ] || { echo "!! Scheduler did not become healthy in time" >&2; exit 1; }
+scheduler_evolution_attempted \
+  || { echo "!! Evolution was not invoked before the deployment deadline" >&2; exit 1; }
+
+echo "==> Starting monitoring and reloading release alert rules"
+"${COMPOSE[@]}" up -d prometheus
+PROMETHEUS_CID="$("${COMPOSE[@]}" ps -q prometheus)"
+[ -n "$PROMETHEUS_CID" ] || { echo "!! Prometheus container is missing" >&2; exit 1; }
+docker kill --signal HUP "$PROMETHEUS_CID" >/dev/null
+docker inspect --format '{{.State.Running}}' "$PROMETHEUS_CID" | grep -qx true \
+  || { echo "!! Prometheus stopped while reloading release rules" >&2; exit 1; }
+
+prometheus_has_release_rule() {
+  docker exec "$SCHEDULER_CID" node -e \
+    "fetch('http://prometheus:9090/api/v1/rules?type=alert').then(async r=>{if(!r.ok)throw new Error(String(r.status));return r.json()}).then(body=>{const found=body.data?.groups?.some(group=>group.rules?.some(rule=>rule.name==='OutsideIntegrationCredentialBlocked'));if(!found)process.exit(1)}).catch(()=>process.exit(1))"
+}
+for _ in $(seq 1 15); do
+  if prometheus_has_release_rule; then
+    echo "==> Prometheus loaded the release alert rules."
+    break
+  fi
+  sleep 1
+done
+prometheus_has_release_rule \
+  || { echo "!! Prometheus did not load the release alert rules" >&2; exit 1; }
+
+echo "==> Release is ready: app, scheduler, Evolution and monitoring rules are current."

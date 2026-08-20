@@ -40,9 +40,11 @@ Edit `.env.staging`:
 - `STAGING_DOMAIN` — your hostname, e.g. `app.yourdomain.com`
 - `APP_URL` — `https://app.yourdomain.com`
 - `HTTPS_PORT` — `443`
-- `OUTSIDE_IMAGE`, `OUTSIDE_MIGRATOR_IMAGE`, `OUTSIDE_BACKUP_IMAGE` — leave the
+- `OUTSIDE_IMAGE`, `OUTSIDE_MIGRATOR_IMAGE`, `OUTSIDE_BACKUP_IMAGE`,
+  `OUTSIDE_SCHEDULER_IMAGE` — leave the
   repositories at their defaults for a source-based pilot. The deploy helper
-  creates unique commit-scoped app/migrator tags instead of overwriting them.
+  creates unique commit-scoped app, migrator, backup and scheduler tags instead
+  of overwriting them.
 - All secrets — use independent random values (see the operator handoff for a
   generated set). `POSTGRES_PASSWORD`, `AUTH_SECRET`, `OUTSIDE_VERIFY_SECRET`,
   `CRON_SECRET`, `GUARDIAN_ENCRYPTION_KEY`, `ENTERPRISE_ENCRYPTION_KEY`,
@@ -68,9 +70,10 @@ docker compose --env-file .env.staging -f ops/staging/compose.yaml \
 ops/staging/deploy.sh --no-pull
 ```
 
-The helper builds app, migrator and backup images from the same clean commit,
+The helper builds app, migrator, backup and scheduler/alert-sink images from the same clean commit,
 bootstraps the private analytics site and administrator, applies the OUTSIDE
-schema before starting the app, validates readiness/release identity, and Caddy
+schema before starting the app, validates app and scheduler release identity,
+requires an initial Evolution scheduler attempt, reloads monitoring rules, and Caddy
 obtains a Let's Encrypt certificate automatically on first request.
 
 ## 4. Verify

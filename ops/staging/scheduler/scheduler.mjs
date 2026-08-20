@@ -11,7 +11,13 @@ const jobs = [
   { name: "retention", method: "GET", path: "/api/cron/retention", interval: setting("SCHEDULER_RETENTION_INTERVAL_SECONDS", 86_400, 300) },
   { name: "kev", method: "GET", path: "/api/cron/kev-sync", interval: setting("SCHEDULER_KEV_INTERVAL_SECONDS", 86_400, 300) },
   { name: "epss", method: "GET", path: "/api/cron/epss-sync", interval: setting("SCHEDULER_EPSS_INTERVAL_SECONDS", 86_400, 300) },
-  { name: "evolution", method: "GET", path: "/api/cron/evolution", interval: setting("SCHEDULER_EVOLUTION_INTERVAL_SECONDS", 2_592_000, 3_600) },
+  {
+    name: "evolution",
+    method: "GET",
+    path: "/api/cron/evolution",
+    interval: setting("SCHEDULER_EVOLUTION_INTERVAL_SECONDS", 2_592_000, 3_600),
+    retryInterval: setting("SCHEDULER_EVOLUTION_RETRY_SECONDS", 3_600, 300),
+  },
 ].map((job) => ({ ...job, nextAt: Date.now() + 5_000, startedAt: 0, running: false, successes: 0, failures: 0, lastSuccess: 0, lastDuration: 0 }));
 
 function setting(name, fallback, minimum) {
@@ -31,6 +37,7 @@ async function invoke(job) {
   const started = Date.now();
   let cursor = null;
   let pages = 0;
+  let succeeded = false;
   try {
     do {
       const url = new URL(job.path, baseUrl);
@@ -49,13 +56,14 @@ async function invoke(job) {
     job.successes += 1;
     job.lastSuccess = Date.now() / 1_000;
     job.lastDuration = (Date.now() - started) / 1_000;
+    succeeded = true;
     log("info", "scheduler.job_succeeded", { job: job.name, pages, durationSeconds: job.lastDuration });
   } catch (error) {
     job.failures += 1;
     job.lastDuration = (Date.now() - started) / 1_000;
     log("error", "scheduler.job_failed", { job: job.name, durationSeconds: job.lastDuration, errorMessage: error instanceof Error ? error.message : "Unknown error" });
   } finally {
-    job.nextAt = Date.now() + job.interval * 1_000;
+    job.nextAt = Date.now() + (succeeded ? job.interval : (job.retryInterval ?? job.interval)) * 1_000;
     job.startedAt = 0;
     job.running = false;
   }
