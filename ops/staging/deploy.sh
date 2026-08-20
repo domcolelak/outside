@@ -179,13 +179,17 @@ done
 scheduler_evolution_attempted \
   || { echo "!! Evolution was not invoked before the deployment deadline" >&2; exit 1; }
 
-echo "==> Starting monitoring and reloading release alert rules"
-"${COMPOSE[@]}" up -d prometheus
+echo "==> Starting monitoring and remounting release alert rules"
+# Git replaces tracked files during checkout, while a long-running bind mount
+# keeps the previous inode. Recreate Prometheus itself so it sees the release
+# rule file; start dependencies separately to avoid cascading recreations.
+"${COMPOSE[@]}" up -d --no-deps otel-collector alertmanager blackbox-exporter postgres-exporter cadvisor node-exporter
+"${COMPOSE[@]}" up -d --no-deps --force-recreate prometheus
+"${COMPOSE[@]}" up -d --no-deps grafana
 PROMETHEUS_CID="$("${COMPOSE[@]}" ps -q prometheus)"
 [ -n "$PROMETHEUS_CID" ] || { echo "!! Prometheus container is missing" >&2; exit 1; }
-docker kill --signal HUP "$PROMETHEUS_CID" >/dev/null
 docker inspect --format '{{.State.Running}}' "$PROMETHEUS_CID" | grep -qx true \
-  || { echo "!! Prometheus stopped while reloading release rules" >&2; exit 1; }
+  || { echo "!! Prometheus stopped while remounting release rules" >&2; exit 1; }
 
 prometheus_has_release_rule() {
   docker exec "$SCHEDULER_CID" node -e \

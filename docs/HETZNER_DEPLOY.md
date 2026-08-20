@@ -73,7 +73,8 @@ ops/staging/deploy.sh --no-pull
 The helper builds app, migrator, backup and scheduler/alert-sink images from the same clean commit,
 bootstraps the private analytics site and administrator, applies the OUTSIDE
 schema before starting the app, validates app and scheduler release identity,
-requires an initial Evolution scheduler attempt, reloads monitoring rules, and Caddy
+requires an initial Evolution scheduler attempt, remounts and verifies monitoring
+rules, and Caddy
 obtains a Let's Encrypt certificate automatically on first request.
 
 ## 4. Verify
