@@ -8,13 +8,11 @@
   "navWatchDemo": "Zobacz demo",
   "navSignIn": "Zaloguj się",
   "navAccount": "Konto",
-
   "heroInputLabel": "Domena firmy",
   "heroInputSubmit": "Pokaż moją powierzchnię zewnętrzną",
   "heroInputEmpty": "Wpisz domenę, aby zmapować jej powierzchnię zewnętrzną.",
   "heroInputDemoPrompt": "Albo obejrzyj demo:",
   "heroInputHelp": "Wyłącznie pasywne, publiczne źródła · Migawka zewnętrzna nie wymaga logowania",
-
   "heroBadge": "Wywiad o ekspozycji zewnętrznej",
   "heroTitle": "Zobacz, co internet wie",
   "heroTitleAccent": "o twojej firmie.",
@@ -25,12 +23,11 @@
   "heroStatTraceableLabel": "dowody",
   "heroStatContinuous": "Ciągle",
   "heroStatContinuousLabel": "Guardian",
-
   "guardianKicker": "OUTSIDE Guardian",
   "guardianTitle": "Kontekst na poziomie analityka.",
   "guardianTitleAccent": "Po każdym zaplanowanym skanowaniu.",
   "guardianBody": "Guardian koreluje każdą zweryfikowaną obserwację w sensowny obraz zmian: Exposure Drift, żywą listę kontrolną bezpieczeństwa, rekomendacje poparte dowodami, dopasowaną naprawę, pogrupowane powiadomienia do narzędzi pracy i tygodniowe podsumowanie dla zarządu.",
-  "guardianChipDrift": "Exposure Drift",
+  "guardianChipDrift": "Zmiana ekspozycji",
   "guardianChipChecklist": "Lista kontrolna bezpieczeństwa",
   "guardianChipRemediation": "Instrukcje naprawy",
   "guardianChipDigest": "Podsumowanie dla zarządu",
@@ -45,14 +42,12 @@
   "guardianSampleControls": "kontroli",
   "guardianSampleReview": "Do przeglądu",
   "guardianSampleReviewBody": "Wcześniej obserwowany zasób staging jest ponownie publicznie dostępny.",
-
   "conceptOneTitle": "Twoja powierzchnia jest większa, niż myślisz",
   "conceptOneBody": "Każdy certyfikat, rekord DNS i subdomena są publiczne. Środowiska staging, stare portale i nowe API pojawiają się w internecie niezależnie od tego, czy ktoś je śledzi.",
   "conceptTwoTitle": "Atakujący zaczyna od twojej domeny",
   "conceptTwoBody": "Osoba z zewnątrz nie potrzebuje niczego poza twoją domeną, by zacząć mapować infrastrukturę. OUTSIDE pokazuje dokładnie to, co ujawnia takie rozpoznanie — od strony obrońcy.",
   "conceptThreeTitle": "Fakty, nie straszenie",
   "conceptThreeBody": "Każdy wynik oddziela zaobserwowany fakt od wnioskowania i od możliwego ryzyka, wraz z oceną pewności i dowodami. Żadnych zmyślonych podatności, żadnej sensacji.",
-
   "howKicker": "Jak to działa",
   "howTitle": "Wpisz domenę. Patrz, jak odsłania się twój ślad.",
   "howDiscover": "Odkrywanie",
@@ -63,10 +58,9 @@
   "howClassifyBody": "Słabe sygnały łączą się w klasyfikacje zasobów w cieniu, środowisk nieprodukcyjnych i uwierzytelniania.",
   "howExplain": "Wyjaśnienie",
   "howExplainBody": "Przejrzysta pozycja ochronna i ustalenia poparte dowodami mówią, co sprawdzić i dlaczego.",
-
   "featuresKicker": "Wyróżniające funkcje",
   "featuresTitle": "Zbudowane tak, by zrozumieć je w dwadzieścia sekund.",
-  "featureAttackerView": "Attacker View",
+  "featureAttackerView": "Widok atakującego",
   "featureAttackerViewBody": "Filmowa rekonstrukcja tego, jak publiczne informacje stopniowo odsłaniają twoją infrastrukturę — zaczynając od jednej domeny. Idealne na demonstracje i rozmowy z zarządem. Pokazuje odkrywanie, nigdy wykorzystanie.",
   "featureShadowAssets": "Wykrywanie zasobów w cieniu",
   "featureShadowAssetsBody": "Skorelowane sygnały — stare nazewnictwo, izolacja w grafie, przestarzała technologia, nieobecność w głównej witrynie — oznaczają możliwie zapomniane zasoby, wraz z uzasadnieniem.",
@@ -74,7 +68,6 @@
   "featureChangeBody": "Powtarzane skanowania porównują twoją powierzchnię zewnętrzną: nowe hostnames, powracające usługi i zmiany technologii, więc nic nie pojawia się niezauważone.",
   "featurePosture": "Wyjaśnialna pozycja ochronna",
   "featurePostureBody": "Deterministyczna pozycja ochronna 0–100. Otwórz „Dlaczego moja pozycja to 37/100?”, aby zobaczyć każdą karę i złagodzenie. Mierzy, jak dalece twoja powierzchnia jest opanowana — nie prawdopodobieństwo włamania.",
-
   "intelligenceKicker": "Warstwy wywiadu",
   "intelligenceTitle": "Nie tylko co jest wystawione — ale co to znaczy i jak się zmienia.",
   "intelligenceCve": "Korelacja z wykorzystywanymi podatnościami",
@@ -89,7 +82,6 @@
   "intelligenceCapabilitiesBody": "Inwentarz poparty kodem, mówiący dokładnie, co OUTSIDE wykrywa — pasywnie czy aktywnie, zawsze włączone czy na klucz operatora — utrzymywany w prawdzie testem, który zawodzi, gdy rejestr odbiegnie od tego, co daje prawdziwe skanowanie.",
   "intelligenceEvolution": "Evolution · uczy się, co zbudować dalej",
   "intelligenceEvolutionBody": "OUTSIDE obserwuje, które podatności są wykorzystywane, i przygotowuje poparte dowodami propozycje pokrycia, którego jeszcze nie ma. Proponuje i przygotowuje; ty zatwierdzasz. Nigdy nie zmienia się sam.",
-
   "securityKicker": "Odpowiedzialne użycie",
   "securityTitle": "Produkt bezpieczeństwa, zbudowany bezpiecznie.",
   "securityPassive": "Pasywnie domyślnie",
@@ -100,7 +92,6 @@
   "securityOwnershipBody": "Głębsza inspekcja wymaga weryfikacji własności domeny przez DNS TXT lub plik. Niezweryfikowane cele otrzymują wyraźnie oznaczony widok zewnętrzny.",
   "securityRateLimit": "Limity i audytowalność",
   "securityRateLimitBody": "Limity skanowań, kontrola współbieżności, limity czasu żądań i ustrukturyzowane dzienniki audytu nie pozwalają, by platforma stała się narzędziem masowego skanowania.",
-
   "pricingKicker": "Cennik",
   "pricingTitle": "Zacznij za darmo. Monitoruj, gdy to ma znaczenie.",
   "pricingPopular": "Popularne",
@@ -130,10 +121,8 @@
   "planAgencyFeature3": "Raportowanie white-label dla klientów",
   "planAgencyFeature4": "Slack, Teams, Jira i obieg zgłoszeń",
   "planAgencyFeature5": "Dostęp do API",
-
   "ctaTitle": "Czego może się o tobie dowiedzieć ktoś z zewnątrz?",
   "ctaBody": "Wpisz swoją domenę i patrz, jak pojawia się twój publiczny ślad cyfrowy.",
-
   "footerTagline": "Wywiad o ekspozycji zewnętrznej. Pasywny i odpowiedzialny z założenia — odkrywanie, nigdy wykorzystanie.",
   "footerPrivacy": "Prywatność",
   "footerTerms": "Regulamin",

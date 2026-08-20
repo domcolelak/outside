@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { LegalDocument } from "@/components/legal/LegalDocument";
-import { SECURITY_BODY, SECURITY_UPDATED } from "@/lib/legal/security";
+import { currentLocale } from "@/lib/i18n/server";
+import { securityDocument } from "@/lib/legal/documents";
 
-export const metadata: Metadata = { title: "Security · OUTSIDE" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await currentLocale();
+  return { title: `${securityDocument(locale).title} · OUTSIDE` };
+}
 
-export default function SecurityPage() {
-  return <LegalDocument title="Security at OUTSIDE" updated={SECURITY_UPDATED} body={SECURITY_BODY} />;
+export default async function SecurityPage() {
+  const { locale } = await currentLocale();
+  return <LegalDocument {...securityDocument(locale)} locale={locale} />;
 }

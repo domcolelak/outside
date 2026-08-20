@@ -20,7 +20,7 @@ export interface ShareSnapshot {
   isDemo: boolean;
   score: { value: number; band: string };
   stats: ScanStats;
-  findings: Array<{ title: string; priority: string; confidence: number; observation: string; concern: string }>;
+  findings: Array<Pick<Finding, "title" | "priority" | "confidence" | "observation" | "concern" | "textKey" | "textValues">>;
   createdAt: string;
 }
 
@@ -46,6 +46,8 @@ export function buildShareRecord(result: ScanResult, now = new Date(), ttlDays =
       confidence: f.confidence,
       observation: f.observation,
       concern: f.concern,
+      textKey: f.textKey,
+      textValues: f.textValues,
     })),
     createdAt: now.toISOString(),
   };

@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 import { getShare } from "@/lib/share/shares";
 import { SharedReport } from "@/components/share/SharedReport";
 import { recordFunnelEvent } from "@/lib/observability/metrics";
+import { currentTranslator } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 // Unlisted, user-initiated link — not a public directory of anyone's exposure.
-export const metadata: Metadata = {
-  title: "External exposure report · OUTSIDE",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await currentTranslator();
+  return {
+    title: t("ui", "sharedMetaTitle"),
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function SharePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;

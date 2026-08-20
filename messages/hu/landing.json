@@ -8,13 +8,11 @@
   "navWatchDemo": "Demó megtekintése",
   "navSignIn": "Bejelentkezés",
   "navAccount": "Fiók",
-
   "heroInputLabel": "Céges domain",
   "heroInputSubmit": "Mutasd a külső felületemet",
   "heroInputEmpty": "Adjon meg egy domaint a külső felület feltérképezéséhez.",
   "heroInputDemoPrompt": "Vagy nézzen meg egy demót:",
   "heroInputHelp": "Kizárólag passzív, nyilvános források · A külső pillanatképhez nem kell bejelentkezés",
-
   "heroBadge": "Külső kitettségi felderítés",
   "heroTitle": "Nézze meg, mit tud az internet",
   "heroTitleAccent": "az Ön cégéről.",
@@ -25,12 +23,11 @@
   "heroStatTraceableLabel": "bizonyíték",
   "heroStatContinuous": "Folyamatos",
   "heroStatContinuousLabel": "Guardian",
-
   "guardianKicker": "OUTSIDE Guardian",
   "guardianTitle": "Elemzői szintű kontextus.",
   "guardianTitleAccent": "Minden ütemezett vizsgálat után.",
   "guardianBody": "A Guardian minden ellenőrzött megfigyelést értelmes változáskövetéssé kapcsol össze: Exposure Drift, élő biztonsági ellenőrzőlista, bizonyítékokkal alátámasztott ajánlások, testre szabott javítás, csoportosított munkafolyamat-értesítések és heti vezetői összefoglaló.",
-  "guardianChipDrift": "Exposure Drift",
+  "guardianChipDrift": "A kitettség változása",
   "guardianChipChecklist": "Biztonsági ellenőrzőlista",
   "guardianChipRemediation": "Javítási útmutatók",
   "guardianChipDigest": "Vezetői összefoglaló",
@@ -45,14 +42,12 @@
   "guardianSampleControls": "kontroll",
   "guardianSampleReview": "Átnézendő",
   "guardianSampleReviewBody": "Egy korábban megfigyelt staging eszköz ismét nyilvánosan elérhető.",
-
   "conceptOneTitle": "A felülete nagyobb, mint gondolná",
   "conceptOneBody": "Minden tanúsítvány, DNS-rekord és aldomain nyilvános. A staging környezetek, régi portálok és új API-k attól függetlenül megjelennek az interneten, hogy figyeli-e őket valaki.",
   "conceptTwoTitle": "A támadó az Ön domainjével kezdi",
   "conceptTwoBody": "Egy kívülállónak semmi másra nincs szüksége a domainjén kívül ahhoz, hogy elkezdje feltérképezni az infrastruktúrát. Az OUTSIDE pontosan megmutatja, mit fed fel ez a felderítés — a védő oldaláról.",
   "conceptThreeTitle": "Tények, nem félelemkeltés",
   "conceptThreeBody": "Minden eredmény elkülöníti a megfigyelt tényt a következtetéstől és a lehetséges kockázattól, megbízhatósági pontszámmal és bizonyítékkal. Nincsenek kitalált sérülékenységek, nincs szenzációhajhászás.",
-
   "howKicker": "Hogyan működik",
   "howTitle": "Adjon meg egy domaint. Nézze, ahogy feltárul a lábnyoma.",
   "howDiscover": "Felderítés",
@@ -63,10 +58,9 @@
   "howClassifyBody": "A gyenge jelek árnyékeszköz-, nem éles környezet- és hitelesítési besorolásokká állnak össze.",
   "howExplain": "Magyarázat",
   "howExplainBody": "Az átlátható védelmi helyzet és a bizonyítékokkal alátámasztott megállapítások megmondják, mit nézzen át és miért.",
-
   "featuresKicker": "Jellegzetes funkciók",
   "featuresTitle": "Úgy építve, hogy húsz másodperc alatt érthető legyen.",
-  "featureAttackerView": "Attacker View",
+  "featureAttackerView": "Támadói nézet",
   "featureAttackerViewBody": "Filmszerű visszajátszás arról, hogyan tárja fel a nyilvános információ fokozatosan az infrastruktúráját — egyetlen domainből kiindulva. Ideális bemutatókhoz és vezetői beszélgetésekhez. Felderítést mutat, kihasználást soha.",
   "featureShadowAssets": "Árnyékeszközök felderítése",
   "featureShadowAssetsBody": "Összekapcsolt jelek — régi elnevezés, elszigeteltség a gráfban, elavult technológia, hiány a fő webhelyről — jelzik a talán elfeledett eszközöket, a mögöttes indoklással együtt.",
@@ -74,7 +68,6 @@
   "featureChangeBody": "Az ismételt vizsgálatok összevetik a külső felületét: új hostnevek, visszatérő szolgáltatások és technológiai váltások, hogy semmi ne maradjon észrevétlen.",
   "featurePosture": "Megmagyarázható védelmi helyzet",
   "featurePostureBody": "Determinisztikus, 0–100 közötti védelmi helyzet. Nyissa meg a „Miért 37/100 a helyzetem?” nézetet, és lássa minden levonást és enyhítést. Azt méri, mennyire tartja kézben a felületét — nem a feltörés valószínűségét.",
-
   "intelligenceKicker": "Felderítési rétegek",
   "intelligenceTitle": "Nem csak azt, mi van kitéve — hanem hogy mit jelent, és hogyan változik.",
   "intelligenceCve": "Kihasznált sérülékenységek összevetése",
@@ -89,7 +82,6 @@
   "intelligenceCapabilitiesBody": "Kóddal alátámasztott leltár arról, mit észlel pontosan az OUTSIDE — passzívan vagy aktívan, mindig bekapcsolva vagy üzemeltetői kulccsal —, amit egy teszt tart őszinte állapotban: elbukik, ha a nyilvántartás eltér attól, amit egy valódi vizsgálat ad.",
   "intelligenceEvolution": "Evolution · tanulja, mit érdemes legközelebb megépíteni",
   "intelligenceEvolutionBody": "Az OUTSIDE figyeli, mely sérülékenységeket használják ki, és bizonyítékokkal alátámasztott javaslatokat készít az általa még nem lefedett területekre. Javasol és előkészít; Ön hagyja jóvá. Önmagát soha nem módosítja.",
-
   "securityKicker": "Felelős használat",
   "securityTitle": "Biztonsági termék, biztonságosan megépítve.",
   "securityPassive": "Alapértelmezetten passzív",
@@ -100,7 +92,6 @@
   "securityOwnershipBody": "A mélyebb vizsgálat DNS TXT vagy fájl alapú domaintulajdonlás-igazoláshoz kötött. Az igazolatlan célpontok egyértelműen megjelölt külső nézetet kapnak.",
   "securityRateLimit": "Korlátozott és auditálható",
   "securityRateLimitBody": "A vizsgálati kvóták, párhuzamossági korlátok, kérésidőtúllépések és strukturált auditnaplók megakadályozzák, hogy a platform tömeges szkennelő eszközzé váljon.",
-
   "pricingKicker": "Árak",
   "pricingTitle": "Kezdje ingyen. Figyeljen, amikor számít.",
   "pricingPopular": "Népszerű",
@@ -130,10 +121,8 @@
   "planAgencyFeature3": "White-label ügyfél-riportok",
   "planAgencyFeature4": "Slack, Teams, Jira és hibajegy-folyamatok",
   "planAgencyFeature5": "API-hozzáférés",
-
   "ctaTitle": "Mit tudhat meg Önről egy kívülálló?",
   "ctaBody": "Adja meg a domainjét, és nézze, ahogy megjelenik a nyilvános digitális lábnyoma.",
-
   "footerTagline": "Külső kitettségi felderítés. Tervezésénél fogva passzív és felelős — felderítés, soha nem kihasználás.",
   "footerPrivacy": "Adatvédelem",
   "footerTerms": "Feltételek",

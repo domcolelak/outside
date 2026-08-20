@@ -14,22 +14,18 @@
   "manageBilling": "Spravovať fakturáciu",
   "opening": "Otvára sa…",
   "portalUnavailable": "Fakturačný portál je momentálne nedostupný.",
-
   "planSnapshot": "Snapshot",
   "planProfessional": "Professional",
   "planAgency": "Agency",
-
   "freeFeature1": "Jedna vonkajšia snímka",
   "freeFeature2": "Interaktívny graf assetov",
   "freeFeature3": "Prehrávanie Attacker View",
   "freeFeature4": "Najdôležitejšie zistenia",
-
   "professionalFeature1": "Až 5 monitorovaných domén",
   "professionalFeature2": "Denné skeny a upozornenia na zmeny",
   "professionalFeature3": "Úplné zistenia a dôkazy",
   "professionalFeature4": "História ochrannej pozície",
   "professionalFeature5": "PDF reporty",
-
   "agencyFeature1": "Až 30 klientskych domén",
   "agencyFeature2": "Tímové role a pracovné priestory",
   "agencyFeature3": "Plánované reportovanie",

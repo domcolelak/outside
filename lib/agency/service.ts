@@ -146,7 +146,8 @@ export async function searchPortfolio(agencyId: string, rawQuery: string) {
           clientName: client.organizationName,
           target: asset.canonical,
           label: asset.label,
-          detail: `${asset.kind} · ${asset.technologies.join(", ") || "observed asset"}`,
+          kind: asset.kind,
+          technologies: asset.technologies,
         }));
       const recommendations = view.recommendations
         .filter((item) =>
@@ -160,7 +161,7 @@ export async function searchPortfolio(agencyId: string, rawQuery: string) {
           clientName: client.organizationName,
           target: item.target,
           label: item.title,
-          detail: `${item.priority} · ${item.status}`,
+          recommendation: item,
         }));
       return [...assets, ...recommendations];
     })

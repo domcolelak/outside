@@ -13,6 +13,7 @@ import type {
 } from "@/lib/agency/types";
 import { hasAgencyPermission } from "@/lib/agency/types";
 import type { GuardianOverview } from "@/lib/guardian/types";
+import { localizeGuardianRecommendation } from "@/lib/guardian/localize";
 
 type Detail = {
   workspace: AgencyWorkspace;
@@ -59,15 +60,16 @@ function SlaQueue({
           >
             <div>
               <div className="text-sm">
-                {recommendations.find(
-                  (candidate) => candidate.id === item.findingId,
-                )?.title ?? item.findingId}
+                {(() => {
+                  const recommendation = recommendations.find((candidate) => candidate.id === item.findingId);
+                  return recommendation ? localizeGuardianRecommendation(recommendation, tr).title : item.findingId;
+                })()}
               </div>
               <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
                 {g("slaItemMeta", {
-                  priority: item.priority,
+                  priority: tr.t("ui", `priority${item.priority[0]!.toUpperCase()}${item.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1]),
                   date: tr.formatDate(item.dueAt, { dateStyle: "medium", timeStyle: "short" }),
-                  status: item.status,
+                  status: tr.t("ui", `status${item.status === "acknowledged" ? "Acknowledged" : item.status === "resolved" ? "Resolved" : "Open"}` as Parameters<typeof tr.t<"ui">>[1]),
                 })}
               </div>
             </div>
@@ -148,7 +150,7 @@ export function ClientWorkspace({
       body: JSON.stringify(body),
     });
     const result = await response.json();
-    setMessage({ ok: response.ok, text: response.ok ? g("saved") : (result.error ?? g("operationFailed")) });
+    setMessage({ ok: response.ok, text: response.ok ? g("saved") : g("operationFailed") });
     if (response.ok) await load();
     return response.ok;
   }
@@ -551,19 +553,21 @@ export function ClientWorkspace({
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {data.guardian.recommendations
             .filter((item) => !["resolved", "dismissed"].includes(item.status))
-            .map((recommendation) => (
+            .map((recommendation) => {
+              const copy = localizeGuardianRecommendation(recommendation, tr);
+              return (
               <article
                 key={recommendation.id}
                 className="rounded-xl border border-line p-4"
               >
                 <div className="flex justify-between gap-3">
-                  <h3 className="text-sm">{recommendation.title}</h3>
+                  <h3 className="text-sm">{copy.title}</h3>
                   <span className="mono text-[11px] uppercase text-risk-high">
-                    {recommendation.priority}
+                    {tr.t("ui", `priority${recommendation.priority[0]!.toUpperCase()}${recommendation.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-5 text-ink-soft">
-                  {recommendation.why}
+                  {copy.why}
                 </p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-[11px] text-ink-faint">
@@ -582,7 +586,7 @@ export function ClientWorkspace({
                         post("/api/agency/findings", {
                           clientId,
                           recommendationId: recommendation.id,
-                          clientMessage: recommendation.suggestedReview,
+                          clientMessage: copy.suggestedReview,
                         })
                       }
                       className="rounded-sm border border-signal/30 px-3 py-1.5 text-[11px] text-signal"
@@ -592,7 +596,8 @@ export function ClientWorkspace({
                   )}
                 </div>
               </article>
-            ))}
+              );
+            })}
         </div>
       </section>
     </div>

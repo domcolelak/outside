@@ -7,12 +7,10 @@
   "planProfessional": "Professional",
   "planAgency": "Agency",
   "signOut": "Odhlásiť sa",
-
   "roleOwner": "vlastník",
   "roleAdmin": "správca",
   "roleAnalyst": "analytik",
   "roleViewer": "čitateľ",
-
   "monitorsHeading": "Monitorované ciele",
   "monitorsDomainLabel": "Doména na monitorovanie",
   "monitorsDomainPlaceholder": "firma.com",
@@ -31,12 +29,10 @@
   "monitorsAddFailed": "Monitorovanie sa nepodarilo pridať.",
   "monitorsUpdateFailed": "Monitorovanie sa nepodarilo upraviť.",
   "monitorsRemoveFailed": "Monitorovanie sa nepodarilo odstrániť.",
-
   "notificationsHeading": "Upozornenia",
   "notificationsChangeAlerts": "Upozornenia na zmeny",
   "notificationsChangeAlertsBody": "Poslať mi e-mail, keď sa monitorovaný povrch tejto organizácie zmení.",
   "notificationsFailed": "Nastavenia upozornení sa nepodarilo uložiť.",
-
   "teamHeading": "Tím",
   "teamEmailLabel": "E-mail kolegu",
   "teamEmailPlaceholder": "kolega@firma.com",
@@ -46,7 +42,6 @@
   "teamNoInvites": "Žiadne čakajúce pozvánky.",
   "teamPending": "čaká",
   "teamInviteFailed": "Pozvánku sa nepodarilo odoslať.",
-
   "verifyTitle": "Overte svoj e-mail a odomknite skenovanie, monitorovanie a reporty",
   "verifyBodyInvalid": "Tento overovací odkaz bol neplatný alebo mu vypršala platnosť. Nechajte si nižšie poslať nový.",
   "verifyBody": "Overovací odkaz sme poslali na {email}. Skeny overených cieľov, Guardian, pozvánky a Agency/Enterprise zostanú zamknuté, kým ho nepotvrdíte.",

@@ -21,7 +21,7 @@ export function VerifyEmailBanner({ verified, email, notice }: { verified: boole
     return (
       <div className="panel flex items-center gap-3 border-signal/30 bg-signal/5 p-4">
         <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full border border-signal text-signal">✓</span>
-        <p className="text-sm text-ink">Email verified — your workspace is fully unlocked.</p>
+        <p className="text-sm text-ink">{tr.t("ui", "emailVerifiedComplete")}</p>
       </div>
     );
   }

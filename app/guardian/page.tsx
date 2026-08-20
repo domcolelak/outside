@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionContext, roleAtLeast } from "@/lib/auth";
@@ -8,7 +9,15 @@ import { currentLocale } from "@/lib/i18n/server";
 import { getTranslator, type MessageKey } from "@/lib/i18n/messages";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Guardian · OUTSIDE", description: "Continuous external presence intelligence for OUTSIDE." };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await currentLocale();
+  const tr = getTranslator(locale);
+  return {
+    title: tr.t("guardian", "metaTitle"),
+    description: tr.t("guardian", "metaDescription"),
+  };
+}
 
 export default async function GuardianPage({ searchParams }: { searchParams: Promise<{ orgId?: string }> }) {
   const ctx = await getSessionContext();

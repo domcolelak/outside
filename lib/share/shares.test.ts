@@ -31,7 +31,15 @@ describe("shareable scan snapshots", () => {
     expect(record.snapshot.findings).toHaveLength(12); // capped
     expect(record.snapshot.stats.assets).toBe(5);
     // Only public projection fields are carried.
-    expect(Object.keys(record.snapshot.findings[0]!).sort()).toEqual(["concern", "confidence", "observation", "priority", "title"]);
+    expect(Object.keys(record.snapshot.findings[0]!).sort()).toEqual([
+      "concern",
+      "confidence",
+      "observation",
+      "priority",
+      "textKey",
+      "textValues",
+      "title",
+    ]);
   });
 
   it("gives each share a distinct token", () => {

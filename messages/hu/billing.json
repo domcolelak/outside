@@ -14,22 +14,18 @@
   "manageBilling": "Számlázás kezelése",
   "opening": "Megnyitás…",
   "portalUnavailable": "A számlázási portál jelenleg nem érhető el.",
-
   "planSnapshot": "Snapshot",
   "planProfessional": "Professional",
   "planAgency": "Agency",
-
   "freeFeature1": "Egyetlen külső pillanatkép",
   "freeFeature2": "Interaktív eszközgráf",
   "freeFeature3": "Attacker View visszajátszás",
   "freeFeature4": "Legfontosabb megállapítások",
-
   "professionalFeature1": "Legfeljebb 5 figyelt domain",
   "professionalFeature2": "Napi vizsgálatok és változásértesítések",
   "professionalFeature3": "Teljes megállapítások és bizonyítékok",
   "professionalFeature4": "A védelmi helyzet előzményei",
   "professionalFeature5": "PDF-jelentések",
-
   "agencyFeature1": "Legfeljebb 30 ügyféldomain",
   "agencyFeature2": "Csapatszerepek és munkaterületek",
   "agencyFeature3": "Ütemezett riportálás",

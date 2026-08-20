@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { AssetGraph } from "@/lib/types";
 import { buildTwin, singlePointsOfFailure } from "@/lib/twin/twin";
+import { useTranslator } from "@/lib/i18n/context";
 
 /**
  * Digital Twin panel — the dependency view of the surface. Reads the scan's
@@ -11,6 +12,7 @@ import { buildTwin, singlePointsOfFailure } from "@/lib/twin/twin";
  * deterministic; renders nothing when there is no shared infrastructure.
  */
 export function TwinPanel({ graph }: { graph: AssetGraph }) {
+  const tr = useTranslator();
   const hubs = useMemo(() => {
     const twin = buildTwin(graph.assets, graph.edges);
     return singlePointsOfFailure(twin, 1).slice(0, 6);
@@ -22,7 +24,7 @@ export function TwinPanel({ graph }: { graph: AssetGraph }) {
   return (
     <div>
       <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
-        <span>Digital Twin · dependency &amp; blast radius</span>
+        <span>{tr.t("ui", "digitalTwin")}</span>
         <span>{hubs.length}</span>
       </div>
       <div className="space-y-2">
@@ -35,13 +37,13 @@ export function TwinPanel({ graph }: { graph: AssetGraph }) {
                 <span className={`mono text-sm font-semibold ${tone}`}>{h.dependentCount}</span>
                 <div className="min-w-0 flex-1">
                   <div className="mono truncate text-[12px] text-ink">{h.node.label}</div>
-                  <div className="mono mt-0.5 text-[11px] uppercase tracking-wide text-ink-faint">{h.node.kind} · blast radius</div>
+                  <div className="mono mt-0.5 text-[11px] uppercase tracking-wide text-ink-faint">{h.node.kind} · {tr.t("ui", "blastRadius")}</div>
                 </div>
                 <span className="mono text-[11px] text-ink-faint">{isOpen ? "−" : "+"}</span>
               </button>
               {isOpen && (
                 <div className="border-t border-line px-3 py-2.5">
-                  <div className="mono mb-1.5 text-[11px] uppercase tracking-wide text-ink-faint">Impacted if this fails or is compromised</div>
+                  <div className="mono mb-1.5 text-[11px] uppercase tracking-wide text-ink-faint">{tr.t("ui", "impactedIfCompromised")}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {h.impacted.map((a) => (
                       <span key={a.id} className="mono rounded-sm border border-line px-1.5 py-0.5 text-[11px] text-ink-soft">{a.label}</span>

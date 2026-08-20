@@ -38,7 +38,7 @@ function AssessView() {
     const query = t.trim() ? `?target=${encodeURIComponent(t.trim())}` : "";
     const res = await fetch(`/api/assess${query}`, { credentials: "include" });
     const data = await res.json();
-    if (!res.ok) { setError(data.error ?? a("loadFailed")); return; }
+    if (!res.ok) { setError(a("loadFailed")); return; }
     setStatus(data);
     if (data.latest) setRun({ run: data.latest, diff: data.diff ?? null });
   }
@@ -62,7 +62,7 @@ function AssessView() {
         body: JSON.stringify({ target: target.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error ?? a("runFailed"));
+      if (!res.ok) setError(a("runFailed"));
       else { setRun(data); await loadStatus(target); }
     } catch {
       setError(a("networkError"));

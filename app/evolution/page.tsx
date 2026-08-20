@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslator } from "@/lib/i18n/context";
 
 interface Proposal {
   id: string;
@@ -18,6 +19,7 @@ interface EvolutionData { kevSyncedAt: string | null; kevSize: number; gapCount:
 const PRIORITY_COLOR: Record<Proposal["priority"], string> = { high: "text-risk-high", medium: "text-risk-medium", low: "text-ink-faint" };
 
 export default function EvolutionPage() {
+  const tr = useTranslator();
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [data, setData] = useState<EvolutionData | null>(null);
   const [message, setMessage] = useState("");
@@ -29,13 +31,13 @@ export default function EvolutionPage() {
   useEffect(() => {
     fetch("/api/evolution")
       .then(async (res) => {
-        if (res.status === 401) { setMessage("Sign in to view the Evolution control center."); setState("error"); return; }
-        if (res.status === 403) { setMessage("Evolution is the product owner's control plane and isn't available on this account."); setState("error"); return; }
-        if (!res.ok) { setMessage("Could not load."); setState("error"); return; }
+        if (res.status === 401) { setMessage(tr.t("evolution", "signInRequired")); setState("error"); return; }
+        if (res.status === 403) { setMessage(tr.t("evolution", "ownerOnly")); setState("error"); return; }
+        if (!res.ok) { setMessage(tr.t("evolution", "loadFailed")); setState("error"); return; }
         setData(await res.json()); setState("done");
       })
-      .catch(() => { setMessage("Network error."); setState("error"); });
-  }, []);
+      .catch(() => { setMessage(tr.t("evolution", "networkError")); setState("error"); });
+  }, [tr]);
 
   const clearPending = (proposalId: string) => setDeciding((current) => {
     const next = { ...current };
@@ -50,7 +52,7 @@ export default function EvolutionPage() {
   async function prepareDraft(proposalId: string) {
     const response = await fetch(`/api/evolution/draft?proposalId=${encodeURIComponent(proposalId)}`);
     const data = await response.json().catch(() => null) as { draft?: DraftChange; error?: string } | null;
-    if (!response.ok || !data?.draft) throw new Error(data?.error ?? "The decision was saved, but the draft could not be prepared.");
+    if (!response.ok || !data?.draft) throw new Error(tr.t("evolution", "draftSavedFailed"));
     setDrafts((current) => ({ ...current, [proposalId]: data.draft! }));
   }
   async function retryDraft(proposalId: string) {
@@ -60,7 +62,7 @@ export default function EvolutionPage() {
     try {
       await prepareDraft(proposalId);
     } catch (cause) {
-      setActionErrors((current) => ({ ...current, [proposalId]: cause instanceof Error ? cause.message : "The draft could not be prepared." }));
+      setActionErrors((current) => ({ ...current, [proposalId]: cause instanceof Error ? cause.message : tr.t("evolution", "draftFailed") }));
     } finally {
       clearPending(proposalId);
     }
@@ -78,7 +80,7 @@ export default function EvolutionPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null) as { error?: string } | null;
-        throw new Error(body?.error ?? "Could not save this decision.");
+        throw new Error(tr.t("evolution", "decisionFailed"));
       }
       decisionSaved = true;
       setData((prev) => prev && { ...prev, decisionsCount: prev.decisionsCount + 1 });
@@ -91,8 +93,8 @@ export default function EvolutionPage() {
       }
     } catch (cause) {
       const fallback = decisionSaved && decision === "approved"
-        ? "The decision was saved, but the draft could not be prepared."
-        : "Could not save this decision.";
+        ? tr.t("evolution", "draftSavedFailed")
+        : tr.t("evolution", "decisionFailed");
       setActionErrors((current) => ({ ...current, [proposalId]: cause instanceof Error ? cause.message : fallback }));
     } finally {
       clearPending(proposalId);
@@ -101,82 +103,79 @@ export default function EvolutionPage() {
 
   return (
     <>
-        <div className="mono text-[12px] uppercase tracking-widest text-signal">Evolution · control center</div>
-        <h1 className="mt-2 text-3xl font-semibold text-ink">What OUTSIDE should learn next</h1>
+        <div className="mono text-[12px] uppercase tracking-widest text-signal">{tr.t("evolution", "kicker")}</div>
+        <h1 className="mt-2 text-3xl font-semibold text-ink">{tr.t("evolution", "title")}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
-          Evolution watches the external security world and compares it against what OUTSIDE can already do. Below are
-          evidence-backed proposals to close coverage gaps — actively-exploited vulnerabilities (CISA KEV) on technologies
-          OUTSIDE fingerprints but does not yet correlate. It learns from your decisions: approving or rejecting a proposal
-          removes it from the queue and reprioritizes future proposals on the same technology.
+          {tr.t("evolution", "intro")}
         </p>
 
         <div className="mt-4 rounded-lg border border-signal/30 bg-signal/5 px-3 py-2 text-[12px] text-signal">
-          Every proposal is a <span className="font-medium">draft awaiting founder approval</span>. Evolution proposes and prepares — it never applies, merges, or deploys anything on its own.
+          {tr.t("evolution", "safety")}
         </div>
 
-        {state === "loading" && <div role="status" aria-live="polite" className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">Loading Evolution proposals…</div>}
+        {state === "loading" && <div role="status" aria-live="polite" className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">{tr.t("evolution", "loading")}</div>}
         {state === "error" && <div className="mt-6 rounded-lg border border-line bg-base-900 px-4 py-3 text-sm text-ink-soft">{message}</div>}
 
         {state === "done" && data && (
           <>
             <div className="mono mt-6 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-faint">
-              <span><span className="text-ink">{data.proposals.length}</span> proposals awaiting review</span>
-              <span><span className="text-ink">{data.kevSize}</span> KEV entries analyzed</span>
-              <span>Auto-analyzed {data.lastScheduledRun ? new Date(data.lastScheduledRun.at).toLocaleDateString() : "on demand"} · monthly</span>
-              {data.decisionsCount > 0 && <span><span className="text-ink">{data.decisionsCount}</span> decision{data.decisionsCount === 1 ? "" : "s"} learned · reprioritizing</span>}
+              <span>{tr.t("evolution", "proposalCount", { count: data.proposals.length })}</span>
+              <span>{tr.t("evolution", "kevCount", { count: data.kevSize })}</span>
+              <span>{tr.t("evolution", "autoAnalyzed", { date: data.lastScheduledRun ? tr.formatDate(data.lastScheduledRun.at) : tr.t("evolution", "onDemand") })}</span>
+              {data.decisionsCount > 0 && <span>{tr.t("evolution", "decisionCount", { count: data.decisionsCount })}</span>}
             </div>
 
             {data.proposals.length === 0 ? (
               <div className="mt-6 rounded-xl border border-signal/15 bg-signal/[.035] px-4 py-8 text-center">
                 <div className="mx-auto grid h-9 w-9 place-items-center rounded-full border border-signal/20 text-sm text-signal">✓</div>
-                <div className="mt-3 text-sm font-medium text-ink">No open coverage gaps</div>
-                <div className="mt-1 text-xs text-ink-faint">{data.kevSyncedAt ? "Every exploited CVE on a fingerprinted technology is already correlated." : "The KEV catalogue has not synced yet — proposals appear once it does."}</div>
+                <div className="mt-3 text-sm font-medium text-ink">{tr.t("evolution", "noGaps")}</div>
+                <div className="mt-1 text-xs text-ink-faint">{tr.t("evolution", data.kevSyncedAt ? "allCovered" : "notSynced")}</div>
               </div>
             ) : (
               <ol className="mt-6 space-y-3">
                 {data.proposals.map((p) => (
                   <li key={p.id} className="panel p-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="text-ink">{p.title}</div>
-                      <span className={`mono shrink-0 text-[11px] uppercase tracking-wide ${PRIORITY_COLOR[p.priority]}`}>{p.priority}</span>
+                      <div className="text-ink">{tr.t("evolution", "proposalTitle", { cve: p.evidence.cveId })}</div>
+                      <span className={`mono shrink-0 text-[11px] uppercase tracking-wide ${PRIORITY_COLOR[p.priority]}`}>{tr.t("ui", `priority${p.priority[0]!.toUpperCase()}${p.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}</span>
                     </div>
-                    <p className="mt-2 text-sm leading-relaxed text-ink-soft">{p.summary}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-ink-soft">{tr.t("evolution", "proposalSummary", { cve: p.evidence.cveId })}</p>
                     <div className="mt-2 rounded-lg border border-line bg-base-950/60 px-3 py-2">
-                      <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">Proposed change</div>
-                      <p className="mt-1 text-xs leading-relaxed text-ink-soft">{p.proposedChange}</p>
+                      <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{tr.t("evolution", "proposedChangeLabel")}</div>
+                      <p className="mt-1 text-xs leading-relaxed text-ink-soft">{tr.t("evolution", "proposedChange", { cve: p.evidence.cveId })}</p>
                     </div>
                     <div className="mono mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-faint">
-                      <span>Evidence: {p.evidence.cveId} · {p.evidence.source}</span>
-                      <span>Added {p.evidence.kevDateAdded}</span>
-                      <span className="rounded-sm border border-line px-1.5 py-0.5">status: {p.status}</span>
+                      <span>{tr.t("evolution", "evidence", { cve: p.evidence.cveId, source: p.evidence.source })}</span>
+                      <span>{tr.t("evolution", "added", { date: tr.formatDate(p.evidence.kevDateAdded) })}</span>
+                      <span className="rounded-sm border border-line px-1.5 py-0.5">{tr.t("evolution", "status", { status: tr.t("evolution", "statusDraft") })}</span>
                     </div>
                     {drafts[p.id] ? (
                       <div className="mt-3 border-t border-line pt-3">
-                        <div className="mono flex items-center gap-2 text-[11px] uppercase tracking-wide text-signal">✓ Approved · draft change prepared</div>
-                        <div className="mono mt-2 text-[11px] text-ink-faint">Add to <span className="text-ink-soft">{drafts[p.id]!.file}</span></div>
+                        <div className="mono flex items-center gap-2 text-[11px] uppercase tracking-wide text-signal">{tr.t("evolution", "approvedDraftReady")}</div>
+                        <div className="mono mt-2 text-[11px] text-ink-faint">{tr.t("evolution", "addTo", { file: drafts[p.id]!.file })}</div>
                         <pre className="mono mt-1 overflow-x-auto rounded-lg border border-line bg-base-950 px-3 py-2 text-[12px] leading-relaxed text-ink-soft">{drafts[p.id]!.entry}</pre>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <button
                             onClick={() => navigator.clipboard?.writeText(drafts[p.id]!.entry)}
                             className="mono rounded-md border border-line px-2.5 py-1 text-[11px] text-ink-soft hover:text-ink"
                           >
-                            Copy draft
+                            {tr.t("evolution", "copyDraft")}
                           </button>
-                          <span className="mono text-[11px] text-ink-faint">Needs you: {drafts[p.id]!.requiresHumanInput[0]}</span>
+                          <span className="mono text-[11px] text-ink-faint">{tr.t("evolution", "needsYou")}</span>
                         </div>
                         <div className="mt-2 rounded-lg border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[11px] leading-relaxed text-risk-medium">
-                          {drafts[p.id]!.note}
+                          {tr.t("evolution", "draftNote")}
                         </div>
                       </div>
                     ) : approved[p.id] ? (
                       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                        <span className="mono text-[11px] uppercase tracking-wide text-signal">✓ Approved · awaiting draft</span>
+                        <span className="mono text-[11px] uppercase tracking-wide text-signal">{tr.t("evolution", "approvedAwaiting")}</span>
                         <button
                           onClick={() => void retryDraft(p.id)}
                           disabled={!!deciding[p.id]}
                           className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[12px] text-signal hover:bg-signal/15 disabled:opacity-50"
                         >
-                          {deciding[p.id] ? "Preparing draft…" : "Retry draft"}
+                          {tr.t("evolution", deciding[p.id] ? "preparingDraft" : "retryDraft")}
                         </button>
                       </div>
                     ) : (
@@ -186,16 +185,16 @@ export default function EvolutionPage() {
                           disabled={!!deciding[p.id]}
                           className="mono rounded-md border border-signal/40 bg-signal/10 px-3 py-1.5 text-[12px] text-signal hover:bg-signal/15 disabled:opacity-50"
                         >
-                          {deciding[p.id] === "approved" ? "Preparing draft…" : "Approve"}
+                          {tr.t("evolution", deciding[p.id] === "approved" ? "preparingDraft" : "approve")}
                         </button>
                         <button
                           onClick={() => decide(p.id, "rejected")}
                           disabled={!!deciding[p.id]}
                           className="mono rounded-md border border-line px-3 py-1.5 text-[12px] text-ink-soft hover:text-ink disabled:opacity-50"
                         >
-                          {deciding[p.id] === "rejected" ? "Rejecting…" : "Reject"}
+                          {tr.t("evolution", deciding[p.id] === "rejected" ? "rejecting" : "reject")}
                         </button>
-                        <span className="mono ml-auto text-[11px] text-ink-faint">Approve → prepares a reviewable draft · never auto-applied</span>
+                        <span className="mono ml-auto text-[11px] text-ink-faint">{tr.t("evolution", "approveHint")}</span>
                       </div>
                     )}
                     {actionErrors[p.id] && <p role="alert" className="mono mt-2 text-[12px] text-risk-high">{actionErrors[p.id]}</p>}
@@ -206,17 +205,16 @@ export default function EvolutionPage() {
 
             {data.detectorReliability.length > 0 && (
               <section className="mt-10">
-                <h2 className="text-lg font-medium text-ink">Detector reliability</h2>
+                <h2 className="text-lg font-medium text-ink">{tr.t("evolution", "detectorReliability")}</h2>
                 <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-soft">
-                  Learned from your false-positive / confirmed feedback on findings. A noisy detector has its confidence
-                  bounded-down-weighted on future scans — dampened, never silenced, and never inflated. Clear the feedback and it returns to full trust.
+                  {tr.t("evolution", "reliabilityBody")}
                 </p>
                 <ul className="mt-4 space-y-2">
                   {data.detectorReliability.map((d) => (
                     <li key={d.category} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 p-3">
                       <span className="mono text-xs text-ink">{d.category}</span>
-                      <span className="mono text-[11px] text-ink-faint">{d.confirmed} confirmed · {d.falsePositive} false-positive</span>
-                      <span className={`mono ml-auto text-xs ${d.factor < 1 ? "text-risk-medium" : "text-signal"}`}>×{d.factor.toFixed(2)} confidence</span>
+                      <span className="mono text-[11px] text-ink-faint">{tr.t("evolution", "detectorMeta", { confirmed: d.confirmed, falsePositive: d.falsePositive })}</span>
+                      <span className={`mono ml-auto text-xs ${d.factor < 1 ? "text-risk-medium" : "text-signal"}`}>{tr.t("evolution", "confidenceFactor", { factor: d.factor.toFixed(2) })}</span>
                     </li>
                   ))}
                 </ul>

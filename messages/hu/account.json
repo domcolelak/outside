@@ -7,12 +7,10 @@
   "planProfessional": "Professional",
   "planAgency": "Agency",
   "signOut": "Kijelentkezés",
-
   "roleOwner": "tulajdonos",
   "roleAdmin": "adminisztrátor",
   "roleAnalyst": "elemző",
   "roleViewer": "megtekintő",
-
   "monitorsHeading": "Figyelt célpontok",
   "monitorsDomainLabel": "Figyelendő domain",
   "monitorsDomainPlaceholder": "ceg.com",
@@ -31,12 +29,10 @@
   "monitorsAddFailed": "A figyelést nem sikerült hozzáadni.",
   "monitorsUpdateFailed": "A figyelést nem sikerült módosítani.",
   "monitorsRemoveFailed": "A figyelést nem sikerült eltávolítani.",
-
   "notificationsHeading": "Értesítések",
   "notificationsChangeAlerts": "Változásértesítések",
   "notificationsChangeAlertsBody": "Küldjön e-mailt, ha ennek a szervezetnek a figyelt felülete megváltozik.",
   "notificationsFailed": "Az értesítési beállításokat nem sikerült menteni.",
-
   "teamHeading": "Csapat",
   "teamEmailLabel": "Csapattárs e-mail-címe",
   "teamEmailPlaceholder": "kollega@ceg.com",
@@ -46,7 +42,6 @@
   "teamNoInvites": "Nincs függőben lévő meghívó.",
   "teamPending": "függőben",
   "teamInviteFailed": "A meghívót nem sikerült elküldeni.",
-
   "verifyTitle": "Erősítse meg e-mail-címét a vizsgálat, a figyelés és a jelentések feloldásához",
   "verifyBodyInvalid": "Ez a megerősítő hivatkozás érvénytelen volt vagy lejárt. Kérjen újat alább.",
   "verifyBody": "Megerősítő hivatkozást küldtünk ide: {email}. Az igazolt célpontok vizsgálata, a Guardian, a meghívók és az Agency/Enterprise zárva marad, amíg meg nem erősíti.",

@@ -4,6 +4,10 @@ import { useTranslator } from "@/lib/i18n/context";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { PortfolioOverview } from "@/lib/agency/types";
+import type { AssetKind } from "@/lib/types";
+import type { GuardianRecommendation } from "@/lib/guardian/types";
+import { localizeAssetKind } from "@/lib/report/scan-copy";
+import { localizeGuardianEvent, localizeGuardianRecommendation } from "@/lib/guardian/localize";
 const healthStyle = {
   healthy: "border-signal/25 bg-signal/5 text-signal",
   watch: "border-risk-medium/30 bg-risk-medium/5 text-risk-medium",
@@ -16,6 +20,8 @@ const HEALTH_KEY = {
   at_risk: "healthAtRisk",
   unknown: "healthUnknown",
 } as const;
+const ROLE_KEY = { owner: "roleOwner", admin: "roleAdmin", manager: "roleManager", analyst: "roleAnalyst", billing: "roleBilling", viewer: "roleViewer" } as const;
+type SearchResult = { type: "asset"; clientName: string; label: string; kind: AssetKind; technologies: string[] } | { type: "recommendation"; clientName: string; label: string; recommendation: GuardianRecommendation };
 
 export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
   const tr = useTranslator();
@@ -24,9 +30,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
 
   const [data, setData] = useState(initial),
     [query, setQuery] = useState(""),
-    [results, setResults] = useState<
-      Array<{ type: string; clientName: string; label: string; detail: string }>
-    >([]),
+    [results, setResults] = useState<SearchResult[]>([]),
     [selected, setSelected] = useState<string[]>([]),
     [busy, setBusy] = useState(""),
     [operationError, setOperationError] = useState("");
@@ -69,8 +73,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
         },
       );
       if (!r.ok) {
-        const body = await r.json().catch(() => null);
-        throw new Error(body?.error ?? g("bulkNotScheduled"));
+        throw new Error(g("bulkNotScheduled"));
       }
       const freshResponse = await fetch(`/api/agency?agencyId=${data.workspace.id}`);
       if (!freshResponse.ok) throw new Error(g("bulkScheduledNoRefresh"));
@@ -105,7 +108,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
               {g("workspaceLink")}
             </Link>
             <span className="rounded-lg border border-signal/20 bg-signal/5 px-4 py-2 mono text-xs text-signal">
-              {data.role}
+              {g(ROLE_KEY[data.role])}
             </span>
           </div>
         </div>
@@ -210,7 +213,7 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
         </div>
         <aside className="panel p-5">
           <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-            Cross-customer search
+            {g("crossCustomerSearch")}
           </div>
           <input
             aria-label={g("searchLabel")}
@@ -227,18 +230,16 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
               >
                 <div className="flex justify-between gap-2">
                   <span className="text-xs text-ink">{r.label}</span>
-                  <span className="mono text-[10px] uppercase text-signal">
-                    {r.type}
-                  </span>
+                  <span className="mono text-[10px] uppercase text-signal">{g(r.type === "asset" ? "searchTypeAsset" : "searchTypeRecommendation")}</span>
                 </div>
                 <div className="mt-1 text-[11px] text-ink-faint">
-                  {r.clientName} · {r.detail}
+                  {r.clientName} · {r.type === "asset" ? g("searchAssetDetail", { kind: localizeAssetKind(r.kind, tr), technologies: r.technologies.join(", ") || g("searchNoTechnology") }) : g("searchRecommendationDetail", { priority: tr.t("ui", `priority${r.recommendation.priority[0]!.toUpperCase()}${r.recommendation.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1]), status: tr.t("ui", `status${r.recommendation.status === "in_progress" ? "InProgress" : r.recommendation.status[0]!.toUpperCase() + r.recommendation.status.slice(1)}` as Parameters<typeof tr.t<"ui">>[1]) })}
                 </div>
               </div>
             ))}
             {query.length >= 2 && !results.length && (
               <div className="py-8 text-center text-xs text-ink-faint">
-                No deterministic evidence matched.
+                {g("searchNoMatch")}
               </div>
             )}
           </div>
@@ -247,46 +248,46 @@ export function AgencyDashboard({ initial }: { initial: PortfolioOverview }) {
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="panel p-5">
           <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-            Cross-customer change feed
+            {g("crossCustomerChanges")}
           </div>
           <div className="mt-4 space-y-3">
-            {data.recentChanges.slice(0, 12).map((e) => (
+            {data.recentChanges.slice(0, 12).map((e) => { const copy = localizeGuardianEvent(e, tr); return (
               <div
                 key={`${e.clientOrgId}-${e.id}`}
                 className="flex gap-3 border-b border-line pb-3"
               >
                 <span className="mt-1.5 h-2 w-2 rounded-full bg-signal" />
                 <div>
-                  <div className="text-xs text-ink">{e.title}</div>
+                  <div className="text-xs text-ink">{copy.title}</div>
                   <div className="mt-1 text-[11px] text-ink-faint">
-                    {e.clientName} · {e.summary}
+                    {e.clientName} · {copy.summary}
                   </div>
                 </div>
               </div>
-            ))}
+            ); })}
           </div>
         </div>
         <div className="panel p-5">
           <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-            Analyst priority queue
+            {g("analystPriorityQueue")}
           </div>
           <div className="mt-4 space-y-3">
-            {data.topRecommendations.slice(0, 12).map((r) => (
+            {data.topRecommendations.slice(0, 12).map((r) => { const copy = localizeGuardianRecommendation(r, tr); return (
               <div
                 key={`${r.clientOrgId}-${r.id}`}
                 className="rounded-lg border border-line p-3"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="text-xs text-ink">{r.title}</div>
+                  <div className="text-xs text-ink">{copy.title}</div>
                   <span className="mono text-[11px] uppercase text-risk-high">
-                    {r.priority}
+                    {tr.t("ui", `priority${r.priority[0]!.toUpperCase()}${r.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}
                   </span>
                 </div>
                 <div className="mt-1 text-[11px] text-ink-faint">
-                  {r.clientName} · {r.why}
+                  {r.clientName} · {copy.why}
                 </div>
               </div>
-            ))}
+            ); })}
           </div>
         </div>
       </section>

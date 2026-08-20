@@ -4,13 +4,17 @@ import { getEmailProvider } from "@/lib/email/provider";
 import { decryptGuardianConfig, channelAssociatedData } from "./crypto";
 import { safeGuardianPost, type GuardianHttpRequest } from "./transport";
 import type { GuardianStore } from "./store-model";
-import type { GuardianAnalysis, GuardianChannelType, GuardianDigest, GuardianEvent } from "./types";
-import { groupCardsByArea, type DigestRecommendationCard } from "./digest-content";
+import type { GuardianAnalysis, GuardianChannelType, GuardianDigest, GuardianEvent, GuardianRecommendation } from "./types";
+import { groupCardsByArea, type DigestArea, type DigestRecommendationCard } from "./digest-content";
 import { recordGuardianDelivery, recordGuardianQueueMetrics } from "@/lib/observability/metrics";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
+import { organizationLocale, recipientLocale } from "@/lib/i18n/recipient";
+import { getTranslator, type MessageKey, type Translator } from "@/lib/i18n/messages";
+import { localizeGuardianDrift, localizeGuardianEvent, localizeGuardianRecommendation } from "./localize";
 
 type Config = Record<string, string>;
-interface EventPayload { kind: "event_group"; target: string; scanId: string; observedAt: string; events: GuardianEvent[] }
-interface DigestPayload { kind: "weekly_digest"; digest: GuardianDigest }
+interface EventPayload { kind: "event_group"; target: string; scanId: string; observedAt: string; events: GuardianEvent[]; locale: Locale }
+interface DigestPayload { kind: "weekly_digest"; digest: GuardianDigest; locale: Locale }
 interface EmailPayload { to: string; subject: string; text: string; html: string }
 
 function escapeHtml(value: string): string {
@@ -28,14 +32,16 @@ export function alertableGuardianEvents(events: GuardianEvent[]): GuardianEvent[
 export async function queueGuardianEventNotifications(store: GuardianStore, analysis: GuardianAnalysis): Promise<number> {
   const events = alertableGuardianEvents(analysis.events);
   if (!events.length) return 0;
-  const payload: EventPayload = { kind: "event_group", target: analysis.snapshot.target, scanId: analysis.snapshot.scanId, observedAt: analysis.snapshot.observedAt, events };
   const channels = (await store.channels(analysis.snapshot.orgId)).filter((channel) => channel.enabled);
   const auth = await getAuthStore();
+  const organization = await auth.getOrganization(analysis.snapshot.orgId).catch(() => null);
+  const channelLocale = organizationLocale(organization?.defaultLocale);
+  const payload: EventPayload = { kind: "event_group", target: analysis.snapshot.target, scanId: analysis.snapshot.scanId, observedAt: analysis.snapshot.observedAt, events, locale: channelLocale };
   const members = await auth.orgMembers(analysis.snapshot.orgId);
   const recipients = members.filter((member) => member.role !== "viewer" && member.notifyChanges);
   const jobs = [
     ...channels.map((channel) => store.queueDelivery({ idempotencyKey: `guardian:event:${analysis.snapshot.orgId}:${analysis.snapshot.scanId}:${channel.id}`, orgId: analysis.snapshot.orgId, channelId: channel.id, channelType: channel.type, target: analysis.snapshot.target, kind: "event_group", itemCount: events.length, payload })),
-    ...recipients.map((member) => store.queueDelivery({ idempotencyKey: `guardian:event:${analysis.snapshot.orgId}:${analysis.snapshot.scanId}:email:${member.email.toLowerCase()}`, orgId: analysis.snapshot.orgId, channelId: null, channelType: "email", target: analysis.snapshot.target, kind: "event_group", itemCount: events.length, payload: eventEmail(member.email, payload) })),
+    ...recipients.map((member) => { const locale = recipientLocale({ userPreference: member.preferredLocale, organizationDefault: organization?.defaultLocale }); return store.queueDelivery({ idempotencyKey: `guardian:event:${analysis.snapshot.orgId}:${analysis.snapshot.scanId}:email:${member.email.toLowerCase()}`, orgId: analysis.snapshot.orgId, channelId: null, channelType: "email", target: analysis.snapshot.target, kind: "event_group", itemCount: events.length, payload: eventEmail(member.email, { ...payload, locale }) }); }),
   ];
   await Promise.all(jobs);
   return jobs.length;
@@ -43,25 +49,58 @@ export async function queueGuardianEventNotifications(store: GuardianStore, anal
 
 export async function queueGuardianDigestNotifications(store: GuardianStore, digest: GuardianDigest): Promise<number> {
   const channels = (await store.channels(digest.orgId)).filter((channel) => channel.enabled);
-  const members = await (await getAuthStore()).orgMembers(digest.orgId);
+  const auth = await getAuthStore();
+  const [members, organization] = await Promise.all([auth.orgMembers(digest.orgId), auth.getOrganization(digest.orgId).catch(() => null)]);
   const recipients = members.filter((member) => member.role !== "viewer" && member.notifyChanges);
-  const payload: DigestPayload = { kind: "weekly_digest", digest };
+  const payload: DigestPayload = { kind: "weekly_digest", digest, locale: organizationLocale(organization?.defaultLocale) };
   const jobs = [
     ...channels.map((channel) => store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:${channel.id}`, orgId: digest.orgId, channelId: channel.id, channelType: channel.type, target: digest.target, kind: "weekly_digest", itemCount: digest.recommendations.cards.length, payload })),
-    ...recipients.map((member) => store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:email:${member.email.toLowerCase()}`, orgId: digest.orgId, channelId: null, channelType: "email", target: digest.target, kind: "weekly_digest", itemCount: digest.recommendations.cards.length, payload: digestEmail(member.email, digest) })),
+    ...recipients.map((member) => { const locale = recipientLocale({ userPreference: member.preferredLocale, organizationDefault: organization?.defaultLocale }); return store.queueDelivery({ idempotencyKey: `guardian:digest:${digest.orgId}:${digest.target}:${digest.weekOf}:email:${member.email.toLowerCase()}`, orgId: digest.orgId, channelId: null, channelType: "email", target: digest.target, kind: "weekly_digest", itemCount: digest.recommendations.cards.length, payload: digestEmail(member.email, digest, locale) }); }),
   ];
   await Promise.all(jobs);
   return jobs.length;
 }
 
-function eventEmail(to: string, payload: EventPayload): EmailPayload {
-  const lines = payload.events.map((event) => `${event.severity.toUpperCase()}: ${event.title}\n${event.summary}\nWhy: ${event.why}`);
-  const text = `OUTSIDE Guardian grouped ${payload.events.length} important change(s) for ${payload.target}.\n\n${lines.join("\n\n")}`;
-  const html = `<div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px"><p style="color:#76e6a8;letter-spacing:.12em">OUTSIDE GUARDIAN</p><h1>${payload.events.length} important change${payload.events.length === 1 ? "" : "s"}</h1><p>${escapeHtml(payload.target)}</p>${payload.events.map((event) => `<div style="margin:18px 0;padding:16px;border:1px solid #244339;border-radius:12px"><strong>${escapeHtml(event.title)}</strong><p>${escapeHtml(event.summary)}</p><small>${escapeHtml(event.why)}</small></div>`).join("")}</div>`;
-  return { to, subject: `Guardian: ${payload.events.length} important change${payload.events.length === 1 ? "" : "s"} for ${payload.target}`, text, html };
+type GuardianKey = MessageKey<"guardian">;
+
+const DIGEST_AREA_KEY: Record<DigestArea, GuardianKey> = {
+  "Email security": "digestAreaEmail",
+  "Web security": "digestAreaWeb",
+  Certificates: "digestAreaCertificates",
+  Identity: "digestAreaIdentity",
+  Infrastructure: "digestAreaInfrastructure",
+  Privacy: "digestAreaPrivacy",
+};
+
+function priorityLabel(priority: GuardianEvent["severity"], tr: Translator): string {
+  const suffix = priority === "info" ? "Info" : `${priority[0]!.toUpperCase()}${priority.slice(1)}`;
+  return tr.t("ui", `priority${suffix}` as Parameters<typeof tr.t<"ui">>[1]);
 }
 
-const STATE_LABEL: Record<DigestRecommendationCard["state"], string> = { new: "New", existing: "Existing", regressed: "Regressed" };
+function stateLabel(state: DigestRecommendationCard["state"], tr: Translator): string {
+  return tr.t("guardian", `digestState${state[0]!.toUpperCase()}${state.slice(1)}` as GuardianKey);
+}
+
+function cardCopy(item: DigestRecommendationCard, tr: Translator) {
+  if (tr.locale === "en") return { title: item.title, action: item.action };
+  const recommendation = {
+    code: item.code,
+    affectedAssets: Array.from({ length: Math.max(1, item.assetCount) }, () => item.affectedAsset),
+    guides: [],
+  } as unknown as GuardianRecommendation;
+  const copy = localizeGuardianRecommendation(recommendation, tr);
+  return { title: copy.title, action: copy.suggestedReview };
+}
+
+function eventEmail(to: string, payload: EventPayload): EmailPayload {
+  const tr = getTranslator(payload.locale);
+  const events = payload.events.map((event) => ({ event, copy: localizeGuardianEvent(event, tr) }));
+  const lines = events.map(({ event, copy }) => `${priorityLabel(event.severity, tr).toLocaleUpperCase(payload.locale)}: ${copy.title}\n${copy.summary}\n${tr.t("guardian", "digestWhy")}: ${copy.why}`);
+  const heading = tr.t("guardian", "eventEmailHeading", { count: events.length });
+  const text = `${tr.t("guardian", "eventEmailIntro", { count: events.length, target: payload.target })}\n\n${lines.join("\n\n")}`;
+  const html = `<html lang="${payload.locale}"><body style="margin:0"><div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px"><p style="color:#76e6a8;letter-spacing:.12em">OUTSIDE GUARDIAN</p><h1>${escapeHtml(heading)}</h1><p>${escapeHtml(payload.target)}</p>${events.map(({ event, copy }) => `<div style="margin:18px 0;padding:16px;border:1px solid #244339;border-radius:12px"><small>${escapeHtml(priorityLabel(event.severity, tr))}</small><strong style="display:block;margin-top:6px">${escapeHtml(copy.title)}</strong><p>${escapeHtml(copy.summary)}</p><small>${escapeHtml(copy.why)}</small></div>`).join("")}</div></body></html>`;
+  return { to, subject: tr.t("guardian", "eventEmailSubject", { count: events.length, target: payload.target }), text, html };
+}
 
 /**
  * Render the weekly digest. The three subjects stay visually separate — what
@@ -70,46 +109,97 @@ const STATE_LABEL: Record<DigestRecommendationCard["state"], string> = { new: "N
  * app first: severity, affected asset, whether it is new, the action, and a
  * tenant-scoped link.
  */
-export function digestEmail(to: string, digest: GuardianDigest): EmailPayload {
+export function digestEmail(to: string, digest: GuardianDigest, locale: Locale = DEFAULT_LOCALE): EmailPayload {
+  const tr = getTranslator(locale);
   const { changeStatus: change, posture, recommendations } = digest;
   const groups = groupCardsByArea(recommendations.cards);
-  const more = recommendations.additional > 0 ? `View ${recommendations.additional} additional recommendation${recommendations.additional === 1 ? "" : "s"}` : "";
-
-  const changeLine = `Change status: ${change.newAssets} new, ${change.returnedAssets} returning, ${change.removedAssets} disappeared, ${change.newSurfaceSignals} new surface signal(s), ${change.highPriorityAlerts} high-priority alert(s).`;
-  const postureLine = `Protection posture: ${posture.drift.headline}. ${posture.shadowAssets} possible shadow asset(s).`;
+  const more = recommendations.additional > 0 ? tr.t("guardian", "digestMoreRecommendations", { count: recommendations.additional }) : "";
+  const headline = locale === "en"
+    ? digest.headline
+    : change.highPriorityAlerts > 0
+      ? tr.t("guardian", "digestHeadlineHigh", { count: change.highPriorityAlerts })
+      : change.materialChanges > 0 && posture.drift.direction !== "worsening"
+        ? tr.t("guardian", "digestHeadlineChanged")
+        : localizeGuardianDrift(posture.drift, tr).headline;
+  const executiveSummary = locale === "en" ? digest.executiveSummary : tr.t("guardian", "digestExecutiveSummary", {
+    new: change.newAssets,
+    returning: change.returnedAssets,
+    removed: change.removedAssets,
+    signals: change.newSurfaceSignals,
+    recommendations: recommendations.total,
+  });
+  const changeLine = tr.t("guardian", "digestChangeLine", {
+    new: change.newAssets,
+    returning: change.returnedAssets,
+    removed: change.removedAssets,
+    signals: change.newSurfaceSignals,
+    alerts: change.highPriorityAlerts,
+  });
+  const postureLine = tr.t("guardian", "digestPostureLine", {
+    posture: localizeGuardianDrift(posture.drift, tr).headline,
+    shadow: posture.shadowAssets,
+  });
 
   const textCards = groups
-    .map((group) => `${group.area}\n${group.cards.map((card) => `- [${card.priority.toUpperCase()} · ${STATE_LABEL[card.state]}] ${card.title}\n  Asset: ${card.affectedAsset}${card.assetCount > 1 ? ` (+${card.assetCount - 1} more)` : ""}\n  Action: ${card.action}\n  ${card.link}`).join("\n")}`)
+    .map((group) => `${tr.t("guardian", DIGEST_AREA_KEY[group.area])}\n${group.cards.map((item) => {
+      const copy = cardCopy(item, tr);
+      return `- [${priorityLabel(item.priority, tr).toLocaleUpperCase(locale)} · ${stateLabel(item.state, tr)}] ${copy.title}\n  ${tr.t("guardian", "digestAsset")}: ${item.affectedAsset}${item.assetCount > 1 ? ` (${tr.t("guardian", "digestMoreAssets", { count: item.assetCount - 1 })})` : ""}\n  ${tr.t("guardian", "digestAction")}: ${copy.action}\n  ${item.link}`;
+    }).join("\n")}`)
     .join("\n\n");
-  const text = [`${digest.headline}`, digest.executiveSummary, changeLine, postureLine, `Open recommendations (${recommendations.total}):`, textCards, more].filter(Boolean).join("\n\n");
+  const text = [headline, executiveSummary, changeLine, postureLine, tr.t("guardian", "digestOpenRecommendations", { count: recommendations.total }), textCards, more].filter(Boolean).join("\n\n");
 
-  const card = (item: DigestRecommendationCard) => `<div style="margin-top:10px;padding:14px;border:1px solid #244339;border-radius:12px">
-<div style="font-size:11px;letter-spacing:.08em;color:#9fd9bd">${escapeHtml(item.priority.toUpperCase())} · ${escapeHtml(STATE_LABEL[item.state])}</div>
-<strong style="display:block;margin-top:6px">${escapeHtml(item.title)}</strong>
-<div style="margin-top:6px;font-size:13px;color:#9fd9bd">${escapeHtml(item.affectedAsset)}${item.assetCount > 1 ? ` <span style="color:#6f9d87">+${item.assetCount - 1} more</span>` : ""}</div>
-<p style="margin:8px 0 0;font-size:13px">${escapeHtml(item.action)}</p>
-<a href="${escapeHtml(item.link)}" style="display:inline-block;margin-top:10px;font-size:12px;color:#76e6a8">Open in OUTSIDE</a>
+  const card = (item: DigestRecommendationCard) => {
+    const copy = cardCopy(item, tr);
+    return `<div style="margin-top:10px;padding:14px;border:1px solid #244339;border-radius:12px">
+<div style="font-size:11px;letter-spacing:.08em;color:#9fd9bd">${escapeHtml(priorityLabel(item.priority, tr).toLocaleUpperCase(locale))} · ${escapeHtml(stateLabel(item.state, tr))}</div>
+<strong style="display:block;margin-top:6px">${escapeHtml(copy.title)}</strong>
+<div style="margin-top:6px;font-size:13px;color:#9fd9bd">${escapeHtml(item.affectedAsset)}${item.assetCount > 1 ? ` <span style="color:#6f9d87">${escapeHtml(tr.t("guardian", "digestMoreAssets", { count: item.assetCount - 1 }))}</span>` : ""}</div>
+<p style="margin:8px 0 0;font-size:13px">${escapeHtml(copy.action)}</p>
+<a href="${escapeHtml(item.link)}" style="display:inline-block;margin-top:10px;font-size:12px;color:#76e6a8">${escapeHtml(tr.t("guardian", "digestOpenOutside"))}</a>
 </div>`;
+  };
 
-  const html = `<div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px">
-<p style="color:#76e6a8;letter-spacing:.12em">OUTSIDE GUARDIAN · WEEKLY</p>
-<h1 style="margin:0 0 8px">${escapeHtml(digest.headline)}</h1>
+  const html = `<html lang="${locale}"><body style="margin:0"><div style="font-family:Inter,Arial,sans-serif;background:#07100d;color:#eaf7f0;padding:32px">
+<p style="color:#76e6a8;letter-spacing:.12em">OUTSIDE GUARDIAN · ${escapeHtml(tr.t("guardian", "digestWeekly"))}</p>
+<h1 style="margin:0 0 8px">${escapeHtml(headline)}</h1>
 <p style="color:#9fd9bd">${escapeHtml(digest.target)}</p>
-<h2 style="margin:28px 0 6px;font-size:15px">What changed</h2>
+<p>${escapeHtml(executiveSummary)}</p>
+<h2 style="margin:28px 0 6px;font-size:15px">${escapeHtml(tr.t("guardian", "digestWhatChanged"))}</h2>
 <p style="margin:0;font-size:13px;color:#9fd9bd">${escapeHtml(changeLine)}</p>
-<h2 style="margin:24px 0 6px;font-size:15px">Protection posture</h2>
+<h2 style="margin:24px 0 6px;font-size:15px">${escapeHtml(tr.t("guardian", "digestProtectionPosture"))}</h2>
 <p style="margin:0;font-size:13px;color:#9fd9bd">${escapeHtml(postureLine)}</p>
-<h2 style="margin:24px 0 6px;font-size:15px">Open recommendations (${recommendations.total})</h2>
-${groups.map((group) => `<div style="margin-top:16px"><div style="font-size:11px;letter-spacing:.08em;color:#76e6a8">${escapeHtml(group.area.toUpperCase())}</div>${group.cards.map(card).join("")}</div>`).join("")}
+<h2 style="margin:24px 0 6px;font-size:15px">${escapeHtml(tr.t("guardian", "digestOpenRecommendations", { count: recommendations.total }))}</h2>
+${groups.map((group) => `<div style="margin-top:16px"><div style="font-size:11px;letter-spacing:.08em;color:#76e6a8">${escapeHtml(tr.t("guardian", DIGEST_AREA_KEY[group.area]).toLocaleUpperCase(locale))}</div>${group.cards.map(card).join("")}</div>`).join("")}
 ${more ? `<p style="margin-top:18px;font-size:13px;color:#9fd9bd">${escapeHtml(more)}</p>` : ""}
-</div>`;
+</div></body></html>`;
 
-  return { to, subject: `Guardian weekly: ${digest.headline}`, text, html };
+  return { to, subject: tr.t("guardian", "digestSubject", { headline }), text, html };
 }
 
 function concisePayload(payload: EventPayload | DigestPayload) {
-  if (payload.kind === "weekly_digest") return { title: payload.digest.headline, text: payload.digest.executiveSummary, target: payload.digest.target, items: payload.digest.recommendations.cards.map((card) => ({ title: card.title, detail: card.action, severity: card.priority })) };
-  return { title: `${payload.events.length} important Guardian change(s)`, text: `External changes observed for ${payload.target}`, target: payload.target, items: payload.events.map((event) => ({ title: event.title, detail: event.summary, severity: event.severity })) };
+  const tr = getTranslator(payload.locale);
+  if (payload.kind === "weekly_digest") {
+    const { digest } = payload;
+    const headline = payload.locale === "en" ? digest.headline : digest.changeStatus.highPriorityAlerts > 0
+      ? tr.t("guardian", "digestHeadlineHigh", { count: digest.changeStatus.highPriorityAlerts })
+      : digest.changeStatus.materialChanges > 0 && digest.posture.drift.direction !== "worsening"
+        ? tr.t("guardian", "digestHeadlineChanged")
+        : localizeGuardianDrift(digest.posture.drift, tr).headline;
+    const text = payload.locale === "en" ? digest.executiveSummary : tr.t("guardian", "digestExecutiveSummary", {
+      new: digest.changeStatus.newAssets,
+      returning: digest.changeStatus.returnedAssets,
+      removed: digest.changeStatus.removedAssets,
+      signals: digest.changeStatus.newSurfaceSignals,
+      recommendations: digest.recommendations.total,
+    });
+    return { title: headline, text, target: digest.target, items: digest.recommendations.cards.map((item) => ({ ...cardCopy(item, tr), severity: priorityLabel(item.priority, tr) })).map((item) => ({ title: item.title, detail: item.action, severity: item.severity })) };
+  }
+  return {
+    title: tr.t("guardian", "eventEmailHeading", { count: payload.events.length }),
+    text: tr.t("guardian", "workflowExternalChanges", { target: payload.target }),
+    target: payload.target,
+    items: payload.events.map((event) => { const copy = localizeGuardianEvent(event, tr); return { title: copy.title, detail: copy.summary, severity: priorityLabel(event.severity, tr) }; }),
+  };
 }
 
 function safeWorkflowText(value: string): string {

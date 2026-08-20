@@ -3,38 +3,32 @@ import { APP_URL } from "@/lib/config/runtime";
 import { currentLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/context";
 import { getBundles } from "@/lib/i18n/messages";
+import { getTranslator } from "@/lib/i18n/messages";
 import { webAnalyticsConfig } from "@/lib/analytics/config";
 import { AnalyticsScript } from "@/components/analytics/AnalyticsScript";
 import { CampaignAttribution } from "@/components/analytics/CampaignAttribution";
 import "./globals.css";
 
 const SITE_URL = APP_URL;
-const DESCRIPTION =
-  "Evidence-first external attack surface management: passive discovery, verified assessments, continuous Guardian monitoring, BYOK intelligence, and reversible remediation.";
-
 // A per-request CSP nonce cannot be embedded in statically generated HTML.
 // Dynamic rendering lets Next.js apply the middleware nonce to every script.
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: "OUTSIDE — See your company from the outside",
-  description: DESCRIPTION,
-  applicationName: "OUTSIDE",
-  robots: { index: true, follow: true },
-  openGraph: {
-    title: "OUTSIDE — See your company from the outside",
-    description: DESCRIPTION,
-    siteName: "OUTSIDE",
-    type: "website",
-    url: SITE_URL,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "OUTSIDE — See your company from the outside",
-    description: DESCRIPTION,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await currentLocale();
+  const t = getTranslator(locale);
+  const title = t.t("ui", "metaTitle");
+  const description = t.t("ui", "metaDescription");
+  return {
+    metadataBase: new URL(SITE_URL),
+    title,
+    description,
+    applicationName: "OUTSIDE",
+    robots: { index: true, follow: true },
+    openGraph: { title, description, siteName: "OUTSIDE", type: "website", url: SITE_URL },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 export default async function RootLayout({
   children,

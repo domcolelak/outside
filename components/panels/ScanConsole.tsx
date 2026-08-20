@@ -4,6 +4,7 @@ import { useTranslator } from "@/lib/i18n/context";
 
 import { useEffect, useRef } from "react";
 import type { LogLine, StageState } from "@/components/useScan";
+import { localizeScanLog, localizeScanStage } from "@/lib/discovery/localize";
 
 const LEVEL_MARK: Record<LogLine["level"], { mark: string; color: string }> = {
   info: { mark: "›", color: "text-ink-faint" },
@@ -33,21 +34,21 @@ export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; 
             <div key={s.stage} aria-current={s.status === "active" ? "step" : undefined} className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs transition ${s.status === "active" ? "border border-signal/15 bg-signal/4" : "border border-transparent"}`}>
               <StageDot status={s.status} />
               <span className={s.status === "done" ? "text-ink-soft" : s.status === "active" ? "text-ink" : "text-ink-faint"}>
-                {s.label}
+                {localizeScanStage(s.stage, tr)}
               </span>
             </div>
           ))}
         </div>
       </div>
       <div ref={scrollRef} className="scroll-thin flex-1 space-y-1 overflow-y-auto px-4 py-3">
-        <span className="sr-only" role="status" aria-live="polite">{logs.at(-1)?.message ?? (scanning ? sc("discoveryWorking") : sc("discoveryIdle"))}</span>
+        <span className="sr-only" role="status" aria-live="polite">{logs.at(-1) ? localizeScanLog(logs.at(-1)!.message, tr) : (scanning ? sc("discoveryWorking") : sc("discoveryIdle"))}</span>
         {logs.map((l, i) => {
           const m = LEVEL_MARK[l.level];
           return (
             <div key={i} className="mono flex gap-2 text-[12px] leading-relaxed animate-fade-up">
               <span className={`${m.color} w-3 shrink-0`}>{m.mark}</span>
               <span className={l.level === "signal" ? "text-risk-medium" : l.level === "warn" ? "text-risk-high" : "text-ink-soft"}>
-                {l.message}
+                {localizeScanLog(l.message, tr)}
               </span>
             </div>
           );
@@ -55,7 +56,7 @@ export function ScanConsole({ stages, logs, scanning }: { stages: StageState[]; 
         {scanning && (
           <div className="mono flex gap-2 text-[12px] text-signal">
             <span className="w-3 shrink-0">▍</span>
-            <span className="animate-pulse">working…</span>
+            <span className="animate-pulse">{tr.t("ui", "working")}</span>
           </div>
         )}
       </div>

@@ -14,22 +14,18 @@
   "manageBilling": "Zarządzaj rozliczeniami",
   "opening": "Otwieranie…",
   "portalUnavailable": "Portal rozliczeniowy jest chwilowo niedostępny.",
-
   "planSnapshot": "Snapshot",
   "planProfessional": "Professional",
   "planAgency": "Agency",
-
   "freeFeature1": "Jedna migawka zewnętrzna",
   "freeFeature2": "Interaktywny graf zasobów",
   "freeFeature3": "Odtworzenie Attacker View",
   "freeFeature4": "Najważniejsze ustalenia",
-
   "professionalFeature1": "Do 5 monitorowanych domen",
   "professionalFeature2": "Codzienne skanowania i powiadomienia o zmianach",
   "professionalFeature3": "Pełne ustalenia i dowody",
   "professionalFeature4": "Historia pozycji ochronnej",
   "professionalFeature5": "Raporty PDF",
-
   "agencyFeature1": "Do 30 domen klientów",
   "agencyFeature2": "Role zespołu i przestrzenie robocze",
   "agencyFeature3": "Raportowanie według harmonogramu",

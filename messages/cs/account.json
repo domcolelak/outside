@@ -7,12 +7,10 @@
   "planProfessional": "Professional",
   "planAgency": "Agency",
   "signOut": "Odhlásit se",
-
   "roleOwner": "vlastník",
   "roleAdmin": "správce",
   "roleAnalyst": "analytik",
   "roleViewer": "čtenář",
-
   "monitorsHeading": "Monitorované cíle",
   "monitorsDomainLabel": "Doména k monitorování",
   "monitorsDomainPlaceholder": "firma.com",
@@ -31,12 +29,10 @@
   "monitorsAddFailed": "Monitorování se nepodařilo přidat.",
   "monitorsUpdateFailed": "Monitorování se nepodařilo upravit.",
   "monitorsRemoveFailed": "Monitorování se nepodařilo odebrat.",
-
   "notificationsHeading": "Upozornění",
   "notificationsChangeAlerts": "Upozornění na změny",
   "notificationsChangeAlertsBody": "Poslat mi e-mail, když se monitorovaný povrch této organizace změní.",
   "notificationsFailed": "Nastavení upozornění se nepodařilo uložit.",
-
   "teamHeading": "Tým",
   "teamEmailLabel": "E-mail kolegy",
   "teamEmailPlaceholder": "kolega@firma.com",
@@ -46,7 +42,6 @@
   "teamNoInvites": "Žádné čekající pozvánky.",
   "teamPending": "čeká",
   "teamInviteFailed": "Pozvánku se nepodařilo odeslat.",
-
   "verifyTitle": "Ověřte svůj e-mail a odemkněte skenování, monitorování a zprávy",
   "verifyBodyInvalid": "Tento ověřovací odkaz byl neplatný nebo mu vypršela platnost. Nechte si níže poslat nový.",
   "verifyBody": "Ověřovací odkaz jsme poslali na {email}. Skeny ověřených cílů, Guardian, pozvánky a Agency/Enterprise zůstanou zamčené, dokud jej nepotvrdíte.",

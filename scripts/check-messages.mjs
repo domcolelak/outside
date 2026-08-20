@@ -66,6 +66,17 @@ const NONTRANSLATABLE = new Set(
   existsSync(join(ROOT, "nontranslatable.json")) ? JSON.parse(readFileSync(join(ROOT, "nontranslatable.json"), "utf8")).keys : [],
 );
 
+// These short feature labels previously slipped through as valid keys carrying
+// English in every catalog. They are deliberately asserted because parity alone
+// cannot distinguish a translation from a copied source string.
+const MUST_TRANSLATE = new Set([
+  "enterprise.auditNdjson",
+  "landing.featureAttackerView",
+  "landing.guardianChipDrift",
+  "scan.attackerView",
+  "scan.kindCdn",
+]);
+
 const locales = readdirSync(ROOT, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name);
@@ -116,6 +127,9 @@ for (const locale of locales.filter((entry) => entry !== SOURCE)) {
 
       if (NONTRANSLATABLE.has(`${file.replace(/\.json$/, "")}.${key}`) && JSON.stringify(target[key]) !== JSON.stringify(source[key])) {
         problems.push(`${locale}/${file}: "${key}" is a product name and must read exactly as it does in English`);
+      }
+      if (MUST_TRANSLATE.has(`${file.replace(/\.json$/, "")}.${key}`) && JSON.stringify(target[key]) === JSON.stringify(source[key])) {
+        problems.push(`${locale}/${file}: "${key}" still contains the English source text`);
       }
     }
 

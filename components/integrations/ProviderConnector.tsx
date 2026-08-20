@@ -2,6 +2,7 @@
 
 import { useTranslator } from "@/lib/i18n/context";
 import { providerSummaryKey } from "@/lib/integrations/providers/text";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { joinCredentialPair, joinCredentialParts } from "@/lib/integrations/pair-credential";
@@ -63,15 +64,13 @@ async function responseError(
   response: Response,
   fallback: string,
 ): Promise<string> {
-  try {
-    const data = (await response.json()) as { error?: unknown };
-    return typeof data.error === "string" && data.error.trim()
-      ? data.error
-      : fallback;
-  } catch {
-    return fallback;
-  }
+  await response.body?.cancel().catch(() => undefined);
+  return fallback;
 }
+
+const CAPABILITY_KEY: Record<string, MessageKey<"integrations">> = {
+  ip_reputation: "connectorCapabilityIpReputation", asset_attribution: "connectorCapabilityAssetAttribution", service_discovery: "connectorCapabilityServiceDiscovery", ip_classification: "connectorCapabilityIpClassification", domain_search: "connectorCapabilityDomainSearch", scan_explanations: "connectorCapabilityExplanations", passive_subdomains: "connectorCapabilityPassiveSubdomains", domain_reputation: "connectorCapabilityDomainReputation", commercial_licence: "connectorCapabilityCommercialUse",
+};
 
 /**
  * One connector UI for every BYOK provider. A stored key is never returned to
@@ -92,7 +91,7 @@ export function ProviderConnector({
   // renders for anyone who *can* connect, so leaving it on descriptor.summary
   // meant an admin — the one person who acts on it — read English.
   const summaryKey = providerSummaryKey(descriptor.id);
-  const summary = summaryKey ? n(summaryKey) : descriptor.summary;
+  const summary = summaryKey ? n(summaryKey) : n("providerSummaryUnavailable");
   const titleId = `provider-${descriptor.id}-title`;
   const helpId = `provider-${descriptor.id}-help`;
   const loadErrorId = `provider-${descriptor.id}-load-error`;
@@ -353,7 +352,7 @@ export function ProviderConnector({
 
       {blocked && (
         <div className="mono mt-3 rounded-md border border-line bg-base-900 px-3 py-2 text-[12px] leading-5 text-ink-faint">
-          {blocked.reason}
+          {n("connectorBlockedReason")}
         </div>
       )}
 
@@ -370,7 +369,7 @@ export function ProviderConnector({
             disabled={busy !== ""}
             className="mt-3 min-h-11 rounded-lg border border-line px-3 text-sm text-ink-soft transition hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-50"
           >
-            Retry status check
+            {n("cfRetryStatus")}
           </button>
         </div>
       )}
@@ -378,14 +377,13 @@ export function ProviderConnector({
       {!blocked && status?.stored && !showForm && (
         <div className="mt-4 space-y-3">
           <div className="mono flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-faint">
-            {status.accountHint && <span>Key {status.accountHint}</span>}
+            {status.accountHint && <span>{n("connectorKeyHint", { hint: status.accountHint })}</span>}
             {status.connected && status.accountLabel && (
-              <span className="text-ink-soft">{status.accountLabel}</span>
+              <span className="text-ink-soft">{n("connectorConnectedAccount")}</span>
             )}
             {status.lastValidatedAt && (
               <span>
-                Last verified{" "}
-                {new Date(status.lastValidatedAt).toLocaleString()}
+                {n("connectorLastVerified", { date: tr.formatDate(status.lastValidatedAt, { dateStyle: "medium", timeStyle: "short" }) })}
               </span>
             )}
           </div>
@@ -397,15 +395,14 @@ export function ProviderConnector({
                   key={capability.id}
                   className="mono text-[12px] leading-5 text-ink-faint"
                 >
-                  {capability.label}:{" "}
+                  {n(CAPABILITY_KEY[capability.id] ?? "connectorCapabilityOther")}:{" "}
                   {capability.available ? (
                     <span className="text-signal">
                       {n("connectorCapAvailable")}
-                      {capability.detail ? ` — ${capability.detail}` : ""}
                     </span>
                   ) : (
                     <span className="text-risk-medium">
-                      {capability.detail ?? n("connectorCapNotAvailable")}
+                      {n("connectorCapNotAvailable")}
                     </span>
                   )}
                 </li>
@@ -415,8 +412,7 @@ export function ProviderConnector({
 
           {!status.connected && (
             <div className="mono rounded-md border border-risk-medium/30 bg-risk-medium/5 px-3 py-2 text-[12px] leading-5 text-risk-medium">
-              {status.error?.message ??
-                n("connectorStoredKeyFailed")}
+              {n("connectorStoredKeyFailed")}
             </div>
           )}
 
@@ -428,12 +424,11 @@ export function ProviderConnector({
               <ul className="mt-2 space-y-1">
                 {status.history.map((entry) => (
                   <li key={`${entry.action}-${entry.createdAt}`} className="mono text-[11px] leading-5 text-ink-faint">
-                    <span className="text-ink-soft">{entry.action}</span>
+                    <span className="text-ink-soft">{n(`connectorHistory${entry.action[0]!.toUpperCase()}${entry.action.slice(1)}` as Parameters<typeof tr.t<"integrations">>[1])}</span>
                     {" · "}
                     {tr.formatDate(entry.createdAt, { dateStyle: "medium", timeStyle: "short" })}
                     {" · "}
                     <span title={n("connectorActingUser")}>{entry.actorId}</span>
-                    {entry.detail && <span> · {entry.detail}</span>}
                   </li>
                 ))}
               </ul>

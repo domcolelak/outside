@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { LegalDocument } from "@/components/legal/LegalDocument";
-import { TERMS_BODY, TERMS_UPDATED } from "@/lib/legal/terms";
+import { currentLocale } from "@/lib/i18n/server";
+import { termsDocument } from "@/lib/legal/documents";
 
-export const metadata: Metadata = { title: "Terms of Service · OUTSIDE" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await currentLocale();
+  return { title: `${termsDocument(locale).title} · OUTSIDE` };
+}
 
-export default function TermsPage() {
-  return <LegalDocument title="Terms of Service" updated={TERMS_UPDATED} body={TERMS_BODY} />;
+export default async function TermsPage() {
+  const { locale } = await currentLocale();
+  return <LegalDocument {...termsDocument(locale)} locale={locale} />;
 }

@@ -20,39 +20,30 @@
   "assistantMatchedLabel": "OUTSIDE Assistant",
   "assistantUserLabel": "You",
   "assistantSuggestionsLabel": "Related questions",
-
   "faqOverviewQuestion": "What does OUTSIDE actually do?",
   "faqOverviewAnswer": "OUTSIDE starts with a company domain and maps the external digital surface visible from the internet. It separates observed evidence from inference and possible concern, shows relationships between assets, and explains what deserves review. It is an external visibility and monitoring product, not a penetration test.",
   "faqOverviewKeywords": "outside product purpose external surface attack surface discovery map assets findings posture visibility",
-
   "faqSafetyQuestion": "Is scanning safe, and can I scan any domain?",
   "faqSafetyAnswer": "The public snapshot uses passive, publicly available sources by default. Active checks, continuous monitoring, and remediation require an authenticated account and verified control of the target. Only scan domains you own or are authorized to assess. Domain owners can also use the published opt-out mechanism.",
   "faqSafetyKeywords": "safe safety legal permission authorization passive active scan any domain opt out abuse ownership",
-
   "faqSourcesQuestion": "Which data sources does OUTSIDE use?",
   "faqSourcesAnswer": "Core discovery uses public certificate-transparency, DNS, HTTP, and TLS observations. Optional organization-owned integrations can add passive DNS, breach intelligence, reputation, service exposure, cloud attribution, and other context. A provider failure is shown as incomplete coverage, never as a passing result.",
   "faqSourcesKeywords": "sources data certificate transparency dns http tls providers coverage passive intelligence discovery",
-
   "faqVerificationQuestion": "Why do I need to verify a domain?",
   "faqVerificationAnswer": "Verification proves that your organization controls the target before OUTSIDE performs active observations or stores continuous history. You verify with a DNS TXT record or the supported web-file method. Verification does not transfer DNS control and can be removed after it is confirmed.",
   "faqVerificationKeywords": "verify verification ownership domain dns txt file active check prove control token",
-
   "faqGuardianQuestion": "What is OUTSIDE Guardian?",
   "faqGuardianAnswer": "Guardian compares scheduled scans over time. It highlights exposure drift, maintains a living checklist, creates evidence-backed recommendations, routes grouped alerts, and prepares an executive digest. It reports what changed and why it matters without claiming that a system was exploited.",
   "faqGuardianKeywords": "guardian monitoring monitor scheduled continuous drift alert checklist recommendation digest changes history",
-
   "faqIntegrationsQuestion": "Can I connect my own provider and cloud accounts?",
   "faqIntegrationsAnswer": "Yes. OUTSIDE supports organization-owned credentials for intelligence and account-attribution providers through one guided connection flow. Credentials are tested, encrypted, tenant-scoped, and used only for the selected organization. Write-capable actions such as Cloudflare DMARC remediation are explicit, previewed, audited, and reversible where supported.",
   "faqIntegrationsKeywords": "integration connect api key byok own key cloud provider cloudflare shodan virustotal censys openai aws azure google github credentials",
-
   "faqAiQuestion": "Does AI decide what is a finding?",
   "faqAiAnswer": "No. Discovery, findings, scores, and evidence are deterministic. Optional AI can explain an existing result in plainer language, but it cannot add assets, findings, or scores. Secrets and personal-data patterns are redacted before a model call, and a deterministic explanation remains available without AI.",
   "faqAiKeywords": "ai artificial intelligence openai model explanation hallucination finding score deterministic privacy redaction",
-
   "faqPricingQuestion": "How much does OUTSIDE cost?",
   "faqPricingAnswer": "A one-off Snapshot is free. Professional is $79 per month for Guardian and up to five monitored domains. Agency is $249 per month for up to thirty client domains plus team, white-label, workflow, and API capabilities. The pricing section on this page is the current source of truth.",
   "faqPricingKeywords": "price pricing cost free snapshot professional agency monthly plan trial domains 79 249",
-
   "faqDataQuestion": "How does OUTSIDE handle my data and credentials?",
   "faqDataAnswer": "Customer records are tenant-scoped, provider credentials are encrypted, and production uses durable database storage with bounded retention controls. Public demos use synthetic data. OUTSIDE minimizes model inputs, avoids tenant and domain labels in product telemetry, and exposes documented export, revocation, retention, and offboarding procedures.",
   "faqDataKeywords": "data privacy credentials encryption retention delete export storage tenant synthetic telemetry security secrets"

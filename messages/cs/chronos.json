@@ -11,5 +11,10 @@
   "loadFailed": "Historii se nepodařilo načíst.",
   "networkError": "Chyba sítě.",
   "protectionPosture": "ochranná pozice",
-  "noPoints": "Zatím žádné zaznamenané body."
+  "noPoints": "Zatím žádné zaznamenané body.",
+  "initialSummary": "Úvodní pozorování zaznamenalo {count} aktiv.",
+  "diffSummary": "Změny od předchozího pozorování: {added} přidaných, {removed} odstraněných a {modified} upravených.",
+  "changeAdded": "přidáno",
+  "changeRemoved": "odstraněno",
+  "changeModified": "upraveno"
 }

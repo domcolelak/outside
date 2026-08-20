@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslator } from "@/lib/i18n/context";
+import { localizeScanLog, localizeScanStage } from "@/lib/discovery/localize";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -170,10 +171,10 @@ function ScanView() {
           {scan.status === "error" && (
             <div className="absolute inset-0 flex items-center justify-center px-6">
               <div className="panel max-w-md p-6 text-center">
-                <div className="mono text-xs uppercase tracking-wider text-risk-high">Scan error</div>
-                <p className="mt-2 text-sm text-ink-soft">{scan.error}</p>
+                <div className="mono text-xs uppercase tracking-wider text-risk-high">{tr.t("ui", "scanError")}</div>
+                <p className="mt-2 text-sm text-ink-soft">{tr.t("scan", "scanFailed")}</p>
                 <button onClick={scan.restart} className="mono mt-4 rounded-md border border-line px-3 py-1.5 text-xs text-ink hover:bg-base-700">
-                  Retry
+                  {tr.t("ui", "retry")}
                 </button>
               </div>
             </div>
@@ -212,14 +213,18 @@ function ScanView() {
 }
 
 function CinematicScanStatus({ stages, assetCount, latest }: { stages: StageState[]; assetCount: number; latest?: string }) {
+  const tr = useTranslator();
   const activeIndex = Math.max(0, stages.findIndex((stage) => stage.status === "active"));
   const active = stages[activeIndex] ?? stages[0];
   const progress = Math.max(4, ((stages.filter((stage) => stage.status === "done").length + .45) / Math.max(stages.length, 1)) * 100);
-  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/6"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[11px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[11px] uppercase tracking-[.18em] text-signal">Discovery in progress</div><div className="mono text-[10px] text-ink-faint">{assetCount} entities</div></div><div className="mt-1 text-sm font-medium text-ink">{active?.label ?? "Establishing external viewpoint"}</div><div className="mono mt-1 truncate text-[11px] text-ink-faint">{latest ?? "Opening deterministic provider sequence…"}</div></div></div><div role="progressbar" aria-label="Discovery progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${active?.label ?? "Discovery"} — ${Math.round(progress)}%`} className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${stage.label}`}/>)}</div><span className="sr-only" role="status" aria-live="polite">{active?.label ?? "Discovery in progress"}. {latest ?? ""}</span></div></div>;
+  const activeLabel = active ? localizeScanStage(active.stage, tr) : tr.t("ui", "establishingViewpoint");
+  const latestLabel = latest ? localizeScanLog(latest, tr) : tr.t("ui", "openingProviderSequence");
+  return <div className={`pointer-events-none absolute z-20 transition-all ${assetCount ? "left-1/2 top-4 w-[min(88%,520px)] -translate-x-1/2" : "inset-0 grid place-items-center px-5"}`}><div key={active?.stage} className="premium-surface w-full animate-rise-in p-4"><div className="flex items-center gap-4"><div className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-signal/20 bg-signal/6"><span className="absolute inset-2 animate-ping rounded-lg border border-signal/20"/><span className="mono relative text-[11px] text-signal">{String(activeIndex + 1).padStart(2,"0")}</span></div><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-3"><div className="mono text-[11px] uppercase tracking-[.18em] text-signal">{tr.t("ui", "discoveryInProgress")}</div><div className="mono text-[10px] text-ink-faint">{tr.t("ui", "entityCount", { count: assetCount })}</div></div><div className="mt-1 text-sm font-medium text-ink">{activeLabel}</div><div className="mono mt-1 truncate text-[11px] text-ink-faint">{latestLabel}</div></div></div><div role="progressbar" aria-label={tr.t("ui", "discoveryProgress")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} aria-valuetext={`${activeLabel} — ${Math.round(progress)}%`} className="mt-4 h-1 overflow-hidden rounded-full bg-base-700"><div className="h-full rounded-full bg-signal transition-[width] duration-700" style={{ width: `${progress}%` }}/></div><div className="mt-2 flex justify-between">{stages.map((stage,index) => <span key={stage.stage} className={`h-1.5 w-1.5 rounded-full transition ${stage.status === "done" ? "bg-signal" : stage.status === "active" ? "animate-pulse bg-signal" : "bg-base-600"}`} title={`${index + 1}. ${localizeScanStage(stage.stage, tr)}`}/>)}</div><span className="sr-only" role="status" aria-live="polite">{activeLabel}. {latestLabel}</span></div></div>;
 }
 
 function IntelligenceEmpty({ scanning }: { scanning: boolean }) {
-  return <div className="flex h-full items-center justify-center px-7 text-center"><div className="max-w-xs"><div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-line bg-base-950/50"><div className={`h-2.5 w-2.5 rounded-full bg-signal ${scanning ? "animate-breathe shadow-glow" : ""}`}/><span className="absolute inset-3 rounded-xl border border-signal/10"/></div><div className="mt-5 text-sm font-medium text-ink">{scanning ? "Building the intelligence layer" : "Select an asset to inspect"}</div><p className="mt-2 text-xs leading-5 text-ink-faint">{scanning ? "Findings, evidence and posture appear only after deterministic observations are correlated." : "Routing, technology, confidence, signals and source evidence stay one click from the graph."}</p></div></div>;
+  const tr = useTranslator();
+  return <div className="flex h-full items-center justify-center px-7 text-center"><div className="max-w-xs"><div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-line bg-base-950/50"><div className={`h-2.5 w-2.5 rounded-full bg-signal ${scanning ? "animate-breathe shadow-glow" : ""}`}/><span className="absolute inset-3 rounded-xl border border-signal/10"/></div><div className="mt-5 text-sm font-medium text-ink">{tr.t("ui", scanning ? "buildingIntelligence" : "selectAssetInspect")}</div><p className="mt-2 text-xs leading-5 text-ink-faint">{tr.t("ui", scanning ? "intelligenceAfterCorrelation" : "assetInspectionHint")}</p></div></div>;
 }
 
 const FILTER_PRIORITIES: Array<{ key: string; color: string; label: string }> = [
@@ -259,7 +264,7 @@ function GraphControls({
           className="mono w-36 bg-transparent text-xs text-ink placeholder:text-ink-faint focus:outline-hidden"
         />
         {query && (
-          <button onClick={() => setQuery("")} className="text-ink-faint hover:text-ink" aria-label="Clear">×</button>
+          <button onClick={() => setQuery("")} className="text-ink-faint hover:text-ink" aria-label={tr.t("ui", "clear")}>×</button>
         )}
       </div>
       <div className="flex items-center gap-1">
@@ -306,8 +311,9 @@ function GraphLegend() {
 }
 
 export default function ScanPage() {
+  const tr = useTranslator();
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-ink-soft">Loading…</div>}>
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-ink-soft">{tr.t("ui", "loading")}</div>}>
       <ScanView />
     </Suspense>
   );

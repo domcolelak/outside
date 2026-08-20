@@ -35,6 +35,9 @@ import enAgency from "@/messages/en/agency.json";
 import enAssess from "@/messages/en/assess.json";
 import enSupport from "@/messages/en/support.json";
 import enScan from "@/messages/en/scan.json";
+import enUi from "@/messages/en/ui.json";
+import enEnterprise from "@/messages/en/enterprise.json";
+import enEvolution from "@/messages/en/evolution.json";
 import skCommon from "@/messages/sk/common.json";
 import skNavigation from "@/messages/sk/navigation.json";
 import skLanding from "@/messages/sk/landing.json";
@@ -52,6 +55,9 @@ import skAgency from "@/messages/sk/agency.json";
 import skAssess from "@/messages/sk/assess.json";
 import skSupport from "@/messages/sk/support.json";
 import skScan from "@/messages/sk/scan.json";
+import skUi from "@/messages/sk/ui.json";
+import skEnterprise from "@/messages/sk/enterprise.json";
+import skEvolution from "@/messages/sk/evolution.json";
 import csCommon from "@/messages/cs/common.json";
 import csNavigation from "@/messages/cs/navigation.json";
 import csLanding from "@/messages/cs/landing.json";
@@ -69,6 +75,9 @@ import csAgency from "@/messages/cs/agency.json";
 import csAssess from "@/messages/cs/assess.json";
 import csSupport from "@/messages/cs/support.json";
 import csScan from "@/messages/cs/scan.json";
+import csUi from "@/messages/cs/ui.json";
+import csEnterprise from "@/messages/cs/enterprise.json";
+import csEvolution from "@/messages/cs/evolution.json";
 import huCommon from "@/messages/hu/common.json";
 import huNavigation from "@/messages/hu/navigation.json";
 import huLanding from "@/messages/hu/landing.json";
@@ -86,6 +95,9 @@ import huAgency from "@/messages/hu/agency.json";
 import huAssess from "@/messages/hu/assess.json";
 import huSupport from "@/messages/hu/support.json";
 import huScan from "@/messages/hu/scan.json";
+import huUi from "@/messages/hu/ui.json";
+import huEnterprise from "@/messages/hu/enterprise.json";
+import huEvolution from "@/messages/hu/evolution.json";
 import plCommon from "@/messages/pl/common.json";
 import plNavigation from "@/messages/pl/navigation.json";
 import plLanding from "@/messages/pl/landing.json";
@@ -103,14 +115,17 @@ import plAgency from "@/messages/pl/agency.json";
 import plAssess from "@/messages/pl/assess.json";
 import plSupport from "@/messages/pl/support.json";
 import plScan from "@/messages/pl/scan.json";
+import plUi from "@/messages/pl/ui.json";
+import plEnterprise from "@/messages/pl/enterprise.json";
+import plEvolution from "@/messages/pl/evolution.json";
 
 /** Namespaces are separate files so no locale becomes one unreviewable blob. */
 const BUNDLES = {
-  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport, support: enSupport, finding: enFinding, account: enAccount, billing: enBilling, guardian: enGuardian, assess: enAssess, chronos: enChronos, integrations: enIntegrations, capabilities: enCapabilities, agency: enAgency, scan: enScan },
-  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport, support: skSupport, finding: skFinding, account: skAccount, billing: skBilling, guardian: skGuardian, assess: skAssess, chronos: skChronos, integrations: skIntegrations, capabilities: skCapabilities, agency: skAgency, scan: skScan },
-  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport, support: csSupport, finding: csFinding, account: csAccount, billing: csBilling, guardian: csGuardian, assess: csAssess, chronos: csChronos, integrations: csIntegrations, capabilities: csCapabilities, agency: csAgency, scan: csScan },
-  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport, support: huSupport, finding: huFinding, account: huAccount, billing: huBilling, guardian: huGuardian, assess: huAssess, chronos: huChronos, integrations: huIntegrations, capabilities: huCapabilities, agency: huAgency, scan: huScan },
-  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport, support: plSupport, finding: plFinding, account: plAccount, billing: plBilling, guardian: plGuardian, assess: plAssess, chronos: plChronos, integrations: plIntegrations, capabilities: plCapabilities, agency: plAgency, scan: plScan },
+  en: { common: enCommon, navigation: enNavigation, landing: enLanding, auth: enAuth, email: enEmail, report: enReport, support: enSupport, finding: enFinding, account: enAccount, billing: enBilling, guardian: enGuardian, assess: enAssess, chronos: enChronos, integrations: enIntegrations, capabilities: enCapabilities, agency: enAgency, scan: enScan, ui: enUi, enterprise: enEnterprise, evolution: enEvolution },
+  sk: { common: skCommon, navigation: skNavigation, landing: skLanding, auth: skAuth, email: skEmail, report: skReport, support: skSupport, finding: skFinding, account: skAccount, billing: skBilling, guardian: skGuardian, assess: skAssess, chronos: skChronos, integrations: skIntegrations, capabilities: skCapabilities, agency: skAgency, scan: skScan, ui: skUi, enterprise: skEnterprise, evolution: skEvolution },
+  cs: { common: csCommon, navigation: csNavigation, landing: csLanding, auth: csAuth, email: csEmail, report: csReport, support: csSupport, finding: csFinding, account: csAccount, billing: csBilling, guardian: csGuardian, assess: csAssess, chronos: csChronos, integrations: csIntegrations, capabilities: csCapabilities, agency: csAgency, scan: csScan, ui: csUi, enterprise: csEnterprise, evolution: csEvolution },
+  hu: { common: huCommon, navigation: huNavigation, landing: huLanding, auth: huAuth, email: huEmail, report: huReport, support: huSupport, finding: huFinding, account: huAccount, billing: huBilling, guardian: huGuardian, assess: huAssess, chronos: huChronos, integrations: huIntegrations, capabilities: huCapabilities, agency: huAgency, scan: huScan, ui: huUi, enterprise: huEnterprise, evolution: huEvolution },
+  pl: { common: plCommon, navigation: plNavigation, landing: plLanding, auth: plAuth, email: plEmail, report: plReport, support: plSupport, finding: plFinding, account: plAccount, billing: plBilling, guardian: plGuardian, assess: plAssess, chronos: plChronos, integrations: plIntegrations, capabilities: plCapabilities, agency: plAgency, scan: plScan, ui: plUi, enterprise: plEnterprise, evolution: plEvolution },
 } as const;
 
 export type Namespace = keyof (typeof BUNDLES)["en"];

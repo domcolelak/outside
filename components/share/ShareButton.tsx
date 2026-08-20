@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import type { ScanResult } from "@/lib/types";
+import { useTranslator } from "@/lib/i18n/context";
 
 /** Turns a finished scan into a shareable, unlisted report link (the growth loop). */
 export function ShareButton({ result }: { result: ScanResult }) {
+  const tr = useTranslator();
   const [state, setState] = useState<"idle" | "creating" | "done" | "error">("idle");
   const [url, setUrl] = useState("");
   const [copied, setCopied] = useState(false);
@@ -31,8 +33,8 @@ export function ShareButton({ result }: { result: ScanResult }) {
   if (state === "done") {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-line bg-base-850 p-1.5">
-        <input aria-label="Shareable report URL" readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="mono min-w-0 flex-1 bg-transparent px-2 text-[12px] text-ink-soft outline-none" />
-        <button onClick={() => copy(url)} className="mono flex-none rounded-md bg-signal px-3 py-1.5 text-[12px] font-semibold text-base-950">{copied ? "Copied" : "Copy"}</button>
+        <input aria-label={tr.t("ui", "shareableReportUrl")} readOnly value={url} onFocus={(e) => e.currentTarget.select()} className="mono min-w-0 flex-1 bg-transparent px-2 text-[12px] text-ink-soft outline-none" />
+        <button onClick={() => copy(url)} className="mono flex-none rounded-md bg-signal px-3 py-1.5 text-[12px] font-semibold text-base-950">{tr.t("ui", copied ? "copied" : "copy")}</button>
       </div>
     );
   }
@@ -43,7 +45,7 @@ export function ShareButton({ result }: { result: ScanResult }) {
       disabled={state === "creating"}
       className="mono w-full rounded-xl border border-line px-4 py-2.5 text-left text-xs text-ink-soft transition hover:bg-base-700/40 disabled:opacity-60"
     >
-      {state === "creating" ? "Creating link…" : state === "error" ? "Couldn't create link — retry" : "↗ Share this report"}
+      {tr.t("ui", state === "creating" ? "creatingShareLink" : state === "error" ? "shareLinkFailed" : "shareThisReport")}
     </button>
   );
 }
