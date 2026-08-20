@@ -83,7 +83,7 @@ test.describe("public experience in five languages", () => {
     );
     // The scan form appears twice — hero and closing call to action.
     await expect(
-      page.getByRole("button", { name: /vonkajší povrch/i }).first(),
+      page.getByRole("button", { name: /bezplatnou snímkou/i }).first(),
     ).toBeVisible();
 
     // The headings are the surface a prospect reads first; none of them may
