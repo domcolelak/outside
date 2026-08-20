@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/prisma";
+import { recordEvolutionRun } from "@/lib/evolution/state";
 
 /**
  * Guarantees that exist only in the database.
@@ -30,12 +31,10 @@ const remediation = (id: string, target = "acme.example") => ({
 });
 
 async function reset() {
-  await prisma.evolutionRun.deleteMany({
-    where: { id: { startsWith: "e2e_evolution_" } },
-  });
-  await prisma.evolutionProposalSeen.deleteMany({
-    where: { proposalId: { startsWith: "e2e_evolution_" } },
-  });
+  // The PostgreSQL job is isolated to this CI database; clear both global
+  // Evolution tables so generated run ids from recordEvolutionRun are removed.
+  await prisma.evolutionRun.deleteMany();
+  await prisma.evolutionProposalSeen.deleteMany();
   await prisma.appliedRemediation.deleteMany({
     where: { orgId: { in: [ORG_ID, OTHER_ORG_ID] } },
   });
@@ -214,6 +213,28 @@ describe.sequential("database-only schema invariants", () => {
       await expect(
         prisma.evolutionRun.count({ where: { id: "e2e_evolution_run_1" } }),
       ).resolves.toBe(1);
+    });
+
+    it("acquires the advisory lock and records real scheduled-run deltas", async () => {
+      await prisma.evolutionRun.deleteMany();
+      await prisma.evolutionProposalSeen.deleteMany();
+
+      await expect(
+        recordEvolutionRun(
+          [{ id: "e2e_evolution_runtime_1" }],
+          "2026-08-20T00:00:00.000Z",
+        ),
+      ).resolves.toMatchObject({ firstRun: true, total: 1, new: 0 });
+      await expect(
+        recordEvolutionRun(
+          [
+            { id: "e2e_evolution_runtime_1" },
+            { id: "e2e_evolution_runtime_2" },
+          ],
+          "2026-08-21T00:00:00.000Z",
+        ),
+      ).resolves.toMatchObject({ firstRun: false, total: 2, new: 1 });
+      await expect(prisma.evolutionRun.count()).resolves.toBe(2);
     });
   });
 

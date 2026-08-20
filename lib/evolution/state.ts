@@ -51,7 +51,9 @@ export async function recordEvolutionRun(proposals: Array<{ id: string }>, at: s
   return conn.$transaction(async (tx) => {
     // The cron endpoint is safe to retry, but two schedulers can overlap during
     // a rollout. Serialize the global baseline/new-count decision in PostgreSQL.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('outside:evolution:run'))`;
+    // PostgreSQL returns void from pg_advisory_xact_lock. Prisma cannot
+    // deserialize that as a query result, so acquire it as an execute command.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('outside:evolution:run'))`;
     const firstRun = (await tx.evolutionRun.count()) === 0;
     const inserted = ids.length
       ? await tx.evolutionProposalSeen.createMany({
