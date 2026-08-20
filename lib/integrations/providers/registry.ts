@@ -26,30 +26,32 @@ import { m365Provider } from "./m365";
 import { gcpProvider } from "./gcp";
 import { googleWorkspaceProvider } from "./google-workspace";
 
-const REGISTRY: Record<string, ProviderDefinition> = {
-  [hibpProvider.id]: hibpProvider,
-  [securityTrailsProvider.id]: securityTrailsProvider,
-  [shodanProvider.id]: shodanProvider,
-  [abuseIpdbProvider.id]: abuseIpdbProvider,
-  [greyNoiseProvider.id]: greyNoiseProvider,
-  [virusTotalProvider.id]: virusTotalProvider,
-  [openAiProvider.id]: openAiProvider,
-  [censysProvider.id]: censysProvider,
-  [vercelProvider.id]: vercelProvider,
-  [netlifyProvider.id]: netlifyProvider,
-  [digitalOceanProvider.id]: digitalOceanProvider,
-  [awsProvider.id]: awsProvider,
-  [fastlyProvider.id]: fastlyProvider,
-  [gitHubProvider.id]: gitHubProvider,
-  [azureProvider.id]: azureProvider,
-  [m365Provider.id]: m365Provider,
-  [gcpProvider.id]: gcpProvider,
-  [googleWorkspaceProvider.id]: googleWorkspaceProvider,
-};
+const REGISTRY = {
+  hibp: hibpProvider,
+  securitytrails: securityTrailsProvider,
+  shodan: shodanProvider,
+  abuseipdb: abuseIpdbProvider,
+  greynoise: greyNoiseProvider,
+  virustotal: virusTotalProvider,
+  openai: openAiProvider,
+  censys: censysProvider,
+  vercel: vercelProvider,
+  netlify: netlifyProvider,
+  digitalocean: digitalOceanProvider,
+  aws: awsProvider,
+  fastly: fastlyProvider,
+  github: gitHubProvider,
+  azure: azureProvider,
+  m365: m365Provider,
+  gcp: gcpProvider,
+  google_workspace: googleWorkspaceProvider,
+} satisfies Record<Exclude<IntegrationProvider, "cloudflare">, ProviderDefinition>;
+
+const REGISTRY_BY_ID: Readonly<Record<string, ProviderDefinition>> = REGISTRY;
 
 /** Look up a provider by URL/id. Returns null for anything not registered. */
 export function getProvider(id: string): ProviderDefinition | null {
-  return REGISTRY[id] ?? null;
+  return REGISTRY_BY_ID[id] ?? null;
 }
 
 export function listProviders(): ProviderDefinition[] {
@@ -66,5 +68,5 @@ export function listByokDescriptors() {
 }
 
 export function isRegistered(id: string): id is IntegrationProvider {
-  return id in REGISTRY;
+  return id in REGISTRY_BY_ID;
 }

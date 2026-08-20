@@ -44,6 +44,7 @@ export const censysProvider: ProviderDefinition = {
   credentialKind: "id_secret",
   // The primary variable, kept for identity; expandEnv below supplies both.
   envKey: "CENSYS_API_ID",
+  envKeys: ["CENSYS_API_ID", "CENSYS_API_SECRET"],
   runLabel: "Censys",
   expandEnv(raw): Record<string, string> {
     const pair = splitCensysCredential(raw);

@@ -45,6 +45,7 @@ export const azureProvider: ProviderDefinition = {
     "Attributes discovered hostnames to your Azure DNS zones, so anything left unattributed stands out as a possible shadow asset. Read-only — the Reader role is all the application needs.",
   credentialKind: "tenant_client_secret",
   envKey: "AZURE_CLIENT_ID",
+  envKeys: ["AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"],
   runLabel: "Azure",
   expandEnv(raw): Record<string, string> {
     const cred = splitMicrosoftCredential(raw);

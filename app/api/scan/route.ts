@@ -6,7 +6,7 @@ import { canonicalScanTarget } from "@/lib/security/scan-target";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { randomUUID } from "node:crypto";
 import { getStore } from "@/lib/persistence";
-import { recordScan } from "@/lib/persistence/record";
+import { recordScan, ScanPersistenceError } from "@/lib/persistence/record";
 import { buildPosture } from "@/lib/aegis/recommendations";
 import { buildInvestigation } from "@/lib/aegis/investigation";
 import { applyStoredRecommendationStatus } from "@/lib/aegis/store";
@@ -18,7 +18,11 @@ import { processGuardianScan } from "@/lib/guardian/process";
 import { recordScanOperation } from "@/lib/observability/metrics";
 import { isOptedOut } from "@/lib/security/optout";
 import { issueShareProof } from "@/lib/share/proof";
-import { recordScanProviderUsage, withOrgProviderKeys } from "@/lib/integrations/providers/org-keys";
+import {
+  recordScanProviderUsage,
+  withOrgProviderKeys,
+} from "@/lib/integrations/providers/org-keys";
+import { currentTranslator } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,10 +32,13 @@ function sse(event: ScanEvent): string {
 }
 
 export async function GET(req: NextRequest) {
+  const tr = await currentTranslator();
   const url = new URL(req.url);
   const rawTarget = url.searchParams.get("target") ?? "";
   const mode = url.searchParams.get("mode") ?? "auto"; // "auto" | "demo"
-  const demoOrg = findDemoOrg(rawTarget) ?? (mode === "demo" ? findDemoOrg("northstar") : null);
+  const demoOrg =
+    findDemoOrg(rawTarget) ??
+    (mode === "demo" ? findDemoOrg("northstar") : null);
   let normalized: ReturnType<typeof canonicalScanTarget>;
   try {
     normalized = canonicalScanTarget(rawTarget, demoOrg?.domain);
@@ -41,32 +48,58 @@ export async function GET(req: NextRequest) {
     // JSON therefore replaced a specific, actionable message ("that is not a
     // domain we can scan") with a generic failure. Deliver it as the error
     // event the client already knows how to render.
-    return new Response(sse({ type: "error", message: error instanceof InvalidTargetError ? error.message : "Invalid target" }), {
-      headers: {
-        "content-type": "text/event-stream; charset=utf-8",
-        "cache-control": "no-cache, no-transform",
-        "x-accel-buffering": "no",
+    return new Response(
+      sse({
+        type: "error",
+        message:
+          error instanceof InvalidTargetError
+            ? error.message
+            : "Invalid target",
+      }),
+      {
+        headers: {
+          "content-type": "text/event-stream; charset=utf-8",
+          "cache-control": "no-cache, no-transform",
+          "x-accel-buffering": "no",
+        },
       },
-    });
+    );
   }
 
   const client = clientIdentity(req);
   const targetBudget = normalized.budgetKey;
   const limit = await requireBudgets([
     { key: "scan:global", limit: 240, windowMs: 60_000 },
-    { key: `scan:client:${client}`, limit: Number(process.env.OUTSIDE_SCANS_PER_MINUTE ?? 12), windowMs: 60_000 },
+    {
+      key: `scan:client:${client}`,
+      limit: Number(process.env.OUTSIDE_SCANS_PER_MINUTE ?? 12),
+      windowMs: 60_000,
+    },
     { key: `scan:target:${targetBudget}`, limit: 20, windowMs: 60_000 },
   ]);
   if (!limit.ok) {
-    return new Response(JSON.stringify({ error: "Rate limit exceeded", retryAfter: limit.retryAfter }), {
-      status: 429,
-      headers: { "content-type": "application/json", "retry-after": String(limit.retryAfter) },
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Rate limit exceeded",
+        retryAfter: limit.retryAfter,
+      }),
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": String(limit.retryAfter),
+        },
+      },
+    );
   }
 
   const scanId = `scan_${randomUUID()}`;
   const cancellation = new AbortController();
-  const signal = AbortSignal.any([req.signal, cancellation.signal, AbortSignal.timeout(50_000)]);
+  const signal = AbortSignal.any([
+    req.signal,
+    cancellation.signal,
+    AbortSignal.timeout(50_000),
+  ]);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -79,70 +112,101 @@ export async function GET(req: NextRequest) {
         controller.enqueue(encoder.encode(sse(event)));
       };
       try {
-        await withConcurrency("scan:global", 8, 60_000, () => withConcurrency(`scan:target:${targetBudget}`, 2, 60_000, async () => {
-        // Demo path: explicit demo mode, a known demo slug, or a demo domain.
-        // Demo scans carry a synthetic change story and are NOT persisted.
-        if (demoOrg) {
-          experience = "demo";
-          const result = await runDemoScan(demoOrg, scanId, emit);
-          // Aegis: derive the protection posture + correlate findings into incidents.
-          result.posture = buildPosture(result);
-          result.investigation = buildInvestigation(result);
-          result.shareProof = issueShareProof(result);
-          emit({ type: "result", result });
-          outcome = "success";
-        } else {
-          const domain = normalized.target;
-          const ctx = await getSessionContext();
-          const orgId = await authorizedTargetOrg(ctx, domain, "viewer");
+        await withConcurrency("scan:global", 8, 60_000, () =>
+          withConcurrency(
+            `scan:target:${targetBudget}`,
+            2,
+            60_000,
+            async () => {
+              // Demo path: explicit demo mode, a known demo slug, or a demo domain.
+              // Demo scans carry a synthetic change story and are NOT persisted.
+              if (demoOrg) {
+                experience = "demo";
+                const result = await runDemoScan(demoOrg, scanId, emit);
+                // Aegis: derive the protection posture + correlate findings into incidents.
+                result.posture = buildPosture(result);
+                result.investigation = buildInvestigation(result);
+                result.shareProof = issueShareProof(result);
+                emit({ type: "result", result });
+                outcome = "success";
+              } else {
+                const domain = normalized.target;
+                const ctx = await getSessionContext();
+                const orgId = await authorizedTargetOrg(ctx, domain, "viewer");
 
-          // A domain owner can opt out of anonymous scanning. This never blocks an
-          // organization that has verified the domain — an owner must always be
-          // able to monitor their own surface.
-          if (!orgId) {
-            const optOut = await isOptedOut(domain, signal);
-            if (optOut.optedOut) {
-              emit({ type: "error", message: "This domain has opted out of anonymous scanning. If you own it, verify ownership to scan and monitor it." });
-              outcome = "success";
-              return;
-            }
-          }
+                // A domain owner can opt out of anonymous scanning. This never blocks an
+                // organization that has verified the domain — an owner must always be
+                // able to monitor their own surface.
+                if (!orgId) {
+                  const optOut = await isOptedOut(domain, signal);
+                  if (optOut.optedOut) {
+                    emit({
+                      type: "error",
+                      message:
+                        "This domain has opted out of anonymous scanning. If you own it, verify ownership to scan and monitor it.",
+                    });
+                    outcome = "success";
+                    return;
+                  }
+                }
 
-          // Run with the organization's own provider credentials in scope, so a
-          // customer's connected key powers their scan instead of the platform key.
-          const result = await withOrgProviderKeys(orgId, () =>
-            runPassiveScan(domain, scanId, emit, { activeObservation: !!orgId, signal }),
-          );
-          await recordScanProviderUsage(orgId, result.providerRuns ?? []);
-          // Persist + derive change detection against this target's history.
-          const store = await getStore();
-          if (orgId) {
-            const persisted = await recordScan(store, result, orgId);
-            if (persisted) await processGuardianScan(orgId, result, { notify: false, weeklyDigest: false });
-          }
-          // Aegis: build posture + investigation, then apply remembered statuses.
-          result.posture = buildPosture(result);
-          result.investigation = buildInvestigation(result);
-          if (orgId) await applyStoredRecommendationStatus(orgId, result.target, result.posture);
-          result.shareProof = issueShareProof(result);
-          emit({ type: "result", result });
-          outcome = "success";
-        }
-        }));
+                // Run with the organization's own provider credentials in scope, so a
+                // customer's connected key powers their scan instead of the platform key.
+                const result = await withOrgProviderKeys(orgId, async ({ providerIds }) => {
+                  const scanResult = await runPassiveScan(domain, scanId, emit, {
+                    activeObservation: !!orgId,
+                    signal,
+                  });
+                  await recordScanProviderUsage(orgId, scanResult.providerRuns ?? [], providerIds);
+                  return scanResult;
+                });
+                // Persist + derive change detection against this target's history.
+                const store = await getStore();
+                if (orgId) {
+                  await recordScan(store, result, orgId, true);
+                  await processGuardianScan(orgId, result, {
+                    notify: false,
+                    weeklyDigest: false,
+                  });
+                }
+                // Aegis: build posture + investigation, then apply remembered statuses.
+                result.posture = buildPosture(result);
+                result.investigation = buildInvestigation(result);
+                if (orgId)
+                  await applyStoredRecommendationStatus(
+                    orgId,
+                    result.target,
+                    result.posture,
+                  );
+                result.shareProof = issueShareProof(result);
+                emit({ type: "result", result });
+                outcome = "success";
+              }
+            },
+          ),
+        );
       } catch (error) {
-        if (signal.aborted) { outcome = "cancelled"; return; }
-        const message = error instanceof CapacityError
-          ? error.message
-          : error instanceof InvalidTargetError
+        if (signal.aborted) {
+          outcome = "cancelled";
+          return;
+        }
+        const message =
+          error instanceof CapacityError
             ? error.message
-            : "Scan failed. The target may be unreachable or a public data source was unavailable.";
+            : error instanceof ScanPersistenceError
+              ? tr.t("scan", "persistenceError")
+              : error instanceof InvalidTargetError
+                ? error.message
+                : "Scan failed. The target may be unreachable or a public data source was unavailable.";
         emit({ type: "error", message });
       } finally {
         recordScanOperation(experience, outcome, performance.now() - startedAt);
         if (!signal.aborted) controller.close();
       }
     },
-    cancel() { cancellation.abort(new Error("Scan client disconnected")); },
+    cancel() {
+      cancellation.abort(new Error("Scan client disconnected"));
+    },
   });
 
   return new Response(stream, {

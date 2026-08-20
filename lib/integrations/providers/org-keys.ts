@@ -9,37 +9,82 @@
  * platform configuration.
  *
  * Everything here is best-effort: a credential that cannot be loaded or decrypted
- * must never fail a scan, it only means the provider stays on the platform key.
+ * must never fail a scan. A broken connected credential is explicitly blocked,
+ * though, so it can never fall through to the platform key or be billed as BYOK.
  */
 
-import { getConnectionSummary, getConnectionToken, type IntegrationProvider } from "@/lib/integrations/connections";
-import { withProviderKeys } from "@/lib/integrations/credential-context";
+import { getConnectionToken, listConnectedProviderIds, type IntegrationProvider } from "@/lib/integrations/connections";
+import { withProviderKeys, type ProviderCredentialValue } from "@/lib/integrations/credential-context";
 import { operationalLog } from "@/lib/observability/log";
+import { recordIntegrationCredentialLoadFailure } from "@/lib/observability/metrics";
 import { listProviders } from "./registry";
 import { recordProviderUsage } from "./telemetry";
+import type { ProviderDefinition } from "./types";
 
-/** Load the organization's stored keys, mapped by the env var each one substitutes. */
-export async function loadOrgProviderKeys(orgId: string | null | undefined): Promise<Map<string, string>> {
-  const keys = new Map<string, string>();
-  if (!orgId) return keys;
+export interface OrgProviderKeyScope {
+  /** Only credentials successfully decrypted and placed in this request. */
+  providerIds: ReadonlySet<IntegrationProvider>;
+}
 
-  for (const provider of listProviders()) {
-    if (provider.commercialGate) continue;
+interface OrgProviderContext extends OrgProviderKeyScope {
+  keys: Map<string, ProviderCredentialValue>;
+}
+
+function envKeys(provider: ProviderDefinition): string[] {
+  return provider.envKeys ?? [provider.envKey];
+}
+
+function blockProvider(keys: Map<string, ProviderCredentialValue>, provider: ProviderDefinition): void {
+  for (const name of envKeys(provider)) keys.set(name, null);
+}
+
+async function loadOrgProviderContext(orgId: string | null | undefined): Promise<OrgProviderContext> {
+  const keys = new Map<string, ProviderCredentialValue>();
+  const providerIds = new Set<IntegrationProvider>();
+  if (!orgId) return { keys, providerIds };
+
+  const providers = listProviders().filter((provider) => !provider.commercialGate);
+  let connected: Set<string>;
+  try {
+    connected = new Set(await listConnectedProviderIds(orgId));
+  } catch (error) {
+    // If connection storage cannot be read, fail closed for every optional
+    // provider. Using platform credentials here could expose or misattribute a
+    // customer's verified scan without us knowing which key was actually used.
+    for (const provider of providers) blockProvider(keys, provider);
+    recordIntegrationCredentialLoadFailure("index");
+    operationalLog("warn", "integrations.org_key_index_unavailable", { orgId }, error);
+    return { keys, providerIds };
+  }
+
+  for (const provider of providers) {
+    if (!connected.has(provider.id)) continue;
     try {
       const token = await getConnectionToken(orgId, provider.id);
-      if (!token) continue;
-      // A pair credential backs more than one variable, so the provider decides
-      // how its stored value maps onto the environment the scan reads.
-      const expanded = provider.expandEnv ? provider.expandEnv(token) : { [provider.envKey]: token };
-      for (const [name, value] of Object.entries(expanded)) {
-        if (value) keys.set(name, value);
+      if (!token) {
+        blockProvider(keys, provider);
+        continue;
       }
+      const expanded = provider.expandEnv ? provider.expandEnv(token) : { [provider.envKey]: token };
+      const values = Object.entries(expanded).filter(([, value]) => value?.trim());
+      if (values.length === 0) {
+        blockProvider(keys, provider);
+        continue;
+      }
+      for (const [name, value] of values) keys.set(name, value);
+      providerIds.add(provider.id);
     } catch (error) {
-      // A single unreadable credential must not stop the scan or the other providers.
+      blockProvider(keys, provider);
+      recordIntegrationCredentialLoadFailure("credential", provider.id);
       operationalLog("warn", "integrations.org_key_unavailable", { orgId, provider: provider.id }, error);
     }
   }
-  return keys;
+  return { keys, providerIds };
+}
+
+/** Load the organization's stored keys, mapped by the env var each one substitutes. */
+export async function loadOrgProviderKeys(orgId: string | null | undefined): Promise<Map<string, ProviderCredentialValue>> {
+  return (await loadOrgProviderContext(orgId)).keys;
 }
 
 /**
@@ -47,10 +92,14 @@ export async function loadOrgProviderKeys(orgId: string | null | undefined): Pro
  * back to the platform environment for anything the organization has not
  * connected.
  */
-export async function withOrgProviderKeys<T>(orgId: string | null | undefined, run: () => Promise<T>): Promise<T> {
-  const keys = await loadOrgProviderKeys(orgId);
-  if (keys.size === 0) return run();
-  return withProviderKeys(keys, run, orgId ?? undefined);
+export async function withOrgProviderKeys<T>(
+  orgId: string | null | undefined,
+  run: (scope: OrgProviderKeyScope) => Promise<T>,
+): Promise<T> {
+  const context = await loadOrgProviderContext(orgId);
+  const scope = { providerIds: context.providerIds };
+  if (context.keys.size === 0) return run(scope);
+  return withProviderKeys(context.keys, () => run(scope), orgId ?? undefined);
 }
 
 /**
@@ -61,6 +110,7 @@ export async function withOrgProviderKeys<T>(orgId: string | null | undefined, r
 export async function recordScanProviderUsage(
   orgId: string | null | undefined,
   runs: { provider: string; status: string }[],
+  providerIds: ReadonlySet<IntegrationProvider>,
 ): Promise<void> {
   if (!orgId || runs.length === 0) return;
 
@@ -71,8 +121,8 @@ export async function recordScanProviderUsage(
     const providerId = byLabel.get(run.provider);
     if (!providerId) continue;
     try {
-      // Only meter it when the key in play was the organization's own.
-      if (!(await getConnectionSummary(orgId, providerId))) continue;
+      // Only meter a key that was successfully decrypted into this exact scan.
+      if (!providerIds.has(providerId)) continue;
       await recordProviderUsage({
         orgId,
         provider: providerId,

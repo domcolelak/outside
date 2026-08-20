@@ -1,6 +1,6 @@
 {
-  "metaTitle": "OUTSIDE — See your company from the outside",
-  "metaDescription": "Evidence-first external attack surface management: passive discovery, verified assessments, continuous Guardian monitoring, BYOK intelligence, and reversible remediation.",
+  "metaTitle": "OUTSIDE — Continuous external exposure management",
+  "metaDescription": "Evidence-first external visibility: passive discovery, verified assessments, Guardian monitoring, BYOK intelligence, and one controlled Cloudflare DMARC remediation flow.",
   "notFoundKicker": "404 · not found",
   "notFoundTitle": "This asset is outside our view.",
   "notFoundBody": "The page you were looking for does not exist. Head back and map an external surface instead.",

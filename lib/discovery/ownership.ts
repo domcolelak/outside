@@ -18,6 +18,8 @@
 import type { Asset, ProviderRun } from "@/lib/types";
 import { providerKey } from "@/lib/integrations/credential-context";
 import { listProviders } from "@/lib/integrations/providers/registry";
+import type { ProviderDefinition } from "@/lib/integrations/providers/types";
+import { joinCredentialParts } from "@/lib/integrations/pair-credential";
 
 /** True when the hostname is the owned domain itself or sits beneath it. */
 export function matchesOwnedDomain(canonical: string, owned: string): boolean {
@@ -27,9 +29,17 @@ export function matchesOwnedDomain(canonical: string, owned: string): boolean {
   return host === domain || host.endsWith(`.${domain}`);
 }
 
-/** Any provider that can attribute, has a key in scope, and is not gated. */
+/** Rebuild the stored provider credential from the variables in scan scope. */
+export function providerRuntimeCredential(provider: ProviderDefinition): string | undefined {
+  const values = (provider.envKeys ?? [provider.envKey]).map((name) => providerKey(name));
+  if (values.some((value) => !value)) return undefined;
+  const present = values as string[];
+  return present.length === 1 ? present[0] : joinCredentialParts(...present);
+}
+
+/** Any provider that can attribute, has a complete key in scope, and is not gated. */
 function attributingProviders() {
-  return listProviders().filter((provider) => provider.ownedDomains && !provider.commercialGate && providerKey(provider.envKey));
+  return listProviders().filter((provider) => provider.ownedDomains && !provider.commercialGate && providerRuntimeCredential(provider));
 }
 
 /** True when at least one connected account can attribute assets. */
@@ -47,7 +57,7 @@ export async function attributeAssetOwnership(assets: Asset[], options: { signal
 
   for (const provider of attributingProviders()) {
     const startedAt = new Date().toISOString();
-    const key = providerKey(provider.envKey)!;
+    const key = providerRuntimeCredential(provider)!;
     try {
       const owned = await provider.ownedDomains!(key, options.signal);
       if (!owned.ok) {

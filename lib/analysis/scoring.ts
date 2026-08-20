@@ -7,7 +7,17 @@
  * hacked. Every point of movement maps to a named component.
  */
 
-import type { Asset, ExposureScore, Finding, ScoreComponent } from "@/lib/types";
+import type {
+  Asset,
+  ExposureScore,
+  Finding,
+  ScoreComponent,
+} from "@/lib/types";
+import {
+  hasCertificateObservation,
+  hasSecurityHeaderObservation,
+  selectPrimaryWebSurface,
+} from "./primary-web";
 
 const WEIGHTS = {
   shadowAsset: 6, // per shadow asset
@@ -28,8 +38,16 @@ function hasSignal(a: Asset, code: string) {
   return a.signals.some((s) => s.code === code && s.confidence >= 0.55);
 }
 
-export function computeExposureScore(assets: Asset[], findings: Finding[]): ExposureScore {
+export function computeExposureScore(
+  assets: Asset[],
+  findings: Finding[],
+  target?: string,
+): ExposureScore {
   const components: ScoreComponent[] = [];
+  const scoreTarget =
+    target ??
+    assets.find((asset) => asset.kind === "root_domain")?.canonical ??
+    "";
 
   const shadow = count(assets, (a) => hasSignal(a, "asset.shadow"));
   if (shadow > 0) {
@@ -47,7 +65,8 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
       code: "nonprod",
       label: `${nonprod} non-production environment signal${nonprod > 1 ? "s" : ""}`,
       impact: -Math.min(21, nonprod * WEIGHTS.nonProd),
-      detail: "Hostnames whose naming indicates a non-production environment are publicly reachable.",
+      detail:
+        "Hostnames whose naming indicates a non-production environment are publicly reachable.",
     });
   }
 
@@ -57,7 +76,8 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
       code: "auth",
       label: `${auth} public authentication surface${auth > 1 ? "s" : ""}`,
       impact: -Math.min(12, auth * WEIGHTS.authSurface),
-      detail: "Login, remote-access, or administration surfaces observable from the internet.",
+      detail:
+        "Login, remote-access, or administration surfaces observable from the internet.",
     });
   }
 
@@ -77,7 +97,8 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
       code: "new",
       label: `${fresh} new external asset${fresh > 1 ? "s" : ""} in the last window`,
       impact: -Math.min(10, fresh * WEIGHTS.newAsset),
-      detail: "Recently appeared public assets that may not yet be inventoried.",
+      detail:
+        "Recently appeared public assets that may not yet be inventoried.",
     });
   }
 
@@ -92,54 +113,87 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
   }
 
   // Security headers on the observed primary web surface (fact-based).
-  const observed = assets.find((a) => Array.isArray(a.attrs.missingHeaders));
+  const observed = selectPrimaryWebSurface(
+    assets,
+    scoreTarget,
+    hasSecurityHeaderObservation,
+  )?.asset;
   if (observed) {
     const missing = (observed.attrs.missingHeaders as string[]).length;
     if (missing >= 2) {
       components.push({
         code: "headers",
-        label: `${missing} security headers missing on the primary site`,
+        label: `${missing} security headers missing on ${observed.label}`,
         impact: -Math.min(6, missing * 2),
-        detail: "Baseline response headers (HSTS, CSP, X-Content-Type-Options, …) were not observed.",
+        detail: `Baseline response headers (HSTS, CSP, X-Content-Type-Options, …) were not observed on ${observed.canonical}.`,
+        evidenceAssetId: observed.id,
+        evidenceCanonical: observed.canonical,
       });
     }
   }
 
   // TLS certificate nearing expiry (fact-based, from the handshake).
-  const certAsset = assets.find((a) => typeof a.attrs.certDaysToExpiry === "number");
+  const certAsset = selectPrimaryWebSurface(
+    assets,
+    scoreTarget,
+    hasCertificateObservation,
+  )?.asset;
   const days = certAsset?.attrs.certDaysToExpiry as number | undefined;
   if (typeof days === "number" && days < 21) {
     components.push({
       code: "cert_expiry",
-      label: days < 0 ? "TLS certificate has expired" : `TLS certificate expires in ${days} day${days === 1 ? "" : "s"}`,
+      label:
+        days < 0
+          ? "TLS certificate has expired"
+          : `TLS certificate expires in ${days} day${days === 1 ? "" : "s"}`,
       impact: days < 0 ? -12 : -5,
-      detail: "Short-lived certificate lifetime observed on the primary web surface.",
+      detail: `Short-lived certificate lifetime observed on ${certAsset!.canonical}.`,
+      evidenceAssetId: certAsset!.id,
+      evidenceCanonical: certAsset!.canonical,
     });
   }
 
   // Known-vulnerability correlation from disclosed technology versions. Derived
   // from the same findings so the score and the finding list never disagree.
-  const vulnFindings = findings.filter((f) => f.category === "known-vulnerability");
+  const vulnFindings = findings.filter(
+    (f) => f.category === "known-vulnerability",
+  );
   if (vulnFindings.length) {
-    const penalty = vulnFindings.reduce((sum, f) =>
-      sum + (f.priority === "critical" ? 12 : f.priority === "high" ? 8 : f.priority === "medium" ? 4 : 2), 0);
-    const critical = vulnFindings.filter((f) => f.priority === "critical").length;
+    const penalty = vulnFindings.reduce(
+      (sum, f) =>
+        sum +
+        (f.priority === "critical"
+          ? 12
+          : f.priority === "high"
+            ? 8
+            : f.priority === "medium"
+              ? 4
+              : 2),
+      0,
+    );
+    const critical = vulnFindings.filter(
+      (f) => f.priority === "critical",
+    ).length;
     components.push({
       code: "known_vulnerabilities",
       label: `${vulnFindings.length} known-vulnerability correlation${vulnFindings.length > 1 ? "s" : ""}${critical ? ` (${critical} critical/KEV)` : ""}`,
       impact: -Math.min(30, penalty),
-      detail: "Disclosed technology versions match known vulnerabilities or end-of-life branches; confirm against the running build.",
+      detail:
+        "Disclosed technology versions match known vulnerabilities or end-of-life branches; confirm against the running build.",
     });
   }
 
   // Mitigations.
-  const cdnFronted = assets.some((a) => a.kind === "root_domain" && a.attrs.cdn && a.attrs.cdn !== "none");
+  const cdnFronted = assets.some(
+    (a) => a.kind === "root_domain" && a.attrs.cdn && a.attrs.cdn !== "none",
+  );
   if (cdnFronted) {
     components.push({
       code: "cdn",
       label: "Primary web infrastructure fronted by CDN / WAF",
       impact: WEIGHTS.cdnMitigation,
-      detail: "A CDN or reverse proxy shields origin infrastructure and adds edge protection.",
+      detail:
+        "A CDN or reverse proxy shields origin infrastructure and adds edge protection.",
     });
   }
   const serviceKinds = new Set(assets.map((a) => a.kind));
@@ -149,7 +203,8 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
       code: "contained",
       label: "No unexpected public service diversity detected",
       impact: WEIGHTS.containedMitigation,
-      detail: "The observable surface is contained and consistent with a managed footprint.",
+      detail:
+        "The observable surface is contained and consistent with a managed footprint.",
     });
   }
 
@@ -157,7 +212,13 @@ export function computeExposureScore(assets: Asset[], findings: Finding[]): Expo
   const value = Math.max(0, Math.min(100, Math.round(100 + total)));
 
   const band: ExposureScore["band"] =
-    value >= 80 ? "guarded" : value >= 60 ? "moderate" : value >= 40 ? "elevated" : "exposed";
+    value >= 80
+      ? "guarded"
+      : value >= 60
+        ? "moderate"
+        : value >= 40
+          ? "elevated"
+          : "exposed";
 
   const explanation =
     `The score starts at 100 and applies transparent penalties and mitigations for what is observable from the outside. ` +

@@ -35,10 +35,11 @@ export async function GET(req: NextRequest) {
     try {
       const scanId = `cron_${monitor.id}_${new Date(monitor.nextRunAt).getTime()}`;
       // Scheduled monitoring uses the organization's own provider credentials too.
-      const result = await withOrgProviderKeys(monitor.orgId, () =>
-        runPassiveScan(monitor.domain, scanId, () => {}, { activeObservation: true, signal: AbortSignal.timeout(90_000) }),
-      );
-      await recordScanProviderUsage(monitor.orgId, result.providerRuns ?? []);
+      const result = await withOrgProviderKeys(monitor.orgId, async ({ providerIds }) => {
+        const scanResult = await runPassiveScan(monitor.domain, scanId, () => {}, { activeObservation: true, signal: AbortSignal.timeout(90_000) });
+        await recordScanProviderUsage(monitor.orgId, scanResult.providerRuns ?? [], providerIds);
+        return scanResult;
+      });
       let alreadyPersisted = false;
       try { await recordScan(scanStore, result, monitor.orgId, true); }
       catch (error) {

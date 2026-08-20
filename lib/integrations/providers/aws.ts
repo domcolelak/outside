@@ -43,6 +43,7 @@ export const awsProvider: ProviderDefinition = {
     "Attributes discovered hostnames to your Route 53 hosted zones, so anything left unattributed stands out as a possible shadow asset. Read-only — the only permission needed is route53:ListHostedZones.",
   credentialKind: "id_secret",
   envKey: "AWS_ACCESS_KEY_ID",
+  envKeys: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"],
   runLabel: "AWS",
   expandEnv(raw): Record<string, string> {
     const separator = raw.indexOf(":");

@@ -66,7 +66,23 @@ export default async function Landing() {
               {m("heroBody")}
             </p>
             <div className="mt-9"><HeroInput /></div>
-            <div className="mt-8 grid max-w-xl grid-cols-3 gap-4 border-t border-line pt-5">{[[m("heroStatPassive"), m("heroStatPassiveLabel")], [m("heroStatTraceable"), m("heroStatTraceableLabel")], [m("heroStatContinuous"), m("heroStatContinuousLabel")]].map(([value, label]) => <div key={value}><div className="text-sm font-medium text-ink">{value}</div><div className="mono mt-1 text-[10px] uppercase tracking-wider text-ink-faint">{label}</div></div>)}</div>
+            <div className="mt-8 max-w-xl border-t border-line pt-5" aria-label={m("heroLifecycleLabel")}>
+              <div className="mono mb-3 text-[10px] uppercase tracking-[.18em] text-signal">{m("heroLifecycleLabel")}</div>
+              <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  [m("heroLifecycleDiscoverTitle"), m("heroLifecycleDiscoverBody")],
+                  [m("heroLifecycleVerifyTitle"), m("heroLifecycleVerifyBody")],
+                  [m("heroLifecycleMonitorTitle"), m("heroLifecycleMonitorBody")],
+                  [m("heroLifecycleActTitle"), m("heroLifecycleActBody")],
+                ].map(([title, body], index) => (
+                  <li key={title} className="rounded-lg border border-line/80 bg-base-900/65 px-3 py-3">
+                    <div className="mono text-[10px] text-signal">{String(index + 1).padStart(2, "0")}</div>
+                    <div className="mt-1 text-xs font-medium text-ink">{title}</div>
+                    <div className="mt-1 text-[11px] leading-4 text-ink-faint">{body}</div>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
           <div className="min-w-0 animate-rise-in [animation-delay:180ms]"><LandingDemo /></div>
         </div>

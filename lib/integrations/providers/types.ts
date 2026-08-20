@@ -88,6 +88,8 @@ export interface ProviderDefinition {
    * stored credential transparently takes precedence over the platform key.
    */
   envKey: string;
+  /** Every environment variable backed by this credential. Defaults to envKey. */
+  envKeys?: string[];
   /**
    * The name this provider reports itself as in a scan's ProviderRun list, used
    * to attribute post-scan usage back to the organization's credential.

@@ -5,6 +5,8 @@ import { currentKevIndex } from "@/lib/analysis/kev";
 import { resolveProposal } from "@/lib/evolution/evolution";
 import { recordDecision, type EvolutionDecisionKind } from "@/lib/evolution/decisions";
 import { operationalLog } from "@/lib/observability/log";
+import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
+import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +25,18 @@ export async function POST(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   if (!isFounder(ctx)) return NextResponse.json({ error: "Evolution is restricted to the product owner." }, { status: 403 });
 
-  const body = (await req.json().catch(() => null)) as { proposalId?: unknown; decision?: unknown } | null;
+  const budget = await requireBudgets([
+    { key: `evolution:decision:user:${ctx.user.id}`, limit: 30, windowMs: 60_000 },
+    { key: `evolution:decision:client:${clientIdentity(req)}`, limit: 60, windowMs: 60_000 },
+  ]);
+  if (!budget.ok) return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: { "retry-after": String(budget.retryAfter) } });
+
+  let body: { proposalId?: unknown; decision?: unknown } | null;
+  try {
+    body = await readLimitedJson(req, 4_096) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid request body" }, { status: error instanceof RequestBodyError ? error.status : 400 });
+  }
   const proposalId = typeof body?.proposalId === "string" ? body.proposalId : "";
   const decision = body?.decision;
   if (!proposalId) return NextResponse.json({ error: "proposalId is required" }, { status: 400 });

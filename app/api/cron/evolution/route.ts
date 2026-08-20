@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     decided: decidedProposalIds(decisions),
   });
   const proposals = buildProposals(gaps);
-  const run = recordEvolutionRun(proposals);
+  const run = await recordEvolutionRun(proposals);
   operationalLog("info", "evolution.scheduled_run", { total: run.total, new: run.new, firstRun: run.firstRun, kevSize: kev.size });
   return NextResponse.json({ ranAt: run.at, total: run.total, new: run.new, firstRun: run.firstRun, kevSize: kev.size });
 }

@@ -1,6 +1,6 @@
 {
-  "metaTitle": "OUTSIDE — Zobacz swoją firmę z zewnątrz",
-  "metaDescription": "Oparte na dowodach zarządzanie zewnętrzną powierzchnią ataku: pasywne wykrywanie, zweryfikowane oceny, ciągłe monitorowanie Guardian, analiza z własnymi kluczami i odwracalne działania naprawcze.",
+  "metaTitle": "OUTSIDE — Ciągłe zarządzanie ekspozycją zewnętrzną",
+  "metaDescription": "Widoczność zewnętrzna oparta na dowodach: pasywne wykrywanie, zweryfikowane oceny, monitoring Guardian, analiza z własnymi kluczami i jeden kontrolowany proces naprawczy Cloudflare DMARC.",
   "notFoundKicker": "404 · nie znaleziono",
   "notFoundTitle": "Ten zasób jest poza naszym polem widzenia.",
   "notFoundBody": "Szukana strona nie istnieje. Wróć i zmapuj zewnętrzną powierzchnię.",

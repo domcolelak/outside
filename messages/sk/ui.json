@@ -1,6 +1,6 @@
 {
-  "metaTitle": "OUTSIDE — Pozrite sa na svoju firmu zvonku",
-  "metaDescription": "Správa externého útočného povrchu založená na dôkazoch: pasívne objavovanie, overené hodnotenia, nepretržité monitorovanie Guardian, inteligencia s vlastnými kľúčmi a vratná náprava.",
+  "metaTitle": "OUTSIDE — Priebežná správa vonkajšej expozície",
+  "metaDescription": "Externá viditeľnosť založená na dôkazoch: pasívne objavovanie, overené hodnotenia, monitoring Guardian, inteligencia s vlastnými kľúčmi a jeden riadený Cloudflare DMARC nápravný postup.",
   "notFoundKicker": "404 · nenájdené",
   "notFoundTitle": "Toto aktívum je mimo nášho dohľadu.",
   "notFoundBody": "Hľadaná stránka neexistuje. Vráťte sa a zmapujte externý povrch.",
