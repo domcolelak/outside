@@ -249,16 +249,11 @@ test.describe("public experience in five languages", () => {
     for (const english of [
       "guided tour", "new scan",
       "external assets", "web surfaces", "discovery sequence", "higher is better",
+      "protection posture", "attacker view",
     ]) {
       expect(body, `the scan screen still shows "${english}"`).not.toContain(english);
     }
-    // "Protection posture" is deliberately absent from that list: the discovery
-    // log lines come from lib/discovery/engine.ts and HistoryPanel is not
-    // localized yet, so both still emit it. Asserting its absence would fail
-    // for a reason this change is not responsible for — and asserting it after
-    // localizing only the heading would claim the screen was finished.
-    // Attacker View is the product's name for the replay and stays in English.
-    expect(body).toContain("attacker view");
+    expect(body).toContain("pohľad útočníka");
   });
 
   test("an unsupported language falls back to English instead of failing", async ({ page }) => {

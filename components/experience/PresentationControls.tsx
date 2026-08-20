@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslator } from "@/lib/i18n/context";
 
 type CaptureState = "idle" | "capturing" | "recording" | "saving" | "error";
 
@@ -12,6 +13,8 @@ function download(blob: Blob, filename: string) {
 }
 
 export function PresentationControls({ name = "outside", onPresent, className = "" }: { name?: string; onPresent?: () => void; className?: string }) {
+  const tr = useTranslator();
+  const u = (key: Parameters<typeof tr.t<"ui">>[1]) => tr.t("ui", key);
   const [clean, setClean] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [state, setState] = useState<CaptureState>("idle");
@@ -82,12 +85,12 @@ export function PresentationControls({ name = "outside", onPresent, className = 
   };
 
   return <div data-presentation-controls className={`flex items-center gap-1 rounded-xl border border-line bg-base-950/80 p-1 shadow-panel backdrop-blur-xl ${className}`}>
-    <Action label="Present" title="Fullscreen presenter mode" onClick={() => void present()} icon="▶" />
-    <Action label={clean ? "Restore UI" : "Clean frame"} title="Hide non-essential interface for screenshots" onClick={() => setClean((value) => !value)} icon={clean ? "◫" : "□"} active={clean} toggle/>
-    <Action label={state === "capturing" ? "Capturing" : "Capture"} title="Capture the selected browser surface as PNG" onClick={() => void capture()} icon="⌁" disabled={state !== "idle"}/>
-    <Action label={state === "recording" ? "Stop" : state === "saving" ? "Saving" : "Record"} title="Record a polished browser-surface walkthrough" onClick={() => void toggleRecording()} icon={state === "recording" ? "■" : "●"} active={state === "recording"} toggle disabled={state === "capturing" || state === "saving"}/>
-    {presenting && <Action label="Exit" title="Exit presenter mode" onClick={() => void exitPresentation()} icon="×"/>}
-    {state === "error" && <button onClick={() => setState("idle")} className="mono px-2 text-[11px] text-risk-high">Capture failed</button>}
+    <Action label={u("present")} title={u("presentTitle")} onClick={() => void present()} icon="▶" />
+    <Action label={clean ? u("restoreUi") : u("cleanFrame")} title={u("cleanFrameTitle")} onClick={() => setClean((value) => !value)} icon={clean ? "◫" : "□"} active={clean} toggle/>
+    <Action label={state === "capturing" ? u("capturing") : u("capture")} title={u("captureTitle")} onClick={() => void capture()} icon="⌁" disabled={state !== "idle"}/>
+    <Action label={state === "recording" ? u("stop") : state === "saving" ? u("saving") : u("record")} title={u("recordTitle")} onClick={() => void toggleRecording()} icon={state === "recording" ? "■" : "●"} active={state === "recording"} toggle disabled={state === "capturing" || state === "saving"}/>
+    {presenting && <Action label={u("exit")} title={u("exitPresenterTitle")} onClick={() => void exitPresentation()} icon="×"/>}
+    {state === "error" && <button onClick={() => setState("idle")} className="mono px-2 text-[11px] text-risk-high">{u("captureFailed")}</button>}
   </div>;
 }
 

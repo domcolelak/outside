@@ -16,7 +16,7 @@ const CHANGE_META: Record<AssetChange["change"], { mark: string; color: string }
 
 function ChronosView() {
   const tr = useTranslator();
-  const cx = (key: Parameters<typeof tr.t<"chronos">>[1]) => tr.t("chronos", key);
+  const cx = (key: Parameters<typeof tr.t<"chronos">>[1], values?: Record<string, string | number>) => tr.t("chronos", key, values);
   const params = useSearchParams();
   const [target, setTarget] = useState(params.get("target") ?? "");
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -79,13 +79,21 @@ function ChronosView() {
                     )}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-ink-soft">{s.diff.summary}</p>
+                <p className="mt-1 text-sm text-ink-soft">
+                  {s.diff.from
+                    ? cx("diffSummary", {
+                        added: s.diff.assetChanges.filter((change) => change.change === "added").length,
+                        removed: s.diff.assetChanges.filter((change) => change.change === "removed").length,
+                        modified: s.diff.assetChanges.filter((change) => change.change === "modified").length,
+                      })
+                    : cx("initialSummary", { count: s.diff.assetChanges.length })}
+                </p>
                 {s.diff.assetChanges.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {s.diff.assetChanges.slice(0, 12).map((c) => (
                       <div key={c.canonical} className="flex items-start gap-2 text-xs">
                         <span className="mono mt-0.5 w-3 text-center" style={{ color: CHANGE_META[c.change].color }}>{CHANGE_META[c.change].mark}</span>
-                        <div><span className="mono text-ink">{c.label}</span>{c.details.length > 0 && <span className="text-ink-faint"> — {c.details.join("; ")}</span>}</div>
+                        <div><span className="mono text-ink">{c.label}</span><span className="text-ink-faint"> · {cx(`change${c.change[0]!.toUpperCase()}${c.change.slice(1)}` as Parameters<typeof tr.t<"chronos">>[1])}</span></div>
                       </div>
                     ))}
                   </div>

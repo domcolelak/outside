@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslator } from "@/lib/i18n/context";
 
 interface ScanPoint {
   id: string;
@@ -12,6 +13,8 @@ interface ScanPoint {
 
 /** Protection-posture timeline for a target (real persisted scans only). */
 export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boolean }) {
+  const tr = useTranslator();
+  const u = (key: Parameters<typeof tr.t<"ui">>[1], values?: Record<string, string | number>) => tr.t("ui", key, values);
   const [scans, setScans] = useState<ScanPoint[]>([]);
   const [durable, setDurable] = useState(false);
 
@@ -31,8 +34,8 @@ export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boole
   return (
     <div>
       <div className="mono mb-2 flex items-center justify-between text-[12px] uppercase tracking-wider text-ink-faint">
-        <span>Protection posture history</span>
-        <span>{scans.length} scans{durable ? "" : " · session"}</span>
+        <span>{u("historyTitle")}</span>
+        <span>{u("scanCount", { count: scans.length })}{durable ? "" : ` · ${u("session")}`}</span>
       </div>
       <div className="panel p-3">
         <div className="flex h-16 items-end gap-1">
@@ -40,20 +43,20 @@ export function HistoryPanel({ target, isDemo }: { target: string; isDemo: boole
             const h = Math.max(4, (s.score / max) * 100);
             const color = s.score >= 80 ? "#38e1c3" : s.score >= 60 ? "#5b8cff" : s.score >= 40 ? "#f5c451" : "#ff8a5b";
             return (
-              <div key={s.id} className="group relative flex-1" title={`${new Date(s.finishedAt).toLocaleString()} · ${s.score}/100 · ${s.assets} assets`}>
+              <div key={s.id} className="group relative flex-1" title={u("historyPoint", { date: tr.formatDate(s.finishedAt, { dateStyle: "medium", timeStyle: "short" }), score: s.score, assets: s.assets })}>
                 <div className="w-full rounded-t" style={{ height: `${h}%`, background: color, opacity: 0.85 }} />
               </div>
             );
           })}
         </div>
         <div className="mono mt-2 flex justify-between text-[11px] text-ink-faint">
-          <span>{new Date(ordered[0]!.finishedAt).toLocaleDateString()}</span>
-          <span>latest {ordered[ordered.length - 1]!.score}/100</span>
+          <span>{tr.formatDate(ordered[0]!.finishedAt)}</span>
+          <span>{u("latest")} {ordered[ordered.length - 1]!.score}/100</span>
         </div>
         <table className="sr-only">
-          <caption>Protection posture history for {target}</caption>
-          <thead><tr><th>Date</th><th>Posture</th><th>Assets</th></tr></thead>
-          <tbody>{ordered.map((scan) => <tr key={scan.id}><td>{new Date(scan.finishedAt).toLocaleString()}</td><td>{scan.score} out of 100</td><td>{scan.assets}</td></tr>)}</tbody>
+          <caption>{u("historyFor", { target })}</caption>
+          <thead><tr><th>{u("date")}</th><th>{u("protectionPosture")}</th><th>{u("assets")}</th></tr></thead>
+          <tbody>{ordered.map((scan) => <tr key={scan.id}><td>{tr.formatDate(scan.finishedAt, { dateStyle: "medium", timeStyle: "short" })}</td><td>{scan.score} {u("outOf100")}</td><td>{scan.assets}</td></tr>)}</tbody>
         </table>
       </div>
     </div>

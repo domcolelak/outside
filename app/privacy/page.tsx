@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { LegalDocument } from "@/components/legal/LegalDocument";
-import { PRIVACY_BODY, PRIVACY_UPDATED } from "@/lib/legal/privacy";
+import { currentLocale } from "@/lib/i18n/server";
+import { privacyDocument } from "@/lib/legal/documents";
 
-export const metadata: Metadata = { title: "Privacy Policy · OUTSIDE" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await currentLocale();
+  return { title: `${privacyDocument(locale).title} · OUTSIDE` };
+}
 
-export default function PrivacyPage() {
-  return <LegalDocument title="Privacy Policy" updated={PRIVACY_UPDATED} body={PRIVACY_BODY} />;
+export default async function PrivacyPage() {
+  const { locale } = await currentLocale();
+  return <LegalDocument {...privacyDocument(locale)} locale={locale} />;
 }

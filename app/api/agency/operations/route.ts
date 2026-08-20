@@ -7,6 +7,7 @@ import { getMonitorStore } from "@/lib/monitoring";
 import { readLimitedJson } from "@/lib/http/body";
 import { cleanText } from "@/lib/agency/validation";
 import { requireBudgets } from "@/lib/security/ratelimit";
+import { currentTranslator } from "@/lib/i18n/server";
 
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const tr = await currentTranslator();
   const access = await agencyAccess(req, "operations:run", new URL(req.url).searchParams.get("agencyId"));
   if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   if (!(await requireBudgets([{ key: `agency:ops:${access.workspace.id}`, limit: 20, windowMs: 3_600_000 }, { key: `agency:ops:actor:${access.actorId}`, limit: 10, windowMs: 3_600_000 }])).ok) return NextResponse.json({ error: "Bulk operation quota exceeded" }, { status: 429 });
@@ -37,7 +39,9 @@ export async function POST(req: NextRequest) {
     const generated = await Promise.allSettled(orgIds.map(async (orgId) => {
       const linked = clients.find((client) => client.orgId === orgId)!; const overview = await guardian.overview(orgId);
       const content = { orgId, client: linked.organizationName, generatedAt: periodEnd.toISOString(), targets: overview.targets.length, assets: overview.targets.reduce((sum, target) => sum + target.latest.metrics.assets, 0), openRecommendations: overview.recommendations.filter((item) => !["resolved", "dismissed"].includes(item.status)).length, critical: overview.recommendations.filter((item) => item.priority === "critical" && !["resolved", "dismissed"].includes(item.status)).length, recentChanges: overview.recentEvents.slice(0, 20), exposureTrend: overview.targets.map((target) => ({ target: target.target, drift: target.drift })) };
-      const report = await store.createReport({ agencyId: access.workspace.id, clientOrgId: orgId, periodStart: periodStart.toISOString(), periodEnd: periodEnd.toISOString(), kind: type === "digest" ? "executive" : "client", title: `${linked.organizationName} ${type === "digest" ? "weekly executive digest" : "client security report"}`, content, branding: access.workspace.branding, createdBy: access.actorId });
+      const kind = type === "digest" ? "executive" : "client";
+      const title = tr.t("agency", kind === "executive" ? "reportTitleExecutive" : "reportTitleClient", { client: linked.organizationName });
+      const report = await store.createReport({ agencyId: access.workspace.id, clientOrgId: orgId, periodStart: periodStart.toISOString(), periodEnd: periodEnd.toISOString(), kind, title, content, branding: access.workspace.branding, createdBy: access.actorId });
       return { reportId: report.id, ...content };
     }));
     const succeeded = generated.flatMap((item) => item.status === "fulfilled" ? [item.value] : []);

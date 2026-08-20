@@ -1,14 +1,16 @@
 import { ImageResponse } from "next/og";
+import { currentTranslator } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 // Rendered on request, not prerendered at build: @vercel/og's font resolution
 // can fail during static export on some OSes; at runtime (Linux/prod) it works.
 export const dynamic = "force-dynamic";
-export const alt = "OUTSIDE — See your company from the outside";
+export const alt = "OUTSIDE";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+export default async function OpengraphImage() {
+  const t = await currentTranslator();
   return new ImageResponse(
     (
       <div
@@ -30,15 +32,15 @@ export default function OpengraphImage() {
           <div style={{ color: "#e8edf6", fontSize: 34, fontWeight: 700, letterSpacing: 10 }}>OUTSIDE</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ color: "#e8edf6", fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>See your company</div>
-          <div style={{ color: "#9fb0cc", fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>from the outside.</div>
+          <div style={{ color: "#e8edf6", fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>{t.t("ui", "openGraphLine1")}</div>
+          <div style={{ color: "#9fb0cc", fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: -2 }}>{t.t("ui", "openGraphLine2")}</div>
           <div style={{ color: "#aab6cc", fontSize: 30, marginTop: 28, maxWidth: 900, lineHeight: 1.4 }}>
-            Map your publicly observable digital footprint and reveal forgotten, unexpected, and changing external assets.
+            {t.t("ui", "openGraphBody")}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, color: "#38e1c3", fontSize: 22, letterSpacing: 2 }}>
           <div style={{ display: "flex", width: 10, height: 10, borderRadius: 999, background: "#38e1c3" }} />
-          EXTERNAL EXPOSURE INTELLIGENCE
+          {t.t("ui", "openGraphTagline")}
         </div>
       </div>
     ),

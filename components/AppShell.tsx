@@ -81,8 +81,8 @@ export async function AppShell({
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-line bg-base-950/85 backdrop-blur-md">
         <div className={`mx-auto flex ${width} flex-col items-start gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6`}>
-          <Link href="/account" aria-label="OUTSIDE — go to overview"><Wordmark className="h-6" /></Link>
-          <nav aria-label="Primary" className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">
+          <Link href="/account" aria-label={t.t("ui", "goToOverview")}><Wordmark className="h-6" /></Link>
+          <nav aria-label={t.t("ui", "primaryNavigation")} className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">
             {items.map((item) => {
               const current = item.key === active;
               return (

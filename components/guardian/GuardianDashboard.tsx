@@ -12,6 +12,8 @@ import type {
 import { GuardianIntegrations } from "./GuardianIntegrations";
 import { EvidenceIntelligencePanel } from "./EvidenceIntelligence";
 import { trackFunnel } from "@/lib/analytics/client";
+import { useTranslator } from "@/lib/i18n/context";
+import { localizeGuardianActivity, localizeGuardianChecklist, localizeGuardianDrift, localizeGuardianEvent, localizeGuardianRecommendation } from "@/lib/guardian/localize";
 
 const riskColor = {
   critical: "text-risk-critical border-risk-critical/25 bg-risk-critical/5",
@@ -26,15 +28,6 @@ const stateColor = {
   fail: "text-risk-high bg-risk-high/10 border-risk-high/20",
   unknown: "text-ink-faint bg-base-700/40 border-line",
 };
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
 
 function Metric({
   label,
@@ -63,6 +56,7 @@ function Metric({
 }
 
 function PostureRing({ score }: { score: number }) {
+  const tr = useTranslator();
   const color = score >= 75 ? "#38e1c3" : score >= 50 ? "#f5c451" : "#ff8a5b";
   return (
     <div
@@ -75,7 +69,7 @@ function PostureRing({ score }: { score: number }) {
       <div className="relative text-center">
         <div className="text-4xl font-semibold text-ink">{score}</div>
         <div className="mono mt-1 text-[11px] uppercase tracking-[.2em] text-ink-faint">
-          posture
+          {tr.t("ui", "posture")}
         </div>
       </div>
     </div>
@@ -83,13 +77,14 @@ function PostureRing({ score }: { score: number }) {
 }
 
 function DriftChart({ target }: { target: GuardianTargetView }) {
+  const tr = useTranslator();
   const points = target.history
     .slice(-16)
     .map((snapshot) => snapshot.metrics.assets);
   if (points.length < 2)
     return (
       <div className="grid h-40 place-items-center rounded-xl border border-dashed border-line text-center text-xs text-ink-faint">
-        A second observation will establish the drift line.
+        {tr.t("guardian", "driftSecondObservation")}
       </div>
     );
   const min = Math.min(...points),
@@ -108,7 +103,7 @@ function DriftChart({ target }: { target: GuardianTargetView }) {
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         className="h-full w-full overflow-visible"
-        aria-label="External asset trend"
+        aria-label={tr.t("guardian", "externalAssetTrend")}
       >
         <defs>
           <linearGradient id="guardian-area" x1="0" y1="0" x2="0" y2="1">
@@ -134,22 +129,24 @@ function DriftChart({ target }: { target: GuardianTargetView }) {
         />
       </svg>
       <div className="mono absolute bottom-1 left-0 text-[11px] text-ink-faint">
-        {new Date(
+        {tr.formatDate(
           (
             target.history.at(-16) ??
             target.history[0] ??
             target.latest
           ).observedAt,
-        ).toLocaleDateString()}
+        )}
       </div>
       <div className="mono absolute bottom-1 right-0 text-[11px] text-ink-faint">
-        now
+        {tr.t("guardian", "now")}
       </div>
     </div>
   );
 }
 
 function ChecklistCard({ item }: { item: GuardianChecklistItem }) {
+  const tr = useTranslator();
+  const copy = localizeGuardianChecklist(item, tr);
   const [open, setOpen] = useState(false);
   return (
     <button
@@ -158,30 +155,29 @@ function ChecklistCard({ item }: { item: GuardianChecklistItem }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-medium text-ink">{item.label}</div>
+          <div className="text-sm font-medium text-ink">{copy.label}</div>
           <div className="mt-1 line-clamp-2 text-xs leading-5 text-ink-faint">
-            {item.explanation}
+            {copy.explanation}
           </div>
         </div>
         <span
           className={`mono rounded-full border px-2 py-1 text-[11px] uppercase tracking-wider ${stateColor[item.state]}`}
         >
-          {item.state}
+          {copy.state}
         </span>
       </div>
       {open && (
         <div className="mt-4 space-y-3 border-t border-line pt-4 text-xs leading-5">
           <div>
-            <span className="text-ink-soft">Why it matters</span>
-            <p className="text-ink-faint">{item.whyItMatters}</p>
+            <span className="text-ink-soft">{tr.t("guardian", "whyItMatters")}</span>
+            <p className="text-ink-faint">{copy.whyItMatters}</p>
           </div>
           <div>
-            <span className="text-ink-soft">Recommended action</span>
-            <p className="text-ink-faint">{item.recommendedAction}</p>
+            <span className="text-ink-soft">{tr.t("guardian", "recommendedAction")}</span>
+            <p className="text-ink-faint">{copy.recommendedAction}</p>
           </div>
           <div className="mono rounded-lg bg-base-950 p-3 text-[11px] text-ink-faint">
-            {item.evidence[0]?.observation ??
-              "Not enough deterministic evidence yet — Guardian will not guess."}
+            {item.evidence.length ? copy.observation : tr.t("guardian", "notEnoughEvidence")}
           </div>
         </div>
       )}
@@ -190,6 +186,8 @@ function ChecklistCard({ item }: { item: GuardianChecklistItem }) {
 }
 
 function TimelineEvent({ event }: { event: GuardianEvent }) {
+  const tr = useTranslator();
+  const copy = localizeGuardianEvent(event, tr);
   return (
     <div className="relative pl-8 before:absolute before:left-[7px] before:top-5 before:h-full before:w-px before:bg-line last:before:hidden">
       <div
@@ -200,20 +198,20 @@ function TimelineEvent({ event }: { event: GuardianEvent }) {
           <span
             className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase ${riskColor[event.severity]}`}
           >
-            {event.severity}
+            {tr.t("ui", `priority${event.severity[0]!.toUpperCase()}${event.severity.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}
           </span>
           <span className="mono text-[11px] text-ink-faint">
-            {formatDate(event.observedAt)}
+            {tr.formatDate(event.observedAt, { dateStyle: "medium", timeStyle: "short" })}
           </span>
           <span className="mono text-[11px] uppercase text-ink-faint">
-            {event.category}
+            {copy.category}
           </span>
         </div>
-        <h3 className="mt-2 text-sm font-medium text-ink">{event.title}</h3>
-        <p className="mt-1 text-xs leading-5 text-ink-soft">{event.summary}</p>
+        <h3 className="mt-2 text-sm font-medium text-ink">{copy.title}</h3>
+        <p className="mt-1 text-xs leading-5 text-ink-soft">{copy.summary}</p>
         <p className="mt-2 text-xs leading-5 text-ink-faint">
-          <span className="text-ink-soft">Why · </span>
-          {event.why}
+          <span className="text-ink-soft">{tr.t("ui", "why")} · </span>
+          {copy.why}
         </p>
         {event.affectedAssets.length > 0 && (
           <div className="mono mt-2 truncate text-[11px] text-accent">
@@ -234,9 +232,11 @@ function RecommendationCard({
   orgId: string;
   onUpdate: (id: string, status: GuardianRecommendationStatus) => void;
 }) {
+  const tr = useTranslator();
+  const copy = localizeGuardianRecommendation(recommendation, tr);
   const [open, setOpen] = useState(false);
   const [guide, setGuide] = useState(0);
-  const selected = recommendation.guides[guide];
+  const selected = copy.guides[guide];
   const update = async (status: GuardianRecommendationStatus) => {
     const response = await fetch(
       `/api/guardian/recommendations/${recommendation.id}`,
@@ -256,21 +256,21 @@ function RecommendationCard({
             <span
               className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase ${riskColor[recommendation.priority]}`}
             >
-              {recommendation.priority}
+              {tr.t("ui", `priority${recommendation.priority[0]!.toUpperCase()}${recommendation.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}
             </span>
             <span className="mono text-[11px] uppercase text-ink-faint">
-              {Math.round(recommendation.confidence * 100)}% confidence
+              {tr.t("ui", "confidencePercent", { value: Math.round(recommendation.confidence * 100) })}
             </span>
           </div>
           <h3 className="mt-3 text-base font-medium text-ink">
-            {recommendation.title}
+            {copy.title}
           </h3>
           <p className="mt-2 text-xs leading-5 text-ink-soft">
-            {recommendation.reasoning}
+            {copy.reasoning}
           </p>
           <p className="mt-2 text-xs leading-5 text-ink-faint">
-            <span className="text-ink-soft">Why · </span>
-            {recommendation.why}
+            <span className="text-ink-soft">{tr.t("ui", "why")} · </span>
+            {copy.why}
           </p>
           {recommendation.affectedAssets.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -286,42 +286,42 @@ function RecommendationCard({
           )}
         </div>
         <select
-          aria-label={`Status for ${recommendation.title}`}
+          aria-label={tr.t("guardian", "statusFor", { title: copy.title })}
           value={recommendation.status}
           onChange={(event) =>
             void update(event.target.value as GuardianRecommendationStatus)
           }
           className="mono rounded-lg border border-line bg-base-950 px-2 py-2 text-[11px] text-ink-soft"
         >
-          <option value="open">Open</option>
-          <option value="acknowledged">Acknowledged</option>
-          <option value="in_progress">In progress</option>
-          <option value="resolved">Resolved</option>
-          <option value="dismissed">Dismissed</option>
+          <option value="open">{tr.t("ui", "statusOpen")}</option>
+          <option value="acknowledged">{tr.t("ui", "statusAcknowledged")}</option>
+          <option value="in_progress">{tr.t("ui", "statusInProgress")}</option>
+          <option value="resolved">{tr.t("ui", "statusResolved")}</option>
+          <option value="dismissed">{tr.t("ui", "statusDismissed")}</option>
         </select>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <div className="rounded-lg bg-base-950/70 p-3">
           <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-            Business impact
+            {tr.t("ui", "businessImpact")}
           </div>
           <p className="mt-1 text-xs leading-5 text-ink-soft">
-            {recommendation.businessImpact}
+            {copy.businessImpact}
           </p>
         </div>
         <div className="rounded-lg bg-base-950/70 p-3">
           <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-            Suggested review
+            {tr.t("guardian", "suggestedReview")}
           </div>
           <p className="mt-1 text-xs leading-5 text-ink-soft">
-            {recommendation.suggestedReview}
+            {copy.suggestedReview}
           </p>
         </div>
       </div>
       {recommendation.evidence.length > 0 && (
         <div className="mt-3 rounded-lg border border-line bg-base-950/55 p-3">
           <div className="mono text-[11px] uppercase tracking-wider text-ink-faint">
-            Deterministic evidence · {recommendation.evidence.length}
+            {tr.t("guardian", "deterministicEvidence", { count: recommendation.evidence.length })}
           </div>
           <div className="mt-2 space-y-2">
             {recommendation.evidence.slice(0, 3).map((entry, index) => (
@@ -331,7 +331,7 @@ function RecommendationCard({
               >
                 <span className="text-ink-soft">{entry.source}</span>
                 {entry.asset ? ` · ${entry.asset}` : ""}
-                <span> — {entry.observation}</span>
+                <span> · {tr.t("guardian", "recommendationEvidenceEntry", { scan: entry.scanId })}</span>
               </div>
             ))}
           </div>
@@ -347,13 +347,13 @@ function RecommendationCard({
         className="mono mt-4 text-[11px] uppercase tracking-wider text-signal"
       >
         {open
-          ? "Hide remediation"
-          : `Open remediation guide · ${recommendation.guides.length}`}
+          ? tr.t("guardian", "hideRemediation")
+          : tr.t("guardian", "openRemediationGuide", { count: recommendation.guides.length })}
       </button>
       {open && selected && (
         <div className="mt-4 border-t border-line pt-4">
           <div className="flex flex-wrap gap-2">
-            {recommendation.guides.map((item, index) => (
+            {copy.guides.map((item, index) => (
               <button
                 key={item.platform}
                 onClick={() => setGuide(index)}
@@ -382,7 +382,7 @@ function RecommendationCard({
           </ol>
           <div className="mt-4 rounded-lg border border-signal/15 bg-signal/5 p-3 text-xs text-ink-soft">
             <span className="mono mr-2 text-[11px] uppercase text-signal">
-              Verify
+              {tr.t("guardian", "verify")}
             </span>
             {selected.verification}
           </div>
@@ -401,6 +401,7 @@ export function GuardianDashboard({
   orgId: string;
   canAdmin: boolean;
 }) {
+  const tr = useTranslator();
   const [overview, setOverview] = useState(initial);
   const [selectedTarget, setSelectedTarget] = useState(
     initial.targets[0]?.target ?? "",
@@ -462,31 +463,30 @@ export function GuardianDashboard({
             <span className="h-3 w-3 rounded-full bg-signal shadow-glow" />
           </div>
           <h2 className="mt-5 text-2xl font-semibold text-ink">
-            Guardian is ready to establish a baseline
+            {tr.t("guardian", "baselineReadyTitle")}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-ink-soft">
-            Run a verified scan or let your next scheduled monitor complete.
-            Guardian will build its first factual inventory, then begin
-            correlating meaningful changes over time.
+            {tr.t("guardian", "baselineReadyBody")}
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <a
               href="/account"
               className="rounded-lg border border-line px-4 py-2 text-sm text-ink-soft"
             >
-              Configure monitoring
+              {tr.t("guardian", "configureMonitoring")}
             </a>
             <a
               href="/scan"
               className="rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-base-950"
             >
-              Run verified scan
+              {tr.t("guardian", "runVerifiedScan")}
             </a>
           </div>
         </div>
       </div>
     );
   const latest = target.latest;
+  const drift = localizeGuardianDrift(target.drift, tr);
   const driftTone =
     target.drift.direction === "improving"
       ? "text-signal"
@@ -507,10 +507,10 @@ export function GuardianDashboard({
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-signal" />
               </span>
               <span className="mono text-[11px] uppercase tracking-[.2em] text-signal">
-                Guardian active
+                {tr.t("guardian", "active")}
               </span>
               <select
-                aria-label="Guardian target"
+                aria-label={tr.t("guardian", "targetLabel")}
                 value={target.target}
                 onChange={(event) => setSelectedTarget(event.target.value)}
                 className="mono rounded-md border border-line bg-base-950/80 px-2 py-1 text-[11px] text-ink-soft"
@@ -521,21 +521,19 @@ export function GuardianDashboard({
               </select>
             </div>
             <h1 className="mt-5 text-3xl font-semibold tracking-tight text-ink md:text-4xl">
-              Your external presence is{" "}
-              <span className={driftTone}>
-                {target.drift.direction === "stable"
-                  ? "stable"
-                  : target.drift.direction}
-              </span>
-              .
+              {tr.t("guardian", "externalPresence", {
+                direction: tr.t("guardian", `driftDirection${target.drift.direction[0]!.toUpperCase()}${target.drift.direction.slice(1)}` as Parameters<typeof tr.t<"guardian">>[1]),
+              })}
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-ink-soft">
-              {target.drift.narrative}
+              {drift.narrative}
             </p>
             <div className="mono mt-5 text-[11px] text-ink-faint">
-              Last analyzed {formatDate(latest.observedAt)} · scan{" "}
-              {latest.scanId.slice(0, 16)} ·{" "}
-              {overview.durable ? "durable history" : "development memory"}
+              {tr.t("guardian", "lastAnalyzed", {
+                date: tr.formatDate(latest.observedAt, { dateStyle: "medium", timeStyle: "short" }),
+                scanId: latest.scanId.slice(0, 16),
+                storage: tr.t("guardian", overview.durable ? "durableHistory" : "developmentMemory"),
+              })}
             </div>
           </div>
           <PostureRing score={latest.exposureScore} />
@@ -544,31 +542,31 @@ export function GuardianDashboard({
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Metric
-          label="Observed assets"
+          label={tr.t("guardian", "metricObservedAssets")}
           value={latest.metrics.assets}
-          detail={`${latest.metrics.webSurfaces} web-facing`}
+          detail={tr.t("guardian", "metricWebFacing", { count: latest.metrics.webSurfaces })}
         />
         <Metric
-          label="Shadow review"
+          label={tr.t("guardian", "metricShadowReview")}
           value={latest.metrics.shadowAssets}
-          detail="ownership signals"
+          detail={tr.t("guardian", "metricOwnershipSignals")}
           tone={latest.metrics.shadowAssets ? "watch" : "good"}
         />
         <Metric
-          label="Identity surfaces"
+          label={tr.t("guardian", "metricIdentitySurfaces")}
           value={latest.metrics.authSurfaces}
-          detail={`${latest.metrics.apiSurfaces} API-related`}
+          detail={tr.t("guardian", "metricApiRelated", { count: latest.metrics.apiSurfaces })}
         />
         <Metric
-          label="Checklist"
+          label={tr.t("guardian", "metricChecklist")}
           value={`${latest.metrics.checklistPassed}/10`}
-          detail={`${latest.metrics.checklistActionable} actionable`}
+          detail={tr.t("guardian", "metricActionable", { count: latest.metrics.checklistActionable })}
           tone={latest.metrics.checklistActionable ? "watch" : "good"}
         />
         <Metric
-          label="Complexity"
+          label={tr.t("guardian", "metricComplexity")}
           value={latest.metrics.complexityIndex}
-          detail={`${latest.metrics.infrastructureProviders} providers`}
+          detail={tr.t("guardian", "metricProviders", { count: latest.metrics.infrastructureProviders })}
         />
       </section>
 
@@ -577,19 +575,19 @@ export function GuardianDashboard({
           <div className="flex items-start justify-between">
             <div>
               <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-                Exposure Drift
+                {tr.t("guardian", "exposureDrift")}
               </div>
               <h2 className={`mt-2 text-xl font-medium ${driftTone}`}>
-                {target.drift.headline}
+                {drift.headline}
               </h2>
             </div>
             <span className="mono rounded-full border border-line px-2 py-1 text-[11px] uppercase text-ink-faint">
-              {target.history.length} observations
+              {tr.t("guardian", "observationCount", { count: target.history.length })}
             </span>
           </div>
           <DriftChart target={target} />
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            {target.drift.dimensions
+            {drift.dimensions
               .filter((item) => item.direction !== "stable")
               .slice(0, 3)
               .map((item) => (
@@ -612,10 +610,10 @@ export function GuardianDashboard({
         </div>
         <div className="panel p-5 md:p-6">
           <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-            Renewal horizon
+            {tr.t("guardian", "renewalHorizon")}
           </div>
           <h2 className="mt-2 text-xl font-medium text-ink">
-            Certificates & domains
+            {tr.t("guardian", "certificatesAndDomains")}
           </h2>
           <div className="mt-5 space-y-3">
             {certs.length ? (
@@ -630,20 +628,20 @@ export function GuardianDashboard({
                     </div>
                     <div className="mono mt-1 text-[11px] text-ink-faint">
                       {item.certNotAfter
-                        ? new Date(item.certNotAfter).toLocaleDateString()
-                        : "date unavailable"}
+                        ? tr.formatDate(item.certNotAfter)
+                        : tr.t("guardian", "dateUnavailable")}
                     </div>
                   </div>
                   <span
                     className={`text-sm font-medium ${(item.certDaysToExpiry ?? 100) <= 30 ? "text-risk-high" : "text-signal"}`}
                   >
-                    {item.certDaysToExpiry}d
+                    {tr.t("guardian", "daysShort", { count: item.certDaysToExpiry ?? 0 })}
                   </span>
                 </div>
               ))
             ) : (
               <div className="rounded-lg border border-dashed border-line p-6 text-center text-xs text-ink-faint">
-                No certificate lifetime evidence in the latest observation.
+                {tr.t("guardian", "noCertificateEvidence")}
               </div>
             )}
           </div>
@@ -653,12 +651,12 @@ export function GuardianDashboard({
       <section className="grid gap-6 xl:grid-cols-[.85fr_1.15fr]">
         <div className="panel max-h-[760px] overflow-hidden p-5 md:p-6">
           <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-            Change intelligence
+            {tr.t("guardian", "changeIntelligence")}
           </div>
           <div className="mt-2 flex items-baseline justify-between">
-            <h2 className="text-xl font-medium text-ink">Guardian timeline</h2>
+            <h2 className="text-xl font-medium text-ink">{tr.t("guardian", "timeline")}</h2>
             <span className="mono text-[11px] text-ink-faint">
-              {target.events.length} correlated
+              {tr.t("guardian", "correlatedCount", { count: target.events.length })}
             </span>
           </div>
           <div className="scroll-thin mt-6 max-h-[650px] overflow-y-auto pr-2">
@@ -668,8 +666,7 @@ export function GuardianDashboard({
               ))
             ) : (
               <p className="text-sm text-ink-faint">
-                No meaningful changes since the baseline. Guardian is still
-                watching.
+                {tr.t("guardian", "noMeaningfulChanges")}
               </p>
             )}
           </div>
@@ -678,14 +675,14 @@ export function GuardianDashboard({
           <div className="flex items-end justify-between">
             <div>
               <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-                Analyst queue
+                {tr.t("guardian", "analystQueue")}
               </div>
               <h2 className="mt-2 text-xl font-medium text-ink">
-                Guardian recommendations
+                {tr.t("guardian", "recommendations")}
               </h2>
             </div>
             <span className="mono text-[11px] text-ink-faint">
-              deterministic evidence only
+              {tr.t("guardian", "deterministicOnly")}
             </span>
           </div>
           {target.recommendations.filter(
@@ -707,8 +704,7 @@ export function GuardianDashboard({
               ))
           ) : (
             <div className="panel p-8 text-center text-sm text-ink-faint">
-              No open review items. Guardian will create one only when
-              observations support it.
+              {tr.t("guardian", "noOpenReviewItems")}
             </div>
           )}
         </div>
@@ -718,14 +714,14 @@ export function GuardianDashboard({
         <div className="flex items-end justify-between">
           <div>
             <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-              Living controls
+              {tr.t("guardian", "livingControls")}
             </div>
             <h2 className="mt-2 text-xl font-medium text-ink">
-              Security checklist
+              {tr.t("guardian", "securityChecklist")}
             </h2>
           </div>
           <span className="mono text-[11px] text-ink-faint">
-            click any control for evidence
+            {tr.t("guardian", "clickControlEvidence")}
           </span>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -743,33 +739,33 @@ export function GuardianDashboard({
         />
         <div className="panel p-5 md:p-6">
           <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-            Guardian operations
+            {tr.t("guardian", "operations")}
           </div>
           <h2 className="mt-2 text-xl font-medium text-ink">
-            Activity & delivery
+            {tr.t("guardian", "activityDelivery")}
           </h2>
           <div className="mt-5 space-y-4">
             {overview.activity.slice(0, 7).map((item) => (
               <div key={item.id} className="flex gap-3">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
                 <div>
-                  <div className="text-xs text-ink-soft">{item.message}</div>
+                  <div className="text-xs text-ink-soft">{localizeGuardianActivity(item, tr)}</div>
                   <div className="mono mt-1 text-[11px] text-ink-faint">
-                    {formatDate(item.createdAt)}
+                    {tr.formatDate(item.createdAt, { dateStyle: "medium", timeStyle: "short" })}
                   </div>
                 </div>
               </div>
             ))}
             {overview.activity.length === 0 && (
               <p className="text-xs text-ink-faint">
-                Guardian activity will appear after the first analyzed scan.
+                {tr.t("guardian", "activityEmpty")}
               </p>
             )}
           </div>
           {overview.deliveries.length > 0 && (
             <div className="mt-6 border-t border-line pt-5">
               <div className="mono mb-3 text-[11px] uppercase tracking-wider text-ink-faint">
-                Recent deliveries
+                {tr.t("guardian", "recentDeliveries")}
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {overview.deliveries.slice(0, 6).map((delivery) => (
@@ -782,14 +778,13 @@ export function GuardianDashboard({
                         {delivery.channelType.replace("_", " ")}
                       </div>
                       <div className="mono mt-1 text-[11px] text-ink-faint">
-                        {delivery.itemCount} items · {delivery.attempts}{" "}
-                        attempt(s)
+                        {tr.t("guardian", "deliveryMeta", { items: delivery.itemCount, attempts: delivery.attempts })}
                       </div>
                     </div>
                     <span
                       className={`mono text-[11px] uppercase ${delivery.status === "sent" ? "text-signal" : delivery.status === "failed" ? "text-risk-high" : "text-risk-medium"}`}
                     >
-                      {delivery.status}
+                      {tr.t("guardian", `delivery${delivery.status[0]!.toUpperCase()}${delivery.status.slice(1)}` as Parameters<typeof tr.t<"guardian">>[1])}
                     </span>
                   </div>
                 ))}

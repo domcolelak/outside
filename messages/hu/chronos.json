@@ -11,5 +11,10 @@
   "loadFailed": "Az előzményeket nem sikerült betölteni.",
   "networkError": "Hálózati hiba.",
   "protectionPosture": "védelmi helyzet",
-  "noPoints": "Még nincsenek rögzített pontok."
+  "noPoints": "Még nincsenek rögzített pontok.",
+  "initialSummary": "A kezdeti megfigyelés {count} eszközt rögzített.",
+  "diffSummary": "Változások az előző megfigyelés óta: {added} hozzáadva, {removed} eltávolítva, {modified} módosítva.",
+  "changeAdded": "hozzáadva",
+  "changeRemoved": "eltávolítva",
+  "changeModified": "módosítva"
 }

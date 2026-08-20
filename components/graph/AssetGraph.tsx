@@ -12,6 +12,8 @@ import type { Asset, AssetKind, Edge } from "@/lib/types";
 import { applyRepulsion } from "@/lib/graph/barnesHut";
 import { staleGraphIds } from "@/lib/graph/reconcile";
 import { PRIORITY_STYLE } from "@/lib/analysis/priority";
+import { useTranslator } from "@/lib/i18n/context";
+import { localizeAssetKind } from "@/lib/report/scan-copy";
 
 interface Node {
   id: string;
@@ -73,6 +75,8 @@ export function AssetGraph({
   /** Nodes that changed since the previous scan, for the change overlay. */
   changedIds?: Map<string, "new" | "returned"> | null;
 }) {
+  const tr = useTranslator();
+  const u = (key: Parameters<typeof tr.t<"ui">>[1], values?: Record<string, string | number>) => tr.t("ui", key, values);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<Map<string, Node>>(new Map());
   const spatialRef = useRef<Map<string, Node[]>>(new Map());
@@ -504,31 +508,31 @@ export function AssetGraph({
         onPointerLeave={() => { hoveredIdRef.current = null; setHoverInfo(null); wakeRef.current(); }}
         onWheel={onWheel}
       />
-      {hoverInfo && <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[11px] text-ink">{hoverInfo.asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[10px] uppercase text-ink-faint"><span>{hoverInfo.asset.kind.replaceAll("_", " ")}</span><span>·</span><span style={{ color: nodeColor(hoverInfo.asset) }}>{hoverInfo.asset.priority}</span></div><div className="mt-1 text-[11px] text-ink-faint">Click to inspect evidence</div></div>}
+      {hoverInfo && <div className="pointer-events-none fixed z-60 max-w-64 -translate-y-[calc(100%+14px)] rounded-xl border border-line bg-base-950/92 px-3 py-2 shadow-panel backdrop-blur-xl" style={{ left: hoverInfo.x + 12, top: hoverInfo.y }}><div className="mono truncate text-[11px] text-ink">{hoverInfo.asset.label}</div><div className="mono mt-1 flex items-center gap-2 text-[10px] uppercase text-ink-faint"><span>{localizeAssetKind(hoverInfo.asset.kind, tr)}</span><span>·</span><span style={{ color: nodeColor(hoverInfo.asset) }}>{tr.t("ui", `priority${hoverInfo.asset.priority[0]!.toUpperCase()}${hoverInfo.asset.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}</span></div><div className="mt-1 text-[11px] text-ink-faint">{u("clickInspectEvidence")}</div></div>}
       {controls && (
         <div data-capture-hide className="absolute right-3 top-3 flex flex-col gap-1">
-          <ControlButton label="Zoom in" onClick={() => zoomBy(1.2)}>+</ControlButton>
-          <ControlButton label="Zoom out" onClick={() => zoomBy(0.83)}>−</ControlButton>
-          <ControlButton label="Fit to view" onClick={fitView}>⤢</ControlButton>
-          <ControlButton label="Export as image" onClick={exportImage}>⤓</ControlButton>
+          <ControlButton label={u("zoomIn")} onClick={() => zoomBy(1.2)}>+</ControlButton>
+          <ControlButton label={u("zoomOut")} onClick={() => zoomBy(0.83)}>−</ControlButton>
+          <ControlButton label={u("fitToView")} onClick={fitView}>⤢</ControlButton>
+          <ControlButton label={u("exportAsImage")} onClick={exportImage}>⤓</ControlButton>
         </div>
       )}
       {controls && selectionEnabled && assets.length > 0 && (
         <div data-capture-hide className="absolute bottom-3 right-14 max-w-[min(58%,20rem)] rounded-lg border border-line bg-base-900/85 px-2.5 py-2 backdrop-blur-sm">
-          <label htmlFor={assetSelectId} className="mono block text-[10px] uppercase tracking-wide text-ink-faint">Inspect graph asset</label>
+          <label htmlFor={assetSelectId} className="mono block text-[10px] uppercase tracking-wide text-ink-faint">{u("inspectGraphAsset")}</label>
           <select
             id={assetSelectId}
             value={selectedId ?? ""}
             onChange={(event) => onSelect(event.target.value || null)}
             className="mono mt-1 w-full bg-transparent text-[11px] text-ink outline-none"
           >
-            <option value="" className="bg-base-900">Choose an asset…</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.id} className="bg-base-900">{asset.label} · {asset.kind.replaceAll("_", " ")} · {asset.priority}</option>)}
+            <option value="" className="bg-base-900">{u("chooseAsset")}</option>
+            {assets.map((asset) => <option key={asset.id} value={asset.id} className="bg-base-900">{asset.label} · {localizeAssetKind(asset.kind, tr)} · {tr.t("ui", `priority${asset.priority[0]!.toUpperCase()}${asset.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}</option>)}
           </select>
         </div>
       )}
       {controls && !selectionEnabled && (
-        <p className="sr-only">Animated asset graph showing {assets.length} currently revealed public asset{assets.length === 1 ? "" : "s"}.</p>
+        <p className="sr-only">{u("animatedGraphSummary", { visible: assets.length, total: assets.length })}</p>
       )}
     </div>
   );

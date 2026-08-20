@@ -6,31 +6,25 @@
   "modePassive": "Passzív külső nézet (nem igazolt)",
   "scanReference": "Vizsgálat: {scanId}",
   "footer": "OUTSIDE · Külső felületi jelentés · {target}",
-
   "bandGuarded": "Védett",
   "bandModerate": "Mérsékelt",
   "bandElevated": "Emelt",
   "bandExposed": "Kitett",
-
   "statAssets": "Külső eszközök",
   "statWebSurfaces": "Web / API felületek",
   "statShadow": "Árnyékeszköz-jelek",
   "statHighPriority": "Magas prioritás",
-
   "headingSummary": "Vezetői összefoglaló",
   "headingPosture": "A védelmi helyzet bontása",
   "headingChanges": "Változások a legutóbbi vizsgálat óta",
   "headingFindings": "Megállapítások ({count})",
   "headingInventory": "Eszközleltár",
   "headingMethodology": "Módszertan és felelős használat",
-
   "labelObserved": "Megfigyelve",
   "labelInferred": "Következtetve",
   "labelConcern": "Lehetséges aggály",
   "labelRecommendation": "Javasolt átnézés",
-
   "methodology": "Az OUTSIDE passzív, nem tolakodó nyilvános források (tanúsítvány-átláthatóság és DNS) segítségével térképezi fel a szervezet nyilvánosan megfigyelhető digitális lábnyomát. A megállapítások elkülönítik a megfigyelt tényt a következtetéstől és a lehetséges aggálytól, mindegyiket megbízhatósági pontszámmal. Ez a jelentés kizárólag külső felderítést ír le — nem jelent kihasználást, kompromittálódást vagy jogosulatlan hozzáférést. A következtetettként vagy lehetségesként jelölt tételek cselekvés előtt emberi átnézést igényelnek.",
-
   "summaryFootprint": "A(z) {target} nyilvános digitális lábnyoma {assets}, ebből {surfaces}.",
   "summaryAssetCount": {
     "one": "{count} megfigyelhető eszköz",

@@ -7,12 +7,10 @@
   "planProfessional": "Professional",
   "planAgency": "Agency",
   "signOut": "Sign out",
-
   "roleOwner": "owner",
   "roleAdmin": "admin",
   "roleAnalyst": "analyst",
   "roleViewer": "viewer",
-
   "monitorsHeading": "Monitored targets",
   "monitorsDomainLabel": "Domain to monitor",
   "monitorsDomainPlaceholder": "company.com",
@@ -31,12 +29,10 @@
   "monitorsAddFailed": "Could not add monitor.",
   "monitorsUpdateFailed": "Could not update monitor.",
   "monitorsRemoveFailed": "Could not remove monitor.",
-
   "notificationsHeading": "Notifications",
   "notificationsChangeAlerts": "Change alerts",
   "notificationsChangeAlertsBody": "Email me when this organization's monitored surface changes.",
   "notificationsFailed": "Could not update notification settings.",
-
   "teamHeading": "Team",
   "teamEmailLabel": "Teammate email",
   "teamEmailPlaceholder": "teammate@company.com",
@@ -46,7 +42,6 @@
   "teamNoInvites": "No pending invitations.",
   "teamPending": "pending",
   "teamInviteFailed": "Could not send the invitation.",
-
   "verifyTitle": "Verify your email to unlock scanning, monitoring, and reports",
   "verifyBodyInvalid": "That verification link was invalid or expired. Send a fresh one below.",
   "verifyBody": "We sent a verification link to {email}. Verified-target scans, Guardian, invites, and Agency/Enterprise stay locked until you confirm it.",

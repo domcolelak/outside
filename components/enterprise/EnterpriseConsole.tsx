@@ -4,22 +4,22 @@ import type {
   EnterpriseOverview,
   EnterpriseRecord,
 } from "@/lib/enterprise/types";
+import { useTranslator } from "@/lib/i18n/context";
 type Tab = "overview" | "identity" | "governance" | "integrations" | "data";
-const tabs: Array<{ id: Tab; label: string }> = [
-  { id: "overview", label: "Control plane" },
-  { id: "identity", label: "Identity & access" },
-  { id: "governance", label: "Risk governance" },
-  { id: "integrations", label: "Operations" },
-  { id: "data", label: "Data & reporting" },
-];
-const countLabels: Array<[keyof EnterpriseOverview["counts"], string]> = [
-  ["directoryUsers", "Directory users"],
-  ["roles", "Enterprise roles"],
-  ["units", "Org units"],
-  ["ownership", "Owned risks/assets"],
-  ["integrations", "Connected systems"],
-  ["audit", "Immutable events"],
-];
+const tabs = [
+  { id: "overview", key: "tabOverview" },
+  { id: "identity", key: "tabIdentity" },
+  { id: "governance", key: "tabGovernance" },
+  { id: "integrations", key: "tabIntegrations" },
+  { id: "data", key: "tabData" },
+] as const satisfies ReadonlyArray<{ id: Tab; key: string }>;
+const countLabels = [
+  ["directoryUsers", "countDirectoryUsers"], ["roles", "countRoles"], ["units", "countUnits"],
+  ["ownership", "countOwnership"], ["integrations", "countIntegrations"], ["audit", "countAudit"],
+] as const satisfies ReadonlyArray<readonly [keyof EnterpriseOverview["counts"], string]>;
+const LICENSE_KEY = { trial: "licenseTrial", active: "licenseActive", suspended: "licenseSuspended", expired: "licenseExpired" } as const;
+const INTEGRATION_STATUS_KEY = { healthy: "statusHealthy", degraded: "statusDegraded", disabled: "statusDisabled" } as const;
+const INTEGRATION_CATEGORY_KEY = { siem: "categorySiem", soar: "categorySoar", ticketing: "categoryTicketing", webhook: "categoryWebhook", export: "categoryExport" } as const;
 function Metric({
   value,
   label,
@@ -76,10 +76,12 @@ export function EnterpriseConsole({
   initial: EnterpriseOverview;
   organizationName: string;
 }) {
+  const tr = useTranslator();
   const [overview, setOverview] = useState(initial),
     [tab, setTab] = useState<Tab>("overview"),
     [busy, setBusy] = useState(false),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(""),
+    [messageIsSecret, setMessageIsSecret] = useState(false);
   const org = `orgId=${encodeURIComponent(overview.workspace.orgId)}`;
   async function refresh() {
     const response = await fetch(`/api/enterprise?${org}`, {
@@ -90,6 +92,7 @@ export function EnterpriseConsole({
   async function create(url: string, payload: Record<string, unknown>) {
     setBusy(true);
     setMessage("");
+    setMessageIsSecret(false);
     const response = await fetch(
         `${url}${url.includes("?") ? "&" : "?"}${org}`,
         {
@@ -101,14 +104,12 @@ export function EnterpriseConsole({
       data = await response.json();
     setBusy(false);
     if (!response.ok) {
-      setMessage(data.error ?? "Enterprise operation failed.");
+      setMessage(tr.t("enterprise", "operationFailed"));
       return null;
     }
-    setMessage(
-      data.token || data.scimToken
-        ? `Copy this secret now; it will not be shown again: ${data.token ?? data.scimToken}`
-        : "Saved and written to the immutable audit trail.",
-    );
+    const secret = data.token ?? data.scimToken;
+    setMessageIsSecret(!!secret);
+    setMessage(secret ? tr.t("enterprise", "copySecret", { secret }) : tr.t("enterprise", "savedAudit"));
     await refresh();
     return data;
   }
@@ -119,28 +120,27 @@ export function EnterpriseConsole({
         <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
             <div className="mono text-[11px] uppercase tracking-[.22em] text-signal">
-              OUTSIDE Enterprise
+              {tr.t("enterprise", "kicker")}
             </div>
             <h1 className="mt-3 text-3xl font-semibold text-gradient md:text-4xl">
-              {organizationName} control plane
+              {tr.t("enterprise", "controlPlaneTitle", { organization: organizationName })}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-soft">
-              Identity, governance, ownership, integrations and defensible
-              evidence—isolated from the everyday OUTSIDE workflow.
+              {tr.t("enterprise", "intro")}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-right">
             <div className="rounded-lg border border-line bg-base-950/50 px-3 py-2">
               <div className="mono text-[11px] uppercase text-ink-faint">
-                License
+                {tr.t("enterprise", "license")}
               </div>
               <div className="mt-1 text-sm capitalize text-signal">
-                {overview.workspace.licenseStatus}
+                {tr.t("enterprise", LICENSE_KEY[overview.workspace.licenseStatus])}
               </div>
             </div>
             <div className="rounded-lg border border-line bg-base-950/50 px-3 py-2">
               <div className="mono text-[11px] uppercase text-ink-faint">
-                Residency
+                {tr.t("enterprise", "residency")}
               </div>
               <div className="mt-1 text-sm uppercase text-ink">
                 {overview.workspace.dataRegion}
@@ -156,50 +156,50 @@ export function EnterpriseConsole({
             onClick={() => setTab(item.id)}
             className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs transition ${tab === item.id ? "bg-signal/10 text-signal shadow-[inset_0_0_0_1px_rgba(56,225,195,.18)]" : "text-ink-faint hover:bg-base-700 hover:text-ink"}`}
           >
-            {item.label}
+            {tr.t("enterprise", item.key as Parameters<typeof tr.t<"enterprise">>[1])}
           </button>
         ))}
       </nav>
       {message && (
         <div
-          className={`mono break-all rounded-lg border px-4 py-3 text-xs ${message.startsWith("Copy") ? "border-risk-medium/30 bg-risk-medium/5 text-risk-medium" : "border-signal/20 bg-signal/5 text-signal"}`}
+          className={`mono break-all rounded-lg border px-4 py-3 text-xs ${messageIsSecret ? "border-risk-medium/30 bg-risk-medium/5 text-risk-medium" : "border-signal/20 bg-signal/5 text-signal"}`}
         >
           {message}
         </div>
       )}
       {tab === "overview" && (
         <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-          <Section eyebrow="Portfolio state" title="Enterprise posture">
+          <Section eyebrow={tr.t("enterprise", "portfolioState")} title={tr.t("enterprise", "enterprisePosture")}>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {countLabels.map(([key, label]) => (
-                <Metric key={key} value={overview.counts[key]} label={label} />
+                <Metric key={key} value={overview.counts[key]} label={tr.t("enterprise", label as Parameters<typeof tr.t<"enterprise">>[1])} />
               ))}
             </div>
             <div className="mt-5 rounded-xl border border-line p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-ink">Audit chain head</span>
+                <span className="text-sm text-ink">{tr.t("enterprise", "auditChainHead")}</span>
                 <span className="mono text-[11px] text-signal">
                   {overview.auditHead
                     ? `#${overview.auditHead.sequence}`
-                    : "GENESIS"}
+                    : tr.t("enterprise", "genesis")}
                 </span>
               </div>
               <div className="mono mt-2 truncate text-[11px] text-ink-faint">
                 {overview.auditHead?.hash ??
-                  "No enterprise mutations recorded yet"}
+                  tr.t("enterprise", "noMutations")}
               </div>
             </div>
           </Section>
-          <Section eyebrow="Attention" title="Governance queue">
+          <Section eyebrow={tr.t("enterprise", "attention")} title={tr.t("enterprise", "governanceQueue")}>
             <div className="space-y-3">
               <Metric
                 value={overview.pendingApprovals.length}
-                label="Pending approvals"
+                label={tr.t("enterprise", "pendingApprovals")}
                 tone={overview.pendingApprovals.length ? "warn" : "signal"}
               />
               <Metric
                 value={overview.expiringExceptions.length}
-                label="Active risk exceptions"
+                label={tr.t("enterprise", "activeExceptions")}
                 tone={overview.expiringExceptions.length ? "warn" : "signal"}
               />
               <Metric
@@ -208,7 +208,7 @@ export function EnterpriseConsole({
                     (item) => item.status === "degraded",
                   ).length
                 }
-                label="Degraded integrations"
+                label={tr.t("enterprise", "degradedIntegrations")}
                 tone={
                   overview.integrations.some(
                     (item) => item.status === "degraded",
@@ -246,8 +246,9 @@ function IdentityPanel({
   busy: boolean;
   create: (url: string, body: Record<string, unknown>) => Promise<unknown>;
 }) {
+  const tr = useTranslator();
   const [form, set] = useState({
-    name: "Corporate identity",
+    name: tr.t("enterprise", "providerName"),
     protocol: "oidc",
     domain: "",
     issuer: "",
@@ -269,7 +270,7 @@ function IdentityPanel({
   );
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
-      <Section eyebrow="Federation" title="Identity providers">
+      <Section eyebrow={tr.t("enterprise", "federation")} title={tr.t("enterprise", "identityProviders")}>
         {overview.identityProviders.length ? (
           <div className="space-y-2">
             {overview.identityProviders.map((item) => (
@@ -279,45 +280,43 @@ function IdentityPanel({
                   <span
                     className={`mono text-[11px] uppercase ${item.enabled ? "text-signal" : "text-ink-faint"}`}
                   >
-                    {item.protocol} · {item.enabled ? "enforced" : "staged"}
+                    {tr.t("enterprise", "identityState", { protocol: item.protocol, state: tr.t("enterprise", item.enabled ? "stateEnforced" : "stateStaged") })}
                   </span>
                 </div>
                 <div className="mono mt-2 text-[11px] text-ink-faint">
-                  {item.domains.join(", ")} · SCIM{" "}
-                  {item.scimTokenPrefix ? "configured" : "not issued"}
+                  {item.domains.join(", ")} · {tr.t("enterprise", "scimState", { state: tr.t("enterprise", item.scimTokenPrefix ? "stateConfigured" : "stateNotIssued") })}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <Empty>
-            No SSO provider configured. Password login remains unchanged.
+            {tr.t("enterprise", "noSso")}
           </Empty>
         )}
       </Section>
-      <Section eyebrow="SAML / OIDC" title="Add enterprise identity">
+      <Section eyebrow={tr.t("enterprise", "samlOidc")} title={tr.t("enterprise", "addIdentity")}>
         <div className="grid gap-2 sm:grid-cols-2">
           <select
-            aria-label="Identity provider protocol"
+            aria-label={tr.t("enterprise", "protocolLabel")}
             value={form.protocol}
             onChange={(event) => set({ ...form, protocol: event.target.value })}
             className="rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
           >
             <option value="oidc">OIDC</option>
-            <option value="saml">SAML via broker</option>
+            <option value="saml">{tr.t("enterprise", "samlBroker")}</option>
           </select>
-          {field("name", "Provider name")}
-          {field("domain", "Verified login domain")}
-          {field("issuer", "Issuer URL")}
-          {field("authorizationEndpoint", "Authorization endpoint")}
-          {field("tokenEndpoint", "Token endpoint")}
-          {field("jwksUri", "JWKS URI")}
-          {field("clientId", "Client ID")}
-          {field("clientSecret", "Client secret", true)}
+          {field("name", tr.t("enterprise", "providerName"))}
+          {field("domain", tr.t("enterprise", "loginDomain"))}
+          {field("issuer", tr.t("enterprise", "issuerUrl"))}
+          {field("authorizationEndpoint", tr.t("enterprise", "authorizationEndpoint"))}
+          {field("tokenEndpoint", tr.t("enterprise", "tokenEndpoint"))}
+          {field("jwksUri", tr.t("enterprise", "jwksUri"))}
+          {field("clientId", tr.t("enterprise", "clientId"))}
+          {field("clientSecret", tr.t("enterprise", "clientSecret"), true)}
         </div>
         <p className="mt-3 text-[12px] leading-5 text-ink-faint">
-          SAML uses a hardened SAML-to-OIDC broker boundary. OUTSIDE never
-          accepts unsigned or ad-hoc XML assertions.
+          {tr.t("enterprise", "samlBoundary")}
         </p>
         <button
           disabled={busy}
@@ -343,7 +342,7 @@ function IdentityPanel({
           }
           className="mt-4 rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950 disabled:opacity-50"
         >
-          Stage identity provider
+          {tr.t("enterprise", "stageIdentity")}
         </button>
       </Section>
     </div>
@@ -359,49 +358,47 @@ function GovernancePanel({
   busy: boolean;
   create: (url: string, body: Record<string, unknown>) => Promise<unknown>;
 }) {
-  const [name, setName] = useState("External risk scoring"),
-    [document, setDocument] = useState(
-      '{"rules":[{"name":"Critical authentication surface","severity":"critical","delta":15}]}',
-    );
+  const tr = useTranslator();
+  const [name, setName] = useState(tr.t("enterprise", "createScoringPolicy")),
+    [document, setDocument] = useState(() => JSON.stringify({ rules: [{ name: tr.t("enterprise", "policyRuleCriticalAuth"), severity: "critical", delta: 15 }] }, null, 2));
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <Section eyebrow="Decision control" title="Approvals & exceptions">
+      <Section eyebrow={tr.t("enterprise", "decisionControl")} title={tr.t("enterprise", "approvalsExceptions")}>
         <div className="grid grid-cols-2 gap-3">
           <Metric
             value={overview.pendingApprovals.length}
-            label="Awaiting decision"
+            label={tr.t("enterprise", "awaitingDecision")}
             tone={overview.pendingApprovals.length ? "warn" : "signal"}
           />
           <Metric
             value={overview.expiringExceptions.length}
-            label="Time-bound exceptions"
+            label={tr.t("enterprise", "timeBoundExceptions")}
             tone={overview.expiringExceptions.length ? "warn" : "signal"}
           />
         </div>
         <div className="mt-4 space-y-2">
           {overview.pendingApprovals.slice(0, 5).map((item) => (
             <div key={item.id} className="rounded-lg border border-line p-3">
-              <div className="text-sm">{item.workflow}</div>
+              <div className="text-sm">{tr.t("enterprise", "approvalRequest")}</div>
               <div className="mono mt-1 text-[11px] text-ink-faint">
-                {item.subjectType}:{item.subjectId} · requested by{" "}
-                {item.requestedBy}
+                {tr.t("enterprise", "requestedBy", { subjectId: item.subjectId, user: item.requestedBy })}
               </div>
             </div>
           ))}
           {!overview.pendingApprovals.length && (
-            <Empty>No pending governance decisions.</Empty>
+            <Empty>{tr.t("enterprise", "noGovernance")}</Empty>
           )}
         </div>
       </Section>
-      <Section eyebrow="Policy as data" title="Create scoring policy">
+      <Section eyebrow={tr.t("enterprise", "policyAsData")} title={tr.t("enterprise", "createScoringPolicy")}>
         <input
-          aria-label="Policy name"
+          aria-label={tr.t("enterprise", "policyName")}
           value={name}
           onChange={(event) => setName(event.target.value)}
           className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
         />
         <textarea
-          aria-label="Policy document"
+          aria-label={tr.t("enterprise", "policyDocument")}
           value={document}
           onChange={(event) => setDocument(event.target.value)}
           rows={8}
@@ -422,7 +419,7 @@ function GovernancePanel({
           }}
           className="mt-3 rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950 disabled:opacity-50"
         >
-          Version policy
+          {tr.t("enterprise", "versionPolicy")}
         </button>
       </Section>
     </div>
@@ -438,6 +435,7 @@ function IntegrationPanel({
   busy: boolean;
   create: (url: string, body: Record<string, unknown>) => Promise<unknown>;
 }) {
+  const tr = useTranslator();
   const [provider, setProvider] = useState("splunk"),
     [url, setUrl] = useState(""),
     [credential, setCredential] = useState("");
@@ -455,7 +453,7 @@ function IntegrationPanel({
               : { url, token: credential };
   return (
     <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-      <Section eyebrow="SIEM · SOAR · ITSM" title="Operational connections">
+      <Section eyebrow="SIEM · SOAR · ITSM" title={tr.t("enterprise", "operationalConnections")}>
         {overview.integrations.length ? (
           <div className="space-y-2">
             {overview.integrations.map((item) => (
@@ -466,24 +464,24 @@ function IntegrationPanel({
                 <div>
                   <div className="text-sm text-ink">{item.name}</div>
                   <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
-                    {item.category} · {item.provider}
+                    {tr.t("enterprise", "integrationState", { category: tr.t("enterprise", INTEGRATION_CATEGORY_KEY[item.category]), provider: item.provider })}
                   </div>
                 </div>
                 <div
                   className={`mono text-[11px] uppercase ${item.status === "healthy" ? "text-signal" : item.status === "degraded" ? "text-risk-high" : "text-ink-faint"}`}
                 >
-                  {item.status}
+                  {tr.t("enterprise", INTEGRATION_STATUS_KEY[item.status as keyof typeof INTEGRATION_STATUS_KEY] ?? "statusUnknown")}
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <Empty>No enterprise operations destination configured.</Empty>
+          <Empty>{tr.t("enterprise", "noDestination")}</Empty>
         )}
       </Section>
-      <Section eyebrow="Provider adapter" title="Connect destination">
+      <Section eyebrow={tr.t("enterprise", "providerAdapter")} title={tr.t("enterprise", "connectDestination")}>
         <select
-          aria-label="Integration provider"
+          aria-label={tr.t("enterprise", "integrationProvider")}
           value={provider}
           onChange={(event) => setProvider(event.target.value)}
           className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
@@ -495,22 +493,22 @@ function IntegrationPanel({
           <option value="cortex_xsoar">Cortex XSOAR</option>
           <option value="pagerduty">PagerDuty</option>
           <option value="opsgenie">Opsgenie</option>
-          <option value="webhook">Signed webhook</option>
+          <option value="webhook">{tr.t("enterprise", "signedWebhook")}</option>
         </select>
         <input
-          aria-label="Integration endpoint URL"
+          aria-label={tr.t("enterprise", "integrationUrl")}
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
-          placeholder="HTTPS ingestion endpoint"
+          placeholder={tr.t("enterprise", "integrationUrlPlaceholder")}
           className="mt-2 w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
         />
         <input
-          aria-label="Provider credential"
+          aria-label={tr.t("enterprise", "providerCredential")}
           type="password"
           value={credential}
           onChange={(event) => setCredential(event.target.value)}
-          placeholder="Provider credential"
+          placeholder={tr.t("enterprise", "providerCredential")}
           className="mt-2 w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
         />
         <button
@@ -524,7 +522,7 @@ function IntegrationPanel({
           }
           className="mt-3 rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950 disabled:opacity-50"
         >
-          Connect securely
+          {tr.t("enterprise", "connectSecurely")}
         </button>
       </Section>
     </div>
@@ -540,25 +538,26 @@ function DataPanel({
   busy: boolean;
   create: (url: string, body: Record<string, unknown>) => Promise<unknown>;
 }) {
-  const [tokenName, setTokenName] = useState("Automation token");
+  const tr = useTranslator();
+  const [tokenName, setTokenName] = useState(tr.t("enterprise", "tokenNameDefault"));
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <Section eyebrow="Evidence exports" title="Enterprise reporting">
+      <Section eyebrow={tr.t("enterprise", "evidenceExports")} title={tr.t("enterprise", "enterpriseReporting")}>
         <div className="grid gap-2 sm:grid-cols-2">
           <a
             href={`/api/enterprise/reports?orgId=${overview.workspace.orgId}&kind=executive&format=pdf`}
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
-            Executive PDF
+            {tr.t("enterprise", "executivePdf")}
             <div className="mono mt-1 text-[11px] text-ink-faint">
-              Leadership-ready posture
+              {tr.t("enterprise", "leadershipPosture")}
             </div>
           </a>
           <a
             href={`/api/enterprise/reports?orgId=${overview.workspace.orgId}&kind=compliance&format=csv`}
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
-            Compliance CSV
+            {tr.t("enterprise", "complianceCsv")}
             <div className="mono mt-1 text-[11px] text-ink-faint">
               SOC 2 · ISO · NIS2 · DORA
             </div>
@@ -567,32 +566,31 @@ function DataPanel({
             href={`/api/enterprise/audit?orgId=${overview.workspace.orgId}&format=ndjson`}
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
-            Audit NDJSON
+            {tr.t("enterprise", "auditNdjson")}
             <div className="mono mt-1 text-[11px] text-ink-faint">
-              Verified hash-chain export
+              {tr.t("enterprise", "verifiedHashExport")}
             </div>
           </a>
           <a
             href={`/api/enterprise/graphql`}
             className="rounded-lg border border-line p-4 text-sm text-ink transition hover:border-signal/30 hover:bg-signal/5"
           >
-            GraphQL schema
+            {tr.t("enterprise", "graphqlSchema")}
             <div className="mono mt-1 text-[11px] text-ink-faint">
-              Persisted operations API
+              {tr.t("enterprise", "persistedOperations")}
             </div>
           </a>
         </div>
       </Section>
-      <Section eyebrow="Machine access" title="Scoped API token">
+      <Section eyebrow={tr.t("enterprise", "machineAccess")} title={tr.t("enterprise", "scopedApiToken")}>
         <input
-          aria-label="API token name"
+          aria-label={tr.t("enterprise", "apiTokenName")}
           value={tokenName}
           onChange={(event) => setTokenName(event.target.value)}
           className="w-full rounded-lg border border-line bg-base-950 px-3 py-2 text-xs"
         />
         <p className="mt-3 text-[12px] leading-5 text-ink-faint">
-          The secret is displayed once. Only permissions held by the creator can
-          be delegated.
+          {tr.t("enterprise", "tokenOnce")}
         </p>
         <button
           disabled={busy}
@@ -609,25 +607,24 @@ function DataPanel({
           }
           className="mt-3 rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950 disabled:opacity-50"
         >
-          Issue read-only token
+          {tr.t("enterprise", "issueReadonlyToken")}
         </button>
         <div className="mt-5 border-t border-line pt-4">
           <div className="mono text-[11px] uppercase text-ink-faint">
-            Retention controls
+            {tr.t("enterprise", "retentionControls")}
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Metric
               value={overview.workspace.retention.integrationDays ?? 90}
-              label="Delivery days"
+              label={tr.t("enterprise", "deliveryDays")}
             />
             <Metric
               value={overview.workspace.retention.ticketDays ?? 730}
-              label="Ticket days"
+              label={tr.t("enterprise", "ticketDays")}
             />
           </div>
           <p className="mt-3 text-[11px] leading-4 text-ink-faint">
-            Audit events remain append-only. Operational delivery and ticket
-            metadata follow the configured lifecycle.
+            {tr.t("enterprise", "retentionBody")}
           </p>
         </div>
       </Section>

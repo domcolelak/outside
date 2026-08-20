@@ -14,22 +14,18 @@
   "manageBilling": "Manage billing",
   "opening": "Opening…",
   "portalUnavailable": "The billing portal is unavailable right now.",
-
   "planSnapshot": "Snapshot",
   "planProfessional": "Professional",
   "planAgency": "Agency",
-
   "freeFeature1": "Single external snapshot",
   "freeFeature2": "Interactive asset graph",
   "freeFeature3": "Attacker View replay",
   "freeFeature4": "Top findings",
-
   "professionalFeature1": "Up to 5 monitored domains",
   "professionalFeature2": "Daily scans & change alerts",
   "professionalFeature3": "Full findings & evidence",
   "professionalFeature4": "Protection posture history",
   "professionalFeature5": "PDF reports",
-
   "agencyFeature1": "Up to 30 client domains",
   "agencyFeature2": "Team roles & workspaces",
   "agencyFeature3": "Scheduled reporting",

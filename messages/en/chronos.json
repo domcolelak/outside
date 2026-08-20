@@ -11,5 +11,10 @@
   "loadFailed": "Could not load history.",
   "networkError": "Network error.",
   "protectionPosture": "protection posture",
-  "noPoints": "No recorded points yet."
+  "noPoints": "No recorded points yet.",
+  "initialSummary": "Initial observation recorded {count} assets.",
+  "diffSummary": "Changes since the previous observation: {added} added, {removed} removed and {modified} modified.",
+  "changeAdded": "added",
+  "changeRemoved": "removed",
+  "changeModified": "modified"
 }

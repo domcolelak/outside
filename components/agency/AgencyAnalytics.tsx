@@ -148,7 +148,7 @@ export function AgencyAnalytics({
                 >
                   <span>{g("managedMrrHeading")}</span>
                   <b>
-                    {(cents / 100).toLocaleString()} {currency}
+                    {tr.formatNumber(cents / 100)} {currency}
                   </b>
                 </div>
               ),

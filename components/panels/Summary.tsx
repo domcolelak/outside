@@ -13,6 +13,7 @@ import { ShareButton } from "@/components/share/ShareButton";
 import { TwinPanel } from "@/components/panels/TwinPanel";
 import { useTranslator } from "@/lib/i18n/context";
 import { findingText } from "@/lib/report/finding-text";
+import { localizeChangeDetail, localizeFindingCategory, localizeScoreComponent, localizeScoreExplanation } from "@/lib/report/scan-copy";
 
 /** The band's colour is presentation; its name is copy, so it lives in the catalog. */
 const BAND: Record<string, { key: "bandGuarded" | "bandModerate" | "bandElevated" | "bandExposed"; color: string }> = {
@@ -99,11 +100,11 @@ export function Summary({
 
       {showScore && (
         <div className="panel space-y-2 p-4">
-          <p className="text-xs leading-relaxed text-ink-soft">{result.score.explanation}</p>
+          <p className="text-xs leading-relaxed text-ink-soft">{localizeScoreExplanation(result, tr)}</p>
           <div className="space-y-1.5 pt-1">
             {result.score.components.map((c) => (
               <div key={c.code} className="flex items-center justify-between gap-3 text-xs">
-                <span className="text-ink-soft">{c.label}</span>
+                <span className="text-ink-soft">{localizeScoreComponent(c, result, tr)}</span>
                 <span className={`mono font-medium ${c.impact < 0 ? "text-risk-high" : "text-signal"}`}>
                   {c.impact > 0 ? "+" : ""}
                   {c.impact}
@@ -125,7 +126,7 @@ export function Summary({
         onClick={onOpenAttacker}
         className="scan-sweep relative w-full overflow-hidden rounded-xl border border-signal/30 bg-signal/5 px-4 py-3 text-left transition hover:bg-signal/10"
       >
-        <div className="mono text-[12px] uppercase tracking-wider text-signal">Attacker View</div>
+        <div className="mono text-[12px] uppercase tracking-wider text-signal">{s("attackerView").replace("▶ ", "")}</div>
         <div className="mt-0.5 text-sm text-ink">{s("replayCaption")}</div>
       </button>
 
@@ -250,7 +251,7 @@ function Changes({
               <span className="mono mt-0.5 w-3 shrink-0 text-center" style={{ color: meta.color }}>{meta.mark}</span>
               <div className="min-w-0 flex-1">
                 <div className="mono truncate text-[12px] text-ink">{e.label}</div>
-                <div className="mt-0.5 text-[12px] leading-snug text-ink-soft">{e.detail}</div>
+                <div className="mt-0.5 text-[12px] leading-snug text-ink-soft">{localizeChangeDetail(e, tr)}</div>
                 {e.from && e.to && (
                   <div className="mono mt-0.5 text-[11px] text-ink-faint">{e.from} → {e.to}</div>
                 )}
@@ -298,7 +299,7 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
         <PriorityDot priority={finding.priority} />
         <div className="min-w-0 flex-1">
           <div className="text-[13px] text-ink">{text.title}</div>
-          <div className="mono mt-0.5 truncate text-[12px] text-ink-faint">{finding.category}</div>
+          <div className="mono mt-0.5 truncate text-[12px] text-ink-faint">{localizeFindingCategory(finding.category, tr)}</div>
         </div>
         <span className="mono text-[11px] text-ink-faint">{Math.round(finding.confidence * 100)}%</span>
       </button>
@@ -309,7 +310,7 @@ function FindingCard({ finding, target, onSelect }: { finding: Finding; target: 
           <Row label={s("rowConcern")} tag="possible" text={text.concern} />
           <div>
             <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{s("rowReasoning")}</div>
-            <p className="mt-0.5 leading-relaxed text-ink-soft">{finding.reasoning}</p>
+            <p className="mt-0.5 leading-relaxed text-ink-soft">{s("findingReasoningGeneric", { confidence: Math.round(finding.confidence * 100) })}</p>
           </div>
           <div>
             <div className="mono text-[11px] uppercase tracking-wide text-ink-faint">{s("rowRecommended")}</div>

@@ -24,7 +24,7 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
     try {
       const res = await fetch(`/api/monitors?orgId=${orgId}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? tr.t("account", "monitorsLoadFailed"));
+      if (!res.ok) throw new Error(tr.t("account", "monitorsLoadFailed"));
       setMonitors(data.monitors ?? []);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : tr.t("account", "monitorsLoadFailed"));
@@ -47,7 +47,7 @@ export function MonitorsPanel({ orgId, plan }: { orgId: string; plan: string }) 
     try {
       const res = await fetch("/api/monitors", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ orgId, domain, frequency }) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? a("monitorsAddFailed"));
+      if (!res.ok) throw new Error(a("monitorsAddFailed"));
       setDomain("");
       setMonitors((m) => [data.monitor, ...m]);
     } catch (cause) {

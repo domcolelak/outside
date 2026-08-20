@@ -23,14 +23,8 @@ async function responseError(
   response: Response,
   fallback: string,
 ): Promise<string> {
-  try {
-    const data = (await response.json()) as { error?: unknown };
-    return typeof data.error === "string" && data.error.trim()
-      ? data.error
-      : fallback;
-  } catch {
-    return fallback;
-  }
+  await response.body?.cancel().catch(() => undefined);
+  return fallback;
 }
 
 /**
@@ -147,7 +141,7 @@ export function CloudflareConnector({
     if (busy) return;
     if (
       !window.confirm(
-        `Disconnect Cloudflare from ${orgName}? Active OUTSIDE remediations must be rolled back first. If none are active, OUTSIDE will lose its DNS access immediately.`,
+        c("cfConfirmDisconnect", { organization: orgName }),
       )
     ) {
       return;

@@ -101,4 +101,16 @@ describe("weekly digest email rendering", () => {
     const digest = createWeeklyDigest(snapshot, [assetEvent("e1")], [rec()], drift, NOW, BASE);
     expect(digestEmail("owner@acme.com", digest)).toEqual(digestEmail("owner@acme.com", digest));
   });
+
+  it("localizes the complete digest for the recipient locale", () => {
+    const digest = createWeeklyDigest(snapshot, [assetEvent("e1")], [rec()], drift, NOW, BASE);
+    const { html, subject, text } = digestEmail("owner@acme.com", digest, "sk");
+    expect(html).toContain('<html lang="sk">');
+    expect(html).toContain("Čo sa zmenilo");
+    expect(html).toContain("Stav ochrany");
+    expect(html).toContain("Otvorené odporúčania");
+    expect(subject).toContain("Týždenný Guardian");
+    expect(text).not.toContain("Enforce DMARC");
+    expect(html).not.toContain("What changed");
+  });
 });

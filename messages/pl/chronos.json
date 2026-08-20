@@ -11,5 +11,10 @@
   "loadFailed": "Nie udało się wczytać historii.",
   "networkError": "Błąd sieci.",
   "protectionPosture": "pozycja ochronna",
-  "noPoints": "Brak zapisanych punktów."
+  "noPoints": "Brak zapisanych punktów.",
+  "initialSummary": "Pierwsza obserwacja zarejestrowała {count} zasobów.",
+  "diffSummary": "Zmiany od poprzedniej obserwacji: dodano {added}, usunięto {removed}, zmodyfikowano {modified}.",
+  "changeAdded": "dodano",
+  "changeRemoved": "usunięto",
+  "changeModified": "zmodyfikowano"
 }

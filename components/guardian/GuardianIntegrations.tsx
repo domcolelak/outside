@@ -5,6 +5,7 @@ import type {
   GuardianChannel,
   GuardianChannelType,
 } from "@/lib/guardian/types";
+import { useTranslator } from "@/lib/i18n/context";
 
 const labels: Record<GuardianChannelType, string> = {
   slack: "Slack",
@@ -66,10 +67,11 @@ export function GuardianIntegrations({
   initialChannels: GuardianChannel[];
   canAdmin: boolean;
 }) {
+  const tr = useTranslator();
   const [channels, setChannels] = useState(initialChannels);
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState<GuardianChannelType>("slack");
-  const [name, setName] = useState("Security operations");
+  const [name, setName] = useState(tr.t("guardian", "defaultConnectionName"));
   const [config, setConfig] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +85,7 @@ export function GuardianIntegrations({
     });
     const data = await response.json();
     if (!response.ok)
-      return setError(data.error ?? "Could not create integration.");
+      return setError(tr.t("guardian", "integrationCreateFailed"));
     setChannels((rows) => [...rows, data.channel]);
     setConfig({});
     setAdding(false);
@@ -118,15 +120,13 @@ export function GuardianIntegrations({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="mono text-[11px] uppercase tracking-[.18em] text-ink-faint">
-            Notification fabric
+            {tr.t("guardian", "notificationFabric")}
           </div>
           <h2 className="mt-2 text-xl font-medium text-ink">
-            Connected workflows
+            {tr.t("guardian", "connectedWorkflows")}
           </h2>
           <p className="mt-2 max-w-md text-xs leading-5 text-ink-faint">
-            Important changes are grouped by context. Three related medium
-            events trigger one notification; high severity changes are delivered
-            immediately.
+            {tr.t("guardian", "connectedWorkflowsBody")}
           </p>
         </div>
         {canAdmin && (
@@ -134,7 +134,7 @@ export function GuardianIntegrations({
             onClick={() => setAdding((value) => !value)}
             className="mono shrink-0 rounded-lg border border-signal/20 bg-signal/5 px-3 py-2 text-[11px] uppercase text-signal"
           >
-            {adding ? "Close" : "Connect"}
+            {tr.t("ui", adding ? "close" : "connect")}
           </button>
         )}
       </div>
@@ -145,7 +145,7 @@ export function GuardianIntegrations({
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs text-ink-faint">
-              Provider
+              {tr.t("guardian", "provider")}
               <select
                 value={type}
                 onChange={(event) => {
@@ -162,7 +162,7 @@ export function GuardianIntegrations({
               </select>
             </label>
             <label className="text-xs text-ink-faint">
-              Connection name
+              {tr.t("guardian", "connectionName")}
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -175,7 +175,7 @@ export function GuardianIntegrations({
                 key={field.key}
                 className="text-xs text-ink-faint sm:col-span-2"
               >
-                {field.label}
+                {tr.t("guardian", `field${field.key[0]!.toUpperCase()}${field.key.slice(1)}` as Parameters<typeof tr.t<"guardian">>[1])}
                 <input
                   type={field.secret ? "password" : "text"}
                   value={config[field.key] ?? ""}
@@ -196,10 +196,10 @@ export function GuardianIntegrations({
           )}
           <div className="mt-4 flex items-center justify-between gap-3">
             <span className="mono text-[11px] text-ink-faint">
-              Secrets encrypted at rest · HTTPS + IP pinning
+              {tr.t("guardian", "secretsProtected")}
             </span>
             <button className="rounded-lg bg-signal px-4 py-2 text-xs font-semibold text-base-950">
-              Save connection
+              {tr.t("guardian", "saveConnection")}
             </button>
           </div>
         </form>
@@ -232,13 +232,13 @@ export function GuardianIntegrations({
                   aria-pressed={channel.enabled}
                   className={`mono rounded-md border px-2 py-1 text-[11px] ${channel.enabled ? "border-signal/20 text-signal" : "border-line text-ink-faint"}`}
                 >
-                  {channel.enabled ? "Active" : "Paused"}
+                  {tr.t("guardian", channel.enabled ? "channelActive" : "channelPaused")}
                 </button>
                 <button
                   onClick={() => void remove(channel)}
                   className="mono rounded-md border border-line px-2 py-1 text-[11px] text-ink-faint hover:text-risk-high"
                 >
-                  Remove
+                  {tr.t("guardian", "remove")}
                 </button>
               </div>
             )}
@@ -247,10 +247,10 @@ export function GuardianIntegrations({
         {channels.length === 0 && (
           <div className="rounded-xl border border-dashed border-line p-7 text-center">
             <p className="text-xs text-ink-faint">
-              Email is enabled through workspace notification preferences.
+              {tr.t("guardian", "emailEnabled")}
             </p>
             <p className="mono mt-1 text-[11px] text-ink-faint">
-              Connect an operational workflow for grouped Guardian intelligence.
+              {tr.t("guardian", "connectWorkflowHint")}
             </p>
           </div>
         )}

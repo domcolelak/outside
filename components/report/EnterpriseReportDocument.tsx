@@ -1,5 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { EnterpriseReportData } from "@/lib/enterprise/reporting";
+import type { Locale } from "@/lib/i18n/locales";
+import { getTranslator } from "@/lib/i18n/messages";
 const s = StyleSheet.create({
   page: {
     fontFamily: "Helvetica",
@@ -63,12 +65,16 @@ const s = StyleSheet.create({
 });
 export function EnterpriseReportDocument({
   report,
+  locale,
 }: {
   report: EnterpriseReportData;
+  locale: Locale;
 }) {
+  const tr = getTranslator(locale);
+  const title = tr.t("enterprise", `reportTitle${report.kind[0]!.toUpperCase()}${report.kind.slice(1)}` as Parameters<typeof tr.t<"enterprise">>[1]);
   return (
     <Document
-      title={`OUTSIDE enterprise ${report.kind} report`}
+      title={title}
       author="OUTSIDE"
     >
       <Page size="A4" style={s.page} wrap>
@@ -76,44 +82,39 @@ export function EnterpriseReportDocument({
           <View>
             <Text style={s.brand}>OUTSIDE</Text>
             <Text style={{ fontSize: 8, marginTop: 4, color: "#83a096" }}>
-              ENTERPRISE INTELLIGENCE
+              {tr.t("enterprise", "reportIntelligence")}
             </Text>
           </View>
-          <Text>{new Date(report.generatedAt).toLocaleDateString()}</Text>
+          <Text>{tr.formatDate(report.generatedAt)}</Text>
         </View>
         <View style={s.body}>
           <Text style={s.title}>
-            {report.kind === "compliance"
-              ? "Compliance evidence export"
-              : report.kind === "audit"
-                ? "Immutable audit export"
-                : "Executive security brief"}
+            {title}
           </Text>
           <Text style={s.muted}>
-            Organization {report.organizationId} · Region{" "}
-            {report.dataRegion.toUpperCase()}
+            {tr.t("enterprise", "reportOrganizationRegion", { organization: report.organizationId, region: report.dataRegion.toUpperCase() })}
           </Text>
           <View style={s.stats}>
             <View style={s.stat}>
               <Text style={s.value}>{report.summary.posture ?? "—"}</Text>
-              <Text style={s.label}>Protection posture</Text>
+              <Text style={s.label}>{tr.t("enterprise", "reportProtectionPosture")}</Text>
             </View>
             <View style={s.stat}>
               <Text style={s.value}>{report.summary.assets}</Text>
-              <Text style={s.label}>Public assets</Text>
+              <Text style={s.label}>{tr.t("enterprise", "reportPublicAssets")}</Text>
             </View>
             <View style={s.stat}>
               <Text style={s.value}>
                 {report.summary.criticalRecommendations}
               </Text>
-              <Text style={s.label}>Priority reviews</Text>
+              <Text style={s.label}>{tr.t("enterprise", "reportPriorityReviews")}</Text>
             </View>
             <View style={s.stat}>
               <Text style={s.value}>{report.summary.integrations}</Text>
-              <Text style={s.label}>Integrations</Text>
+              <Text style={s.label}>{tr.t("enterprise", "reportIntegrations")}</Text>
             </View>
           </View>
-          <Text style={s.h2}>Control evidence</Text>
+          <Text style={s.h2}>{tr.t("enterprise", "reportControlEvidence")}</Text>
           {report.controls.map((item) => (
             <View
               key={`${item.framework}:${item.id}`}
@@ -133,7 +134,7 @@ export function EnterpriseReportDocument({
                         : s.bad
                   }
                 >
-                  {item.status.replace("_", " ").toUpperCase()}
+                  {tr.t("enterprise", `reportStatus${item.status === "not_evidenced" ? "NotEvidenced" : item.status[0]!.toUpperCase() + item.status.slice(1)}` as Parameters<typeof tr.t<"enterprise">>[1])}
                 </Text>
               </View>
               {item.evidence.map((line) => (
@@ -144,30 +145,27 @@ export function EnterpriseReportDocument({
               <Text style={s.note}>{item.note}</Text>
             </View>
           ))}
-          <Text style={s.h2}>Priority review items</Text>
+          <Text style={s.h2}>{tr.t("enterprise", "reportPriorityItems")}</Text>
           {report.recommendations.slice(0, 12).map((item) => (
             <View key={item.id} style={s.row} wrap={false}>
               <View style={s.rowHead}>
                 <Text style={s.bold}>{item.title}</Text>
-                <Text>{item.priority.toUpperCase()}</Text>
+                <Text>{tr.t("ui", `priority${item.priority[0]!.toUpperCase()}${item.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1])}</Text>
               </View>
               <Text style={s.note}>{item.why}</Text>
               <Text style={s.note}>
-                Assets: {item.affectedAssets.join(", ") || "organization-level"}
+                {tr.t("enterprise", "reportAssetsLine", { assets: item.affectedAssets.join(", ") || tr.t("enterprise", "reportOrganizationLevel") })}
               </Text>
             </View>
           ))}
-          <Text style={s.h2}>Integrity</Text>
+          <Text style={s.h2}>{tr.t("enterprise", "reportIntegrity")}</Text>
           <Text style={s.note}>
-            Audit chain:{" "}
-            {report.auditIntegrity.valid ? "verified" : "verification failed"} ·{" "}
-            {report.auditIntegrity.checked} event(s) checked · head{" "}
-            {report.auditIntegrity.head ?? "GENESIS"}
+            {tr.t("enterprise", "reportAuditChain", { status: tr.t("enterprise", report.auditIntegrity.valid ? "reportVerified" : "reportVerificationFailed"), count: report.auditIntegrity.checked, head: report.auditIntegrity.head ?? "GENESIS" })}
           </Text>
           <Text style={s.note}>{report.disclaimer}</Text>
         </View>
         <View style={s.footer} fixed>
-          <Text>OUTSIDE · deterministic external-surface intelligence</Text>
+          <Text>{tr.t("enterprise", "reportFooter")}</Text>
           <Text
             render={({ pageNumber, totalPages }) =>
               `${pageNumber} / ${totalPages}`

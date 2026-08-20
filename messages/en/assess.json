@@ -33,47 +33,36 @@
   "remediationLabel": "Remediation: ",
   "observationUnavailable": "A required observation was unavailable.",
   "catalogueHeading": "Catalogue · {count} safe checks · version {version}",
-
   "tlsCertificateTitle": "TLS certificate validity and lifetime",
   "tlsCertificateRationale": "An expired or soon-to-expire certificate breaks trust and can take a service offline.",
   "tlsCertificateRemediation": "Renew before expiry and automate renewal (e.g. ACME).",
-
   "httpSecurityHeadersTitle": "HTTP security headers",
   "httpSecurityHeadersRationale": "Missing baseline headers (HSTS, X-Content-Type-Options, frame protection) weaken defence in depth.",
   "httpSecurityHeadersRemediation": "Add the missing response headers on the primary web surface.",
-
   "transportDowngradeTitle": "Transport security (no HTTPS→HTTP downgrade)",
   "transportDowngradeRationale": "A redirect from HTTPS to HTTP exposes traffic to interception.",
   "transportDowngradeRemediation": "Serve HTTPS end to end and enable HSTS.",
-
   "mailAuthenticationTitle": "Mail authentication (SPF / DKIM / DMARC)",
   "mailAuthenticationRationale": "Absent mail-authentication records make the domain easy to spoof in phishing.",
   "mailAuthenticationRemediation": "Publish SPF and a DMARC policy; sign mail with DKIM. Start DMARC at p=none and monitor.",
-
   "knownVulnerabilityCorrelationTitle": "Known-vulnerability correlation",
   "knownVulnerabilityCorrelationRationale": "A disclosed technology version matched against a curated CVE set (enriched with CISA KEV / EPSS) is an item to confirm and patch — never a confirmed exploit.",
   "knownVulnerabilityCorrelationRemediation": "Confirm the version and patch or upgrade the affected technology.",
-
   "exposedServicesTitle": "Exposed non-web services",
   "exposedServicesRationale": "Databases, admin panels or remote-access services reachable from the internet expand the attack surface.",
   "exposedServicesRemediation": "Restrict exposure to known networks, require authentication, or move behind a VPN.",
-
   "authenticationSurfaceTitle": "Public authentication / admin surfaces",
   "authenticationSurfaceRationale": "Public login and admin surfaces are natural credential-attack targets and should be minimised and hardened.",
   "authenticationSurfaceRemediation": "Confirm the surface should be public; enforce MFA, rate limiting and monitoring.",
-
   "nonProductionExposureTitle": "Non-production environments publicly reachable",
   "nonProductionExposureRationale": "Staging and test environments often carry weaker controls and debug surfaces not intended for the public.",
   "nonProductionExposureRemediation": "Restrict to an allowlist/VPN or remove the public exposure.",
-
   "shadowAssetsTitle": "Possible shadow / forgotten assets",
   "shadowAssetsRationale": "Unmanaged public assets may lack current ownership, patching or monitoring.",
   "shadowAssetsRemediation": "Confirm ownership and purpose; decommission if no longer needed.",
-
   "infrastructureConcentrationTitle": "Infrastructure concentration / single points of failure",
   "infrastructureConcentrationRationale": "Heavy reliance on one provider, nameserver or address concentrates blast radius.",
   "infrastructureConcentrationRemediation": "Review whether critical dependencies warrant redundancy.",
-
   "domainRegistrationTitle": "Domain registration lifetime",
   "domainRegistrationRationale": "A lapsing domain registration risks loss of the domain and dependent services.",
   "domainRegistrationRemediation": "Renew the registration and enable auto-renew and registrar lock."

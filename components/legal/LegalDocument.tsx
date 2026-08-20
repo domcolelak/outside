@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
+import { getTranslator } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locales";
 
 /**
  * Renders a legal document written in a deliberately small Markdown subset:
@@ -57,18 +59,19 @@ function render(body: string) {
   return blocks;
 }
 
-export function LegalDocument({ title, updated, body }: { title: string; updated: string; body: string }) {
+export function LegalDocument({ title, updated, body, locale }: { title: string; updated: string; body: string; locale: Locale }) {
+  const tr = getTranslator(locale);
   return (
     <div className="min-h-screen">
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link href="/"><Wordmark className="h-6" /></Link>
-          <Link href="/" className="mono text-xs text-ink-soft hover:text-ink">Back to site</Link>
+          <Link href="/" className="mono text-xs text-ink-soft hover:text-ink">{tr.t("ui", "backToSite")}</Link>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-12">
         <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
-        <p className="mono mt-2 text-xs text-ink-faint">Last updated: {updated}</p>
+        <p className="mono mt-2 text-xs text-ink-faint">{tr.t("ui", "lastUpdated")} {tr.formatDate(updated)}</p>
         <div className="mt-8 text-[15px]">{render(body)}</div>
       </main>
     </div>

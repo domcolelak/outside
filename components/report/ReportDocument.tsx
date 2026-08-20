@@ -11,6 +11,7 @@ import { reportFontFamily, reportLocale } from "@/lib/report/fonts";
 import { findingText } from "@/lib/report/finding-text";
 import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locales";
 import { getTranslator, type MessageKey } from "@/lib/i18n/messages";
+import { localizeChangeType, localizeScoreComponent } from "@/lib/report/scan-copy";
 
 // Resolved once at module load: the bundled font when it is present and has the
 // coverage these languages need, the base-14 fallback when it is not.
@@ -135,7 +136,7 @@ export function ReportDocument({ result, locale = DEFAULT_LOCALE }: { result: Sc
           <Text style={s.h2}>{r("headingPosture")}</Text>
           {result.score.components.map((comp) => (
             <View key={comp.code} style={s.row}>
-              <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{comp.label}</Text>
+              <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{localizeScoreComponent(comp, result, t)}</Text>
               <Text style={{ fontSize: 9, fontFamily: BOLD, color: comp.impact < 0 ? PRIORITY_COLOR.high : SIGNAL }}>
                 {comp.impact > 0 ? "+" : ""}
                 {comp.impact}
@@ -149,7 +150,7 @@ export function ReportDocument({ result, locale = DEFAULT_LOCALE }: { result: Sc
               {result.changeSummary.events.map((e, i) => (
                 <View key={i} style={s.row}>
                   <Text style={{ fontSize: 9, color: "#2a3345", flex: 1 }}>{e.label}</Text>
-                  <Text style={{ fontSize: 8, color: FAINT }}>{e.type.replace(/_/g, " ")}</Text>
+                  <Text style={{ fontSize: 8, color: FAINT }}>{localizeChangeType(e, t)}</Text>
                 </View>
               ))}
             </>

@@ -6,31 +6,25 @@
   "modePassive": "Pasywny widok zewnętrzny (niezweryfikowany)",
   "scanReference": "Skanowanie {scanId}",
   "footer": "OUTSIDE · Raport o powierzchni zewnętrznej · {target}",
-
   "bandGuarded": "Chroniona",
   "bandModerate": "Umiarkowana",
   "bandElevated": "Podwyższona",
   "bandExposed": "Wystawiona",
-
   "statAssets": "Zasoby zewnętrzne",
   "statWebSurfaces": "Powierzchnie web / API",
   "statShadow": "Sygnały zasobów w cieniu",
   "statHighPriority": "Wysoki priorytet",
-
   "headingSummary": "Podsumowanie dla zarządu",
   "headingPosture": "Rozkład pozycji ochronnej",
   "headingChanges": "Zmiany od ostatniego skanowania",
   "headingFindings": "Ustalenia ({count})",
   "headingInventory": "Inwentarz zasobów",
   "headingMethodology": "Metodyka i odpowiedzialne użycie",
-
   "labelObserved": "Zaobserwowano",
   "labelInferred": "Wywnioskowano",
   "labelConcern": "Możliwa obawa",
   "labelRecommendation": "Zalecany przegląd",
-
   "methodology": "OUTSIDE mapuje publicznie obserwowalny ślad cyfrowy organizacji przy użyciu pasywnych, nieinwazyjnych źródeł publicznych (przejrzystość certyfikatów i DNS). Ustalenia oddzielają zaobserwowany fakt od wnioskowania i od możliwej obawy, każde z oceną pewności. Ten raport opisuje wyłącznie odkrywanie zewnętrzne — nie przedstawia wykorzystania podatności, kompromitacji ani nieuprawnionego dostępu. Pozycje oznaczone jako wywnioskowane lub możliwe wymagają przeglądu przez człowieka przed podjęciem działań.",
-
   "summaryFootprint": "{target} ma publiczny ślad cyfrowy obejmujący {assets}, w tym {surfaces}.",
   "summaryAssetCount": {
     "one": "{count} obserwowalny zasób",

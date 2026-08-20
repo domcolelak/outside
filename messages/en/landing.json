@@ -8,13 +8,11 @@
   "navWatchDemo": "Watch demo",
   "navSignIn": "Sign in",
   "navAccount": "Account",
-
   "heroInputLabel": "Company domain",
   "heroInputSubmit": "See my external surface",
   "heroInputEmpty": "Enter a domain to map its external surface.",
   "heroInputDemoPrompt": "Or watch a demo:",
   "heroInputHelp": "Passive, public sources only · No login required for an external snapshot",
-
   "heroBadge": "External exposure intelligence",
   "heroTitle": "See what the internet knows",
   "heroTitleAccent": "about your company.",
@@ -25,7 +23,6 @@
   "heroStatTraceableLabel": "evidence",
   "heroStatContinuous": "Continuous",
   "heroStatContinuousLabel": "Guardian",
-
   "guardianKicker": "OUTSIDE Guardian",
   "guardianTitle": "Analyst-grade context.",
   "guardianTitleAccent": "After every scheduled scan.",
@@ -45,14 +42,12 @@
   "guardianSampleControls": "controls",
   "guardianSampleReview": "Review",
   "guardianSampleReviewBody": "A previously observed staging asset is publicly reachable again.",
-
   "conceptOneTitle": "Your surface is bigger than you think",
   "conceptOneBody": "Every certificate, DNS record, and subdomain is public. Staging environments, old portals, and new APIs appear on the internet whether or not anyone is tracking them.",
   "conceptTwoTitle": "Attackers start with your domain",
   "conceptTwoBody": "An outsider needs nothing but your domain to begin mapping infrastructure. OUTSIDE shows you exactly what that reconnaissance reveals — from the defender's side.",
   "conceptThreeTitle": "Facts, not fear",
   "conceptThreeBody": "Every result separates observed fact from inference from possible risk, with confidence scores and evidence. No fabricated vulnerabilities, no sensationalism.",
-
   "howKicker": "How it works",
   "howTitle": "Enter a domain. Watch the footprint reveal itself.",
   "howDiscover": "Discover",
@@ -63,7 +58,6 @@
   "howClassifyBody": "Weak signals combine into shadow-asset, non-production, and authentication classifications.",
   "howExplain": "Explain",
   "howExplainBody": "A transparent protection posture and evidence-backed findings tell you what to review and why.",
-
   "featuresKicker": "Signature features",
   "featuresTitle": "Built to be understood in twenty seconds.",
   "featureAttackerView": "Attacker View",
@@ -74,7 +68,6 @@
   "featureChangeBody": "Repeated scans diff your external surface: new hostnames, returning services, and technology shifts, so nothing appears unnoticed.",
   "featurePosture": "Explainable protection posture",
   "featurePostureBody": "A deterministic 0–100 protection posture. Open “Why is my posture 37/100?” to see every penalty and mitigation. It measures how contained your surface is — not a probability of being hacked.",
-
   "intelligenceKicker": "Intelligence layers",
   "intelligenceTitle": "Not just what's exposed — what it means, and how it moves.",
   "intelligenceCve": "Exploited-vulnerability correlation",
@@ -89,7 +82,6 @@
   "intelligenceCapabilitiesBody": "A code-backed inventory of exactly what OUTSIDE detects — passive or active, always-on or operator-keyed — kept honest by a test that fails if the registry ever drifts from what a real scan produces.",
   "intelligenceEvolution": "Evolution · learns what to build next",
   "intelligenceEvolutionBody": "OUTSIDE watches which vulnerabilities are being exploited and drafts evidence-backed proposals for coverage it doesn't yet have. It proposes and prepares; you approve. It never changes itself.",
-
   "securityKicker": "Responsible use",
   "securityTitle": "A security product, built securely.",
   "securityPassive": "Passive by default",
@@ -100,7 +92,6 @@
   "securityOwnershipBody": "Deeper inspection is gated behind DNS TXT / file-based domain ownership verification. Unverified targets get a clearly-labeled external view.",
   "securityRateLimit": "Rate limited & auditable",
   "securityRateLimitBody": "Scan quotas, concurrency controls, request timeouts, and structured audit logging keep the platform from becoming a mass-scanning tool.",
-
   "pricingKicker": "Pricing",
   "pricingTitle": "Start free. Monitor when it matters.",
   "pricingPopular": "Popular",
@@ -130,10 +121,8 @@
   "planAgencyFeature3": "White-label client reporting",
   "planAgencyFeature4": "Slack, Teams, Jira & issue workflows",
   "planAgencyFeature5": "API access",
-
   "ctaTitle": "What can an outsider learn about you?",
   "ctaBody": "Enter your domain and watch your public digital footprint appear.",
-
   "footerTagline": "External exposure intelligence. Passive and responsible by design — discovery, never exploitation.",
   "footerPrivacy": "Privacy",
   "footerTerms": "Terms",

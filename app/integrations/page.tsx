@@ -26,11 +26,9 @@ export default async function IntegrationsPage({
   const { locale } = await currentLocale();
   const t = getTranslator(locale);
   const i = (key: MessageKey<"integrations">, values?: Record<string, string | number>) => t.t("integrations", key, values);
-  // A provider the catalog does not describe keeps the English its adapter
-  // carries, so a newly added provider ships readable rather than showing a key.
   const summaryFor = (descriptor: { id: string; summary: string }) => {
     const key = providerSummaryKey(descriptor.id);
-    return key ? i(key) : descriptor.summary;
+    return key ? i(key) : i("providerSummaryUnavailable");
   };
   const requestedOrgId = (await searchParams).orgId;
   const adminMemberships =
@@ -255,7 +253,7 @@ export default async function IntegrationsPage({
             {comingSoon.map((connector) => (
               <li
                 key={connector.id}
-                title={connector.summary}
+                title={i("comingSoonTooltip")}
                 className="rounded-lg border border-line bg-base-900 px-3 py-2 text-sm text-ink-soft"
               >
                 {connector.name}

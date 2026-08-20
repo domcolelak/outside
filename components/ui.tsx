@@ -1,4 +1,7 @@
+"use client";
+
 import type { Assurance, Priority } from "@/lib/types";
+import { useTranslator } from "@/lib/i18n/context";
 export { PRIORITY_STYLE } from "@/lib/analysis/priority";
 import { PRIORITY_STYLE } from "@/lib/analysis/priority";
 
@@ -25,20 +28,22 @@ export function Chip({ children, tone = "neutral" }: { children: React.ReactNode
   );
 }
 
-const ASSURANCE_LABEL: Record<Assurance, { label: string; tone: string }> = {
-  observed: { label: "Observed fact", tone: "text-signal border-signal/30" },
-  inferred: { label: "Inferred signal", tone: "text-risk-medium border-risk-medium/30" },
-  possible: { label: "Possible risk", tone: "text-risk-high border-risk-high/30" },
+const ASSURANCE_LABEL: Record<Assurance, { key: "assuranceObserved" | "assuranceInferred" | "assurancePossible"; tone: string }> = {
+  observed: { key: "assuranceObserved", tone: "text-signal border-signal/30" },
+  inferred: { key: "assuranceInferred", tone: "text-risk-medium border-risk-medium/30" },
+  possible: { key: "assurancePossible", tone: "text-risk-high border-risk-high/30" },
 };
 
 export function AssuranceTag({ assurance }: { assurance: Assurance }) {
+  const tr = useTranslator();
   const a = ASSURANCE_LABEL[assurance];
-  return <span className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase tracking-wider ${a.tone}`}>{a.label}</span>;
+  return <span className={`mono rounded-sm border px-1.5 py-0.5 text-[11px] uppercase tracking-wider ${a.tone}`}>{tr.t("ui", a.key)}</span>;
 }
 
 export function Confidence({ value }: { value: number }) {
+  const tr = useTranslator();
   const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
-  const explanation = `${pct}% deterministic confidence. This expresses evidence strength, not exploitability or proof of compromise.`;
+  const explanation = tr.t("ui", "confidenceExplanation", { value: pct });
   return (
     <span className="mono inline-flex items-center gap-1.5 text-[12px] text-ink-soft" title={explanation} aria-label={explanation}>
       <span className="relative inline-block h-1.5 w-12 overflow-hidden rounded-full bg-base-700">

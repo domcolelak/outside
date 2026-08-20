@@ -5,6 +5,7 @@ import { buildEnterpriseReport, reportCsv, type EnterpriseReportData } from "@/l
 import { getEnterpriseStore } from "@/lib/enterprise/store";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
+import { currentLocale } from "@/lib/i18n/server";
 export const runtime = "nodejs"; export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
   if (!overview) return NextResponse.json({ error: "Enterprise workspace not found" }, { status: 404 });
 
   const audit = await store.auditEvents(access.workspace.id, kind === "audit" ? 5000 : 500);
-  const report = await buildEnterpriseReport(overview, audit, kind);
+  const { locale } = await currentLocale();
+  const report = await buildEnterpriseReport(overview, audit, kind, locale);
   const name = `outside-${kind}-${access.workspace.orgId}`;
   const recordGeneration = () => store.appendAudit({
     workspaceId: access.workspace.id,
@@ -39,13 +41,13 @@ export async function GET(req: NextRequest) {
   });
 
   if (format === "csv") {
-    const body = reportCsv(report);
+    const body = reportCsv(report, locale);
     await recordGeneration();
     return new NextResponse(body, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="${name}.csv"`, "cache-control": "no-store" } });
   }
   if (format === "pdf") {
     try {
-      const pdf = await withConcurrency("enterprise-report:global", 3, 60_000, () => renderEnterpriseReport(report));
+      const pdf = await withConcurrency("enterprise-report:global", 3, 60_000, () => renderEnterpriseReport(report, locale));
       await recordGeneration();
       return new Response(new Uint8Array(pdf), { headers: { "content-type": "application/pdf", "content-disposition": `attachment; filename="${name}.pdf"`, "cache-control": "no-store" } });
     } catch (error) {

@@ -116,11 +116,7 @@ function BulkScheduler({
             }),
           },
         );
-        setStatus(
-          response.ok
-            ? g("adminScanScheduleSaved")
-            : ((await response.json()).error ?? g("adminFailed")),
-        );
+        setStatus(response.ok ? g("adminScanScheduleSaved") : g("adminFailed"));
       }}
     >
       <h2 className="text-lg font-medium">{g("adminBulkScanHeading")}</h2>
@@ -279,7 +275,7 @@ export function AgencyAdmin({
     );
     const result = await response.json();
     if (!response.ok) {
-      setMessage({ ok: false, text: result.error ?? g("adminOperationFailed") });
+      setMessage({ ok: false, text: g("adminOperationFailed") });
       return null;
     }
     setMessage({ ok: true, text: g("adminSaved") });
@@ -495,11 +491,9 @@ export function AgencyAdmin({
                 />
                 <span className="text-sm">{group.name}</span>
                 <div className="mt-1 text-[11px] text-ink-faint">
-                  {
-                    data.clients.filter((client) => client.groupId === group.id)
-                      .length
-                  }{" "}
-                  clients
+                  {g("adminGroupClientCount", {
+                    count: data.clients.filter((client) => client.groupId === group.id).length,
+                  })}
                 </div>
               </div>
             ))}
@@ -605,8 +599,9 @@ export function AgencyAdmin({
             ))}
           </div>
           <div className="mt-4 text-[11px] text-ink-faint">
-            {data.invites.filter((invite) => !invite.acceptedAt).length} pending
-            invitations
+            {g("adminPendingInvitationCount", {
+              count: data.invites.filter((invite) => !invite.acceptedAt).length,
+            })}
           </div>
         </div>
         <div className="panel p-5">
@@ -680,12 +675,14 @@ export function AgencyAdmin({
       <section className="panel p-5">
         <h2 className="text-lg font-medium">{g("adminReportCenter")}</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {data.reports.map((report) => (
+          {data.reports.map((report) => {
+            const suffix = `${report.kind[0]!.toUpperCase()}${report.kind.slice(1)}` as "Client" | "Portfolio" | "Executive";
+            const client = typeof report.content.client === "string" ? report.content.client : data.workspace.name;
+            return (
             <div key={report.id} className="rounded-xl border border-line p-4">
-              <div className="text-sm">{report.title}</div>
+              <div className="text-sm">{g(`reportTitle${suffix}`, { client })}</div>
               <div className="mono mt-1 text-[11px] uppercase text-ink-faint">
-                {report.kind} ·{" "}
-                {new Date(report.createdAt).toLocaleDateString()}
+                {g(`reportKind${suffix}`)} · {tr.formatDate(report.createdAt)}
               </div>
               <Link
                 href={`/api/agency/reports/${report.id}?agencyId=${agencyId}`}
@@ -695,7 +692,7 @@ export function AgencyAdmin({
               </Link>
               <ReportDelivery agencyId={agencyId} reportId={report.id} />
             </div>
-          ))}
+          );})}
           {!data.reports.length && (
             <p className="text-sm text-ink-faint">
               {g("adminNoReports")}

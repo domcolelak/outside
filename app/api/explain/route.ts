@@ -10,6 +10,7 @@ import { clientIdentity, requireBudgets } from "@/lib/security/ratelimit";
 import { CapacityError, withConcurrency } from "@/lib/security/concurrency";
 import { recordUsage } from "@/lib/usage/record";
 import { withOrgProviderKeys } from "@/lib/integrations/providers/org-keys";
+import { currentLocale } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic";
 function json(body: unknown, status = 200) { return NextResponse.json(body, { status, headers: { "cache-control": "no-store" } }); }
 
 export async function POST(req: NextRequest) {
+  const { locale } = await currentLocale();
   const ctx = await getSessionContext();
   if (!ctx) return json({ error: "Not authenticated" }, 401);
   let raw: unknown;
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest) {
   try {
     return await withConcurrency("ai:global", 8, 60_000, async () => {
       if (finding) {
-        const explanation = await explainer.explainFinding(finding, target);
+        const explanation = await explainer.explainFinding(finding, target, locale);
         await Promise.all([
           saveAnalysis({ target, scanId: finding.id, kind: "finding", source: explainer.kind, text: explanation }),
           recordUsage(entitled.orgId, session.user.id, "ai"),
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
         return json({ explanation, source: explainer.kind });
       }
       result = result!;
-      const summary = await explainer.executiveSummary(result);
+      const summary = await explainer.executiveSummary(result, locale);
       await Promise.all([
         saveAnalysis({ target, scanId: result.scanId, kind: "summary", source: explainer.kind, text: summary }),
         recordUsage(entitled.orgId, session.user.id, "ai"),

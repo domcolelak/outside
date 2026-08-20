@@ -8,13 +8,11 @@
   "navWatchDemo": "Pozrieť ukážku",
   "navSignIn": "Prihlásiť sa",
   "navAccount": "Účet",
-
   "heroInputLabel": "Doména firmy",
   "heroInputSubmit": "Zobraziť môj vonkajší povrch",
   "heroInputEmpty": "Zadajte doménu, aby sme zmapovali jej vonkajší povrch.",
   "heroInputDemoPrompt": "Alebo si pozrite ukážku:",
   "heroInputHelp": "Iba pasívne, verejné zdroje · Na vonkajšiu snímku netreba prihlásenie",
-
   "heroBadge": "Spravodajstvo o vonkajšej expozícii",
   "heroTitle": "Pozrite sa, čo o vašej firme",
   "heroTitleAccent": "vie internet.",
@@ -25,12 +23,11 @@
   "heroStatTraceableLabel": "dôkazy",
   "heroStatContinuous": "Priebežne",
   "heroStatContinuousLabel": "Guardian",
-
   "guardianKicker": "OUTSIDE Guardian",
   "guardianTitle": "Kontext na úrovni analytika.",
   "guardianTitleAccent": "Po každom naplánovanom skene.",
   "guardianBody": "Guardian koreluje každé overené pozorovanie do zmysluplného prehľadu zmien: Exposure Drift, živý bezpečnostný kontrolný zoznam, odporúčania podložené dôkazmi, nápravu na mieru, zoskupené upozornenia do pracovných nástrojov a týždenný manažérsky súhrn.",
-  "guardianChipDrift": "Exposure Drift",
+  "guardianChipDrift": "Zmena expozície",
   "guardianChipChecklist": "Bezpečnostný kontrolný zoznam",
   "guardianChipRemediation": "Návody na nápravu",
   "guardianChipDigest": "Manažérsky súhrn",
@@ -45,14 +42,12 @@
   "guardianSampleControls": "kontrol",
   "guardianSampleReview": "Na kontrolu",
   "guardianSampleReviewBody": "Predtým pozorovaný staging asset je opäť verejne dostupný.",
-
   "conceptOneTitle": "Váš povrch je väčší, než si myslíte",
   "conceptOneBody": "Každý certifikát, DNS záznam a subdoména sú verejné. Staging prostredia, staré portály a nové API sa objavia na internete bez ohľadu na to, či ich niekto sleduje.",
   "conceptTwoTitle": "Útočník začína vašou doménou",
   "conceptTwoBody": "Cudzí človek nepotrebuje nič okrem vašej domény, aby začal mapovať infraštruktúru. OUTSIDE vám ukáže presne to, čo taký prieskum odhalí — zo strany obrancu.",
   "conceptThreeTitle": "Fakty, nie strašenie",
   "conceptThreeBody": "Každý výsledok oddeľuje pozorovaný fakt od odvodenia a od možného rizika, so skóre spoľahlivosti a dôkazmi. Žiadne vymyslené zraniteľnosti, žiadna senzáciachtivosť.",
-
   "howKicker": "Ako to funguje",
   "howTitle": "Zadajte doménu. Sledujte, ako sa odkrýva vaša stopa.",
   "howDiscover": "Objaviť",
@@ -63,10 +58,9 @@
   "howClassifyBody": "Slabé signály sa spájajú do klasifikácií tieňových assetov, neprodukčných prostredí a autentifikácie.",
   "howExplain": "Vysvetliť",
   "howExplainBody": "Transparentná ochranná pozícia a zistenia podložené dôkazmi vám povedia, čo skontrolovať a prečo.",
-
   "featuresKicker": "Charakteristické funkcie",
   "featuresTitle": "Postavené tak, aby ste to pochopili za dvadsať sekúnd.",
-  "featureAttackerView": "Attacker View",
+  "featureAttackerView": "Pohľad útočníka",
   "featureAttackerViewBody": "Filmová rekonštrukcia toho, ako verejné informácie postupne odhaľujú vašu infraštruktúru — od jedinej domény. Ideálne na ukážky a rozhovory s vedením. Zobrazuje objavovanie, nikdy nie zneužitie.",
   "featureShadowAssets": "Detekcia tieňových assetov",
   "featureShadowAssetsBody": "Korelované signály — staršie pomenovanie, izolácia v grafe, zastarané technológie, neprítomnosť na hlavnom webe — označia možno zabudnuté assety, aj s uvedeným zdôvodnením.",
@@ -74,7 +68,6 @@
   "featureChangeBody": "Opakované skeny porovnávajú váš vonkajší povrch: nové hostnames, vracajúce sa služby a technologické posuny, takže nič nezostane nepovšimnuté.",
   "featurePosture": "Vysvetliteľná ochranná pozícia",
   "featurePostureBody": "Deterministická ochranná pozícia 0–100. Otvorte „Prečo je moja pozícia 37/100?“ a uvidíte každú penalizáciu aj zmiernenie. Meria, ako veľmi je váš povrch pod kontrolou — nie pravdepodobnosť napadnutia.",
-
   "intelligenceKicker": "Vrstvy spravodajstva",
   "intelligenceTitle": "Nielen čo je exponované — ale čo to znamená a ako sa to mení.",
   "intelligenceCve": "Korelácia so zneužívanými zraniteľnosťami",
@@ -89,7 +82,6 @@
   "intelligenceCapabilitiesBody": "Inventár podložený kódom, ktorý presne hovorí, čo OUTSIDE deteguje — pasívne či aktívne, vždy zapnuté alebo na kľúč operátora — udržiavaný v pravde testom, ktorý zlyhá, ak sa register odchýli od toho, čo skutočný sken vyprodukuje.",
   "intelligenceEvolution": "Evolution · učí sa, čo postaviť ďalej",
   "intelligenceEvolutionBody": "OUTSIDE sleduje, ktoré zraniteľnosti sa zneužívajú, a pripravuje návrhy podložené dôkazmi na pokrytie, ktoré zatiaľ nemá. Navrhuje a pripravuje; vy schvaľujete. Nikdy sa nemení sám.",
-
   "securityKicker": "Zodpovedné použitie",
   "securityTitle": "Bezpečnostný produkt, postavený bezpečne.",
   "securityPassive": "Pasívne predvolene",
@@ -100,7 +92,6 @@
   "securityOwnershipBody": "Hlbšia kontrola je podmienená overením vlastníctva domény cez DNS TXT alebo súbor. Neoverené ciele dostanú jasne označený vonkajší pohľad.",
   "securityRateLimit": "Limity a auditovateľnosť",
   "securityRateLimitBody": "Kvóty na skeny, kontrola súbežnosti, časové limity požiadaviek a štruktúrované auditné záznamy bránia tomu, aby sa platforma stala nástrojom na masové skenovanie.",
-
   "pricingKicker": "Cenník",
   "pricingTitle": "Začnite zadarmo. Monitorujte, keď na tom záleží.",
   "pricingPopular": "Obľúbené",
@@ -130,10 +121,8 @@
   "planAgencyFeature3": "White-label reporting pre klientov",
   "planAgencyFeature4": "Slack, Teams, Jira a workflow tikety",
   "planAgencyFeature5": "Prístup k API",
-
   "ctaTitle": "Čo sa o vás môže dozvedieť cudzí človek?",
   "ctaBody": "Zadajte svoju doménu a sledujte, ako sa objaví vaša verejná digitálna stopa.",
-
   "footerTagline": "Spravodajstvo o vonkajšej expozícii. Pasívne a zodpovedné už z princípu — objavovanie, nikdy nie zneužitie.",
   "footerPrivacy": "Ochrana súkromia",
   "footerTerms": "Podmienky",

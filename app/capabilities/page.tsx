@@ -51,11 +51,7 @@ export default async function CapabilitiesPage() {
     <>
         <div className="mono text-[12px] uppercase tracking-widest text-signal">{k("kicker")}</div>
         <h1 className="mt-2 text-3xl font-semibold text-ink">{k("title")}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">
-          The authoritative, code-backed inventory of every discovery collector, enrichment provider and detector in the
-          deterministic pipeline. It describes the product&apos;s abilities — never this instance&apos;s configured keys — and is
-          kept honest by a test that fails if a capability drifts from what a real scan produces.
-        </p>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-soft">{k("intro")}</p>
 
         <div className="mono mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-faint">
           <span>{k("statCapabilities", { count: CAPABILITIES.length })}</span>

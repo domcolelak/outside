@@ -25,7 +25,7 @@ export default function InvitePage() {
         }
         if (!res.ok) {
           setState("error");
-          setMessage(data.error ?? tr.t("auth", "inviteFailed"));
+          setMessage(tr.t("auth", "inviteFailed"));
           return;
         }
         setState("done");

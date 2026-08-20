@@ -16,6 +16,9 @@ import { executiveSummaryPrompt, findingExplanationPrompt } from "./constitution
 import { ConstitutionViolation, findConstitutionViolations } from "./guardrails";
 import { operationalLog } from "@/lib/observability/log";
 import { providerKey } from "@/lib/integrations/credential-context";
+import { DEFAULT_LOCALE, localeMeta, type Locale } from "@/lib/i18n/locales";
+import { findingText } from "@/lib/report/finding-text";
+import { getTranslator } from "@/lib/i18n/messages";
 
 /** Prompt identity for audit/reproducibility through the gateway. */
 const EXPLAINER_PROMPT_VERSION = "explainer-v1";
@@ -25,21 +28,21 @@ export type ExplainerKind = "template" | "openai";
 export interface Explainer {
   readonly kind: ExplainerKind;
   /** A plain-English executive summary of the external surface. */
-  executiveSummary(result: ScanResult): Promise<string>;
+  executiveSummary(result: ScanResult, locale?: Locale): Promise<string>;
   /** A plain-English explanation of a single finding. */
-  explainFinding(finding: Finding, target: string): Promise<string>;
+  explainFinding(finding: Finding, target: string, locale?: Locale): Promise<string>;
 }
 
 /** Deterministic, zero-dependency explainer. Always available. */
 export class TemplateExplainer implements Explainer {
   readonly kind = "template" as const;
-  async executiveSummary(result: ScanResult): Promise<string> {
-    return buildExecutiveSummary(result);
+  async executiveSummary(result: ScanResult, locale: Locale = DEFAULT_LOCALE): Promise<string> {
+    return buildExecutiveSummary(result, locale);
   }
-  async explainFinding(f: Finding, target: string): Promise<string> {
-    const period = (s: string) => s.trim().replace(/\.?$/, ".");
-    const inference = f.inference ? ` ${period(f.inference)}` : "";
-    return `On ${target}, ${period(f.observation)}${inference} ${period(f.concern)} This is a ${f.priority}-priority item at ${Math.round(f.confidence * 100)}% confidence. Recommended review: ${period(f.recommendation)}`;
+  async explainFinding(f: Finding, target: string, locale: Locale = DEFAULT_LOCALE): Promise<string> {
+    const tr = getTranslator(locale);
+    const copy = findingText(f, locale);
+    return tr.t("scan", "findingExplanation", { target, observation: copy.observation, inference: copy.inference ?? "", concern: copy.concern, priority: tr.t("ui", `priority${f.priority[0]!.toUpperCase()}${f.priority.slice(1)}` as Parameters<typeof tr.t<"ui">>[1]), confidence: Math.round(f.confidence * 100), recommendation: copy.recommendation });
   }
 }
 
@@ -48,7 +51,7 @@ export class TemplateExplainer implements Explainer {
  * pass only derived facts (never raw internals) and instruct the model to
  * rephrase — not to add findings.
  */
-function projectForModel(result: ScanResult) {
+function projectForModel(result: ScanResult, locale: Locale) {
   return {
     target: result.target,
     isDemo: result.isDemo,
@@ -56,12 +59,12 @@ function projectForModel(result: ScanResult) {
     band: result.score.band,
     stats: result.stats,
     findings: result.findings.slice(0, 12).map((f: Finding) => ({
-      title: f.title,
+      title: findingText(f, locale).title,
       priority: f.priority,
       confidence: Math.round(f.confidence * 100),
       asset: f.assetId,
-      observation: f.observation,
-      concern: f.concern,
+      observation: findingText(f, locale).observation,
+      concern: findingText(f, locale).concern,
     })),
     changes: result.changeSummary?.events.slice(0, 8).map((e) => ({ type: e.type, label: e.label })) ?? [],
   };
@@ -100,29 +103,29 @@ export class OpenAIExplainer implements Explainer {
     return text;
   }
 
-  async executiveSummary(result: ScanResult): Promise<string> {
+  async executiveSummary(result: ScanResult, locale: Locale = DEFAULT_LOCALE): Promise<string> {
     try {
-      return await this.call(executiveSummaryPrompt(), `Scan projection:\n${JSON.stringify(projectForModel(result))}`);
+      return await this.call(`${executiveSummaryPrompt()}\nWrite the answer only in ${localeMeta(locale).language}.`, `Scan projection:\n${JSON.stringify(projectForModel(result, locale))}`);
     } catch {
-      return this.fallback.executiveSummary(result); // never fail the request
+      return this.fallback.executiveSummary(result, locale); // never fail the request
     }
   }
 
-  async explainFinding(finding: Finding, target: string): Promise<string> {
+  async explainFinding(finding: Finding, target: string, locale: Locale = DEFAULT_LOCALE): Promise<string> {
     try {
       const projection = {
         target,
-        title: finding.title,
+        title: findingText(finding, locale).title,
         priority: finding.priority,
         confidence: Math.round(finding.confidence * 100),
-        observation: finding.observation,
-        inference: finding.inference,
-        concern: finding.concern,
-        recommendation: finding.recommendation,
+        observation: findingText(finding, locale).observation,
+        inference: findingText(finding, locale).inference,
+        concern: findingText(finding, locale).concern,
+        recommendation: findingText(finding, locale).recommendation,
       };
-      return await this.call(findingExplanationPrompt(), `Finding:\n${JSON.stringify(projection)}`, 300);
+      return await this.call(`${findingExplanationPrompt()}\nWrite the answer only in ${localeMeta(locale).language}.`, `Finding:\n${JSON.stringify(projection)}`, 300);
     } catch {
-      return this.fallback.explainFinding(finding, target);
+      return this.fallback.explainFinding(finding, target, locale);
     }
   }
 }

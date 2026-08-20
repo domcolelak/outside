@@ -6,31 +6,25 @@
   "modePassive": "Pasivní vnější pohled (neověřený)",
   "scanReference": "Sken {scanId}",
   "footer": "OUTSIDE · Zpráva o vnějším povrchu · {target}",
-
   "bandGuarded": "Chráněný",
   "bandModerate": "Mírný",
   "bandElevated": "Zvýšený",
   "bandExposed": "Exponovaný",
-
   "statAssets": "Vnější assety",
   "statWebSurfaces": "Web / API povrchy",
   "statShadow": "Signály stínových assetů",
   "statHighPriority": "Vysoká priorita",
-
   "headingSummary": "Manažerské shrnutí",
   "headingPosture": "Rozklad ochranné pozice",
   "headingChanges": "Změny od posledního skenu",
   "headingFindings": "Zjištění ({count})",
   "headingInventory": "Inventář assetů",
   "headingMethodology": "Metodika a odpovědné použití",
-
   "labelObserved": "Pozorováno",
   "labelInferred": "Odvozeno",
   "labelConcern": "Možná obava",
   "labelRecommendation": "Doporučená kontrola",
-
   "methodology": "OUTSIDE mapuje veřejně pozorovatelnou digitální stopu organizace pomocí pasivních, neinvazivních veřejných zdrojů (transparentnost certifikátů a DNS). Zjištění oddělují pozorovaný fakt od odvození a od možné obavy, každé se skóre spolehlivosti. Tato zpráva popisuje výhradně vnější objevování — nepředstavuje zneužití, kompromitaci ani neoprávněný přístup. Položky označené jako odvozené nebo možné vyžadují před jednáním lidskou kontrolu.",
-
   "summaryFootprint": "{target} má veřejnou digitální stopu s počtem {assets}, z toho {surfaces}.",
   "summaryAssetCount": {
     "one": "{count} pozorovatelný asset",

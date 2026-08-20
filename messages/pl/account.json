@@ -7,12 +7,10 @@
   "planProfessional": "Professional",
   "planAgency": "Agency",
   "signOut": "Wyloguj się",
-
   "roleOwner": "właściciel",
   "roleAdmin": "administrator",
   "roleAnalyst": "analityk",
   "roleViewer": "obserwator",
-
   "monitorsHeading": "Monitorowane cele",
   "monitorsDomainLabel": "Domena do monitorowania",
   "monitorsDomainPlaceholder": "firma.com",
@@ -31,12 +29,10 @@
   "monitorsAddFailed": "Nie udało się dodać monitorowania.",
   "monitorsUpdateFailed": "Nie udało się zmienić monitorowania.",
   "monitorsRemoveFailed": "Nie udało się usunąć monitorowania.",
-
   "notificationsHeading": "Powiadomienia",
   "notificationsChangeAlerts": "Powiadomienia o zmianach",
   "notificationsChangeAlertsBody": "Wyślij mi e-mail, gdy monitorowana powierzchnia tej organizacji się zmieni.",
   "notificationsFailed": "Nie udało się zapisać ustawień powiadomień.",
-
   "teamHeading": "Zespół",
   "teamEmailLabel": "E-mail współpracownika",
   "teamEmailPlaceholder": "wspolpracownik@firma.com",
@@ -46,7 +42,6 @@
   "teamNoInvites": "Brak oczekujących zaproszeń.",
   "teamPending": "oczekuje",
   "teamInviteFailed": "Nie udało się wysłać zaproszenia.",
-
   "verifyTitle": "Potwierdź e-mail, aby odblokować skanowanie, monitorowanie i raporty",
   "verifyBodyInvalid": "Ten link potwierdzający był nieprawidłowy lub wygasł. Poproś poniżej o nowy.",
   "verifyBody": "Wysłaliśmy link potwierdzający na {email}. Skanowanie zweryfikowanych celów, Guardian, zaproszenia oraz Agency/Enterprise pozostaną zablokowane, dopóki go nie potwierdzisz.",
