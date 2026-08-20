@@ -77,13 +77,14 @@ export async function POST(req: NextRequest) {
 
   let scanResult;
   try {
-    scanResult = await withOrgProviderKeys(orgId, () =>
-      runPassiveScan(target, `assess_${randomUUID()}`, () => {}, {
+    scanResult = await withOrgProviderKeys(orgId, async ({ providerIds }) => {
+      const result = await runPassiveScan(target, `assess_${randomUUID()}`, () => {}, {
         activeObservation: true,
         signal: AbortSignal.timeout(55_000),
-      }),
-    );
-    await recordScanProviderUsage(orgId, scanResult.providerRuns ?? []);
+      });
+      await recordScanProviderUsage(orgId, result.providerRuns ?? [], providerIds);
+      return result;
+    });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error && error.name === "TimeoutError" ? "The assessment timed out. Try again." : "The assessment could not complete — the target may be unreachable." }, { status: 502 });
   }

@@ -1,6 +1,6 @@
 {
-  "metaTitle": "OUTSIDE — Nézze meg vállalatát kívülről",
-  "metaDescription": "Bizonyítékokra épülő külső támadási felület-kezelés: passzív felderítés, ellenőrzött felmérések, folyamatos Guardian-megfigyelés, saját kulcsos intelligencia és visszafordítható javítás.",
+  "metaTitle": "OUTSIDE — Folyamatos külső kitettségkezelés",
+  "metaDescription": "Bizonyítékokra épülő külső láthatóság: passzív felderítés, ellenőrzött felmérések, Guardian-megfigyelés, saját kulcsos intelligencia és egy szabályozott Cloudflare DMARC-javítási folyamat.",
   "notFoundKicker": "404 · nem található",
   "notFoundTitle": "Ez az eszköz kívül esik a látóterünkön.",
   "notFoundBody": "A keresett oldal nem létezik. Lépjen vissza, és térképezzen fel egy külső felületet.",

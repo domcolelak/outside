@@ -176,6 +176,21 @@ export async function getConnectionSummary(orgId: string, provider: IntegrationP
   return row ? { provider, accountHint: row.accountHint, zones: row.zones, metadata: row.metadata, connectedAt: row.createdAt } : null;
 }
 
+/** Provider ids connected to an organization, without loading or decrypting secrets. */
+export async function listConnectedProviderIds(orgId: string): Promise<string[]> {
+  const conn = db();
+  if (conn) {
+    const rows = await conn.integrationConnection.findMany({
+      where: { orgId },
+      select: { provider: true },
+    });
+    return rows.map((row) => row.provider);
+  }
+  return [...mem().values()]
+    .filter((row) => row.orgId === orgId)
+    .map((row) => row.provider);
+}
+
 /** Update only the browser-safe validation snapshot; never touches the key. */
 export async function updateConnectionMetadata(
   orgId: string,

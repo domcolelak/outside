@@ -186,6 +186,10 @@ export interface ScoreComponent {
   /** Negative = increases exposure, positive = mitigates. */
   impact: number;
   detail: string;
+  /** Exact observed asset from which this component was derived. */
+  evidenceAssetId?: string;
+  /** Stable host evidence for persisted/replayed scores. */
+  evidenceCanonical?: string;
 }
 
 export interface ExposureScore {

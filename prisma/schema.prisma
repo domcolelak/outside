@@ -254,6 +254,7 @@ model Organization {
   providerAuditEvents     ProviderAuditEvent[]
   appliedRemediations     AppliedRemediation[]
   assessmentRuns          AssessmentRun[]
+  aiAnalyses              AIAnalysis[]
 
   @@map("organizations")
 }
@@ -969,7 +970,9 @@ model Scan {
   guardianSnapshots GuardianSnapshot[]
   guardianEvidence  GuardianEvidenceSnapshot[]
   guardianEvents    GuardianEvent[]
+  aiAnalyses        AIAnalysis[]
 
+  @@unique([id, orgId])
   @@index([targetId, finishedAt])
   @@map("scans")
 }
@@ -1163,15 +1166,19 @@ model AssetIdentity {
 }
 
 model AIAnalysis {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId     String
+  scan      Scan?        @relation(fields: [scanId, orgId], references: [id, orgId], onDelete: Cascade)
   scanId    String?
   target    String
   kind      String
   source    String
   text      String
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
-  @@index([target])
+  @@index([orgId, target, createdAt])
+  @@index([scanId, orgId])
   @@map("ai_analyses")
 }
 
@@ -1277,6 +1284,27 @@ model EvolutionIncidentSignal {
   @@map("evolution_incident_signals")
 }
 
+/** Durable history for scheduled Evolution coverage analyses. */
+model EvolutionRun {
+  id          String   @id @default(cuid())
+  ranAt       DateTime @default(now())
+  proposalIds Json
+  total       Int
+  newCount    Int
+  firstRun    Boolean
+
+  @@index([ranAt])
+  @@map("evolution_runs")
+}
+
+/** Proposal ids Evolution has ever surfaced, used to calculate genuine deltas. */
+model EvolutionProposalSeen {
+  proposalId  String   @id
+  firstSeenAt DateTime @default(now())
+
+  @@map("evolution_proposals_seen")
+}
+
 /**
  * A customer-supplied provider credential (e.g. a Cloudflare API token),
  * encrypted at rest with the same AES-256-GCM helper as Guardian channels.
@@ -1284,16 +1312,16 @@ model EvolutionIncidentSignal {
  * the browser — only a summary (account hint + the zones it can act on).
  */
 model IntegrationConnection {
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId          String
   provider       String
   encryptedToken String
   accountHint    String
-  zones          Json     @default("[]")
-  metadata       Json     @default("{}")
+  zones          Json         @default("[]")
+  metadata       Json         @default("{}")
   createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@id([orgId, provider])
   @@map("integration_connections")
@@ -1306,16 +1334,16 @@ model IntegrationConnection {
  * rate/quota awareness. Shared by every provider; no per-provider table.
  */
 model ProviderUsageEvent {
-  id        String   @id @default(cuid())
+  id           String       @id @default(cuid())
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  orgId     String
-  provider  String
-  operation String
-  ok        Boolean
-  status    Int?
-  errorCode String?
-  latencyMs Int?
-  createdAt DateTime @default(now())
+  orgId        String
+  provider     String
+  operation    String
+  ok           Boolean
+  status       Int?
+  errorCode    String?
+  latencyMs    Int?
+  createdAt    DateTime     @default(now())
 
   @@index([orgId, provider, createdAt])
   @@index([createdAt])
@@ -1328,14 +1356,14 @@ model ProviderUsageEvent {
  * string only — never the credential. Shared by every provider.
  */
 model ProviderAuditEvent {
-  id        String   @id @default(cuid())
+  id           String       @id @default(cuid())
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  orgId     String
-  provider  String
-  action    String
-  actorId   String
-  detail    String?
-  createdAt DateTime @default(now())
+  orgId        String
+  provider     String
+  action       String
+  actorId      String
+  detail       String?
+  createdAt    DateTime     @default(now())
 
   @@index([orgId, provider, createdAt])
   @@map("provider_audit_events")
@@ -1347,7 +1375,7 @@ model ProviderAuditEvent {
  * reversed later, and keeps an immutable record of who applied it.
  */
 model AppliedRemediation {
-  id           String    @id @default(cuid())
+  id           String       @id @default(cuid())
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId        String
   provider     String
@@ -1355,7 +1383,7 @@ model AppliedRemediation {
   action       String
   handle       Json
   appliedBy    String
-  appliedAt    DateTime  @default(now())
+  appliedAt    DateTime     @default(now())
   rolledBackAt DateTime?
 
   @@index([orgId, provider, target])
@@ -1383,17 +1411,17 @@ model ScanOptOut {
  * per check with references to the scan's deterministic findings.
  */
 model AssessmentRun {
-  id               String   @id @default(cuid())
+  id               String       @id @default(cuid())
   organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId            String
   target           String
   catalogueVersion String
   passed           Int
   failed           Int
-  notEvaluated     Int      @default(0)
+  notEvaluated     Int          @default(0)
   results          Json
   createdBy        String
-  createdAt        DateTime @default(now())
+  createdAt        DateTime     @default(now())
 
   @@index([orgId, target, createdAt])
   @@index([createdAt])

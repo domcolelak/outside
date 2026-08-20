@@ -39,6 +39,7 @@ export const m365Provider: ProviderDefinition = {
     "Attributes discovered hostnames to the domains your Microsoft 365 tenant has verified. Read-only — Domain.Read.All is the only permission needed, and unverified domains are ignored.",
   credentialKind: "tenant_client_secret",
   envKey: "M365_CLIENT_ID",
+  envKeys: ["M365_TENANT_ID", "M365_CLIENT_ID", "M365_CLIENT_SECRET"],
   runLabel: "Microsoft 365",
   expandEnv(raw): Record<string, string> {
     const cred = splitMicrosoftCredential(raw);

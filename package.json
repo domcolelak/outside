@@ -7,7 +7,7 @@
     "npm": ">=11.16.0 <12"
   },
   "private": true,
-  "description": "Evidence-first external attack surface management for teams and agencies: passive discovery, verified assessments, continuous monitoring, BYOK intelligence, and reversible remediation.",
+  "description": "Evidence-first external visibility for teams and agencies: passive discovery, verified assessments, continuous monitoring, BYOK intelligence, and one controlled Cloudflare DMARC remediation flow.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

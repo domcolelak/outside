@@ -17,6 +17,13 @@ groups:
           summary: PostgreSQL exporter cannot reach the database
           action: Check database availability, credentials, connections and storage; stop migrations and outbound jobs until integrity is known.
 
+      - alert: OutsideRequiredScanPersistenceFailure
+        expr: increase(outside_scan_persistence_failures_total{persistence_mode="required"}[10m]) > 0
+        labels: { severity: critical, owner: database }
+        annotations:
+          summary: A monitored scan could not persist its history
+          action: Inspect PostgreSQL availability and application logs; keep the affected scan failed, restore durable writes, then retry it idempotently before Guardian resumes.
+
       - alert: OutsideSchedulerMissed
         expr: time() - outside_scheduler_last_success_unixtime{job=~"scan|enterprise"} > 900
         for: 5m
@@ -128,6 +135,13 @@ groups:
         annotations:
           summary: Discovery provider p95 latency exceeds 10 seconds
           action: Compare providers, cache effectiveness and upstream status; tune concurrency only after ruling out upstream throttling.
+
+      - alert: OutsideIntegrationCredentialBlocked
+        expr: increase(outside_integration_credential_load_failures_total[15m]) > 0
+        labels: { severity: warning, owner: platform }
+        annotations:
+          summary: An organization integration credential was blocked
+          action: Inspect the provider and failure scope, verify the Guardian encryption-key rotation, and ask the authorized administrator to reconnect only if the ciphertext is unrecoverable. Do not substitute a platform key.
 
       - alert: OutsideSchedulerFailures
         expr: increase(outside_scheduler_runs_total{result="failed"}[15m]) >= 3
