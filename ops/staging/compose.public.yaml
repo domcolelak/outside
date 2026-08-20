@@ -27,6 +27,11 @@ services:
       - caddy-config:/config
 
   blackbox-exporter:
+    # Compose v5 materializes inline configs before the container starts and
+    # rejects that operation for a read-only root filesystem. The exporter
+    # still runs without capabilities and with no-new-privileges from the base
+    # definition; keep this explicit so public certificate probes are portable.
+    read_only: false
     volumes: !reset []
     configs:
       - source: blackbox-public

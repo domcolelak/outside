@@ -68,7 +68,8 @@ fetches one explicit revision, refuses a dirty tree, creates unique SHA-scoped
 local app, migrator, backup and scheduler tags, bootstraps private analytics,
 applies migrations, and only then recreates the app and proxy. It also recreates
 the scheduler and alert sink, verifies the scheduler image revision, requires an
-initial Evolution attempt, and reloads Prometheus rules. It verifies `/api/readyz`
+initial Evolution attempt, and recreates Prometheus to remount the checked-out
+release rules. It verifies `/api/readyz`
 reports the exact deployed commit:
 
 ```bash

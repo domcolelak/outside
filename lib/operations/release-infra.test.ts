@@ -27,8 +27,8 @@ describe("release infrastructure contracts", () => {
     expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate scheduler alert-sink');
     expect(source).toContain('scheduler_revision="$(docker inspect');
     expect(source).toContain("scheduler_evolution_attempted");
-    expect(source).toContain('"${COMPOSE[@]}" up -d prometheus');
-    expect(source).toContain('docker kill --signal HUP "$PROMETHEUS_CID"');
+    expect(source).toContain('"${COMPOSE[@]}" up -d --no-deps --force-recreate prometheus');
+    expect(source).not.toContain('docker kill --signal HUP "$PROMETHEUS_CID"');
     expect(source).toContain("prometheus_has_release_rule");
     expect(source).toContain("OutsideIntegrationCredentialBlocked");
     expect(source).toContain("body.release?.commit!==process.env.EXPECTED_GIT_SHA");
@@ -88,6 +88,7 @@ describe("release infrastructure contracts", () => {
     expect(compose).toContain("Host: ${STAGING_DOMAIN:?Set STAGING_DOMAIN to the public hostname}");
     expect(compose).toContain("server_name: ${STAGING_DOMAIN:?Set STAGING_DOMAIN to the public hostname}");
     expect(compose).toContain("insecure_skip_verify: false");
+    expect(compose).toContain("read_only: false");
     expect(compose).toContain("target: /etc/blackbox_exporter/config.yaml");
   });
 
