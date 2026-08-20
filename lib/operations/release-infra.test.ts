@@ -17,14 +17,38 @@ describe("release infrastructure contracts", () => {
     expect(source).toContain('docker build --target runner "${BUILD_ARGS[@]}" -t "$OUTSIDE_IMAGE" .');
     expect(source).toContain('docker build --target migrator "${BUILD_ARGS[@]}" -t "$OUTSIDE_MIGRATOR_IMAGE" .');
     expect(source).toContain('docker build -t "$OUTSIDE_BACKUP_IMAGE" ops/staging/backup');
+    expect(source).toContain('docker build "${BUILD_ARGS[@]}" -t "$OUTSIDE_SCHEDULER_IMAGE" ops/staging/scheduler');
     expect(source).toContain('"${COMPOSE[@]}" up -d analytics-db analytics');
     expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate analytics-bootstrap');
     expect(source).toContain("Analytics bootstrap did not finish in time");
     expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate analytics-backup analytics-retention');
     expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate migrate app caddy');
     expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate backup');
+    expect(source).toContain('"${COMPOSE[@]}" up -d --force-recreate scheduler alert-sink');
+    expect(source).toContain('scheduler_revision="$(docker inspect');
+    expect(source).toContain("scheduler_evolution_attempted");
+    expect(source).toContain('"${COMPOSE[@]}" up -d prometheus');
+    expect(source).toContain('docker kill --signal HUP "$PROMETHEUS_CID"');
+    expect(source).toContain("prometheus_has_release_rule");
+    expect(source).toContain("OutsideIntegrationCredentialBlocked");
     expect(source).toContain("body.release?.commit!==process.env.EXPECTED_GIT_SHA");
     expect(source).not.toContain('docker build --target runner "${BUILD_ARGS[@]}" -t "$CONFIGURED_APP_IMAGE"');
+  });
+
+  it("pins the scheduler image and forwards every control-plane interval", async () => {
+    const compose = await text("ops/staging/compose.yaml");
+    const schedulerDockerfile = await text("ops/staging/scheduler/Dockerfile");
+
+    expect(compose).toContain("image: ${OUTSIDE_SCHEDULER_IMAGE:-outside-scheduler:local}");
+    for (const setting of [
+      "SCHEDULER_KEV_INTERVAL_SECONDS",
+      "SCHEDULER_EPSS_INTERVAL_SECONDS",
+      "SCHEDULER_EVOLUTION_INTERVAL_SECONDS",
+      "SCHEDULER_EVOLUTION_RETRY_SECONDS",
+    ]) {
+      expect(compose).toContain(`${setting}: \${${setting}:-`);
+    }
+    expect(schedulerDockerfile).toContain('org.opencontainers.image.revision="${GIT_SHA}"');
   });
 
   it("keeps analytics administration private and exposes only the tracker ingestion surface", async () => {
