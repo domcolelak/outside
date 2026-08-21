@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import enLanding from "../messages/en/landing.json";
 
 /**
  * The five-language public experience, in a real browser.
@@ -78,9 +79,7 @@ test.describe("public experience in five languages", () => {
 
     const hero = page.getByRole("heading", { level: 1 });
     await expect(hero).toBeVisible();
-    await expect(hero).not.toContainText(
-      "Your external surface keeps changing",
-    );
+    await expect(hero).not.toContainText(enLanding.heroTitle);
     // The scan form appears twice — hero and closing call to action.
     await expect(
       page.getByRole("button", { name: /bezplatnou snímkou/i }).first(),
@@ -88,17 +87,19 @@ test.describe("public experience in five languages", () => {
 
     // The headings are the surface a prospect reads first; none of them may
     // still be the English source unless the phrase is a product name.
+    // Derived from the catalogue rather than a fixed list of phrases: the landing
+    // page is rewritten whenever the positioning moves, and a hard-coded list
+    // silently stops covering the new copy exactly when it matters most.
+    const english = new Set(
+      Object.values(enLanding)
+        .filter((value): value is string => typeof value === "string")
+        .map((value) => value.trim()),
+    );
     const headings = await page.locator("h1, h2").allTextContents();
-    const english = [
-      "Your external surface keeps changing. OUTSIDE keeps watch.",
-      "See what the internet knows",
-      "Analyst-grade context.",
-      "Start free. Monitor when it matters.",
-    ];
     for (const heading of headings) {
       const text = heading.trim();
-      if (NONTRANSLATABLE.test(text)) continue;
-      expect(english, `"${text}" is still English`).not.toContain(text);
+      if (!text || NONTRANSLATABLE.test(text)) continue;
+      expect(english.has(text), `"${text}" is still English`).toBe(false);
     }
   });
 

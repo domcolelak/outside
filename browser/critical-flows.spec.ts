@@ -1,15 +1,22 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import landingCopy from "../messages/en/landing.json";
 
 test.describe("production critical journeys", () => {
   test("landing and authentication surfaces meet the accessibility baseline", async ({
     page,
   }) => {
     await page.goto("/");
+    // Read from the catalogue rather than pinned as English prose. The hero is
+    // rewritten whenever the positioning moves, and a test that hard-codes the
+    // wording fails on every rewrite while never checking the thing that matters:
+    // that the hero renders its real copy and the entry points are reachable.
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "external surface keeps changing",
+      landingCopy.heroTitle,
     );
-    await expect(page.getByRole("link", { name: /watch demo/i })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: landingCopy.navWatchDemo }),
+    ).toBeVisible();
 
     const landing = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
