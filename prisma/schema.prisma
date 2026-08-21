@@ -1386,6 +1386,13 @@ model AppliedRemediation {
   appliedAt    DateTime     @default(now())
   rolledBackAt DateTime?
 
+  // Post-change check, observed over public DNS rather than through the provider
+  // API the change was made with. Null means never checked; a stored status is
+  // always the result of an actual observation, never an assumption.
+  verifiedAt     DateTime?
+  verifyStatus   String?
+  verifyObserved String?
+
   @@index([orgId, provider, target])
   @@map("applied_remediations")
 }

@@ -9,10 +9,17 @@ interface Preview {
   record: { name: string; type: string; content: string };
   summary: string;
 }
+/**
+ * The post-change check, observed over public DNS. Null means the change has
+ * never been checked from outside — which is not the same as failing, and must
+ * not be shown as if it were.
+ */
+type Verification = { status: "passed" | "not_observed" | "mismatch"; observed: string | null; checkedAt: string } | null;
+
 interface ZoneState {
   name: string;
   verified: boolean;
-  applied: { id: string; appliedAt: string } | null;
+  applied: { id: string; appliedAt: string; verification: Verification } | null;
   preview: Preview;
 }
 
@@ -27,6 +34,7 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
     tr.t("integrations", key, values);
   const [zones, setZones] = useState<ZoneState[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [checking, setChecking] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -83,6 +91,33 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
     setBusy(null);
   }
 
+  /** Ask again: public DNS rarely serves the record the second it is written. */
+  async function recheck(target: string) {
+    setChecking(target);
+    setError(null);
+    try {
+      const res = await fetch("/api/integrations/cloudflare/dmarc", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ orgId, target }),
+      });
+      if (!res.ok) setError((await res.json().catch(() => null))?.error ?? d("dmarcCheckFailed"));
+      else await load();
+    } catch {
+      setError(d("dmarcNetworkError"));
+    }
+    setChecking(null);
+  }
+
+  /** Never-checked reads as unknown, not as failure — the distinction is the point. */
+  function checkLabel(verification: Verification): { text: string; tone: string } {
+    if (!verification) return { text: d("dmarcCheckUnknown"), tone: "text-ink-faint" };
+    if (verification.status === "passed") return { text: d("dmarcCheckPassed", { date: tr.formatDate(verification.checkedAt) }), tone: "text-signal" };
+    if (verification.status === "mismatch") return { text: d("dmarcCheckMismatch"), tone: "text-risk-high" };
+    return { text: d("dmarcCheckNotObserved"), tone: "text-risk-medium" };
+  }
+
   if (loadError) {
     return (
       <div role="alert" className="mono mt-3 rounded-md border border-risk-medium/30 bg-risk-medium/5 px-2.5 py-2 text-[11px] leading-5 text-risk-medium">
@@ -109,12 +144,17 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
       {error && <p role="alert" aria-live="assertive" className="mono mt-2 text-[11px] text-risk-high">{error}</p>}
 
       <ul className="mt-3 space-y-2">
-        {zones.map((zone) => (
+        {zones.map((zone) => {
+          const check = zone.applied ? checkLabel(zone.applied.verification) : null;
+          return (
           <li key={zone.name} className="rounded-lg border border-line bg-base-950/50 p-2.5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="mono text-[12px] text-ink">{zone.name}</span>
               {zone.applied ? (
-                <span className="mono text-[11px] text-signal">{d("dmarcApplied", { date: tr.formatDate(zone.applied.appliedAt) })}</span>
+                <>
+                  <span className="mono text-[11px] text-signal">{d("dmarcApplied", { date: tr.formatDate(zone.applied.appliedAt) })}</span>
+                  <span className={`mono text-[11px] ${check!.tone}`}>{check!.text}</span>
+                </>
               ) : zone.verified ? (
                 <span className="mono text-[11px] text-ink-faint">{d("dmarcNotApplied")}</span>
               ) : (
@@ -143,6 +183,15 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
                 )}
                 {zone.applied && (
                   <button
+                    onClick={() => recheck(zone.name)}
+                    disabled={checking === zone.name || busy === zone.name}
+                    className="mono min-h-11 rounded-md border border-line px-3 py-2 text-xs text-ink-soft hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal"
+                  >
+                    {checking === zone.name ? d("dmarcChecking") : d("dmarcCheckAgain")}
+                  </button>
+                )}
+                {zone.applied && (
+                  <button
                     onClick={() => act(zone.name, false)}
                     disabled={busy === zone.name}
                     className="mono min-h-11 rounded-md border border-risk-high/40 px-3 py-2 text-xs text-risk-high hover:bg-risk-high/5 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-risk-high"
@@ -161,7 +210,8 @@ export function DmarcRemediation({ orgId }: { orgId: string }) {
               </div>
             )}
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );

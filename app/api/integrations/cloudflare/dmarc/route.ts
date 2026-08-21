@@ -3,7 +3,8 @@ import { getSessionContext, hasOrgRole } from "@/lib/auth";
 import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { getConnectionSummary, getConnectionToken } from "@/lib/integrations/connections";
 import { previewDmarcRemediation, applyDmarcRemediation, rollbackRemediation } from "@/lib/integrations/remediate";
-import { recordApplied, activeRemediation, markRolledBack } from "@/lib/integrations/applied";
+import { recordApplied, activeRemediation, markRolledBack, recordVerification } from "@/lib/integrations/applied";
+import { verifyDmarcRemediation, type RemediationCheck } from "@/lib/integrations/verification";
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { operationalLog } from "@/lib/observability/log";
@@ -38,6 +39,26 @@ async function gate(orgId: string, target?: string) {
   return { ctx };
 }
 
+/**
+ * Check the change the way the internet sees it, and store the answer.
+ *
+ * Cloudflare confirming its own write only proves the record was stored; it does
+ * not prove the record is served. This is a separate, public observation — and it
+ * can fail for reasons that have nothing to do with the change, so it never
+ * fails the request: the DNS write already happened and stands on its own.
+ */
+async function postChangeCheck(recordId: string, target: string): Promise<RemediationCheck | null> {
+  try {
+    const expected = previewDmarcRemediation(target).record.content;
+    const check = await verifyDmarcRemediation(target, expected, AbortSignal.timeout(5_000));
+    await recordVerification(recordId, check);
+    return check;
+  } catch (error) {
+    operationalLog("warn", "integrations.remediation_post_check_unavailable", { provider: PROVIDER, target, action: ACTION }, error);
+    return null;
+  }
+}
+
 /** Which connected zones can be remediated, and what state each is in. */
 export async function GET(req: NextRequest) {
   const orgId = new URL(req.url).searchParams.get("orgId") ?? "";
@@ -54,7 +75,7 @@ export async function GET(req: NextRequest) {
       return {
         name: zone.name,
         verified: owner === orgId,
-        applied: applied ? { id: applied.id, appliedAt: applied.appliedAt } : null,
+        applied: applied ? { id: applied.id, appliedAt: applied.appliedAt, verification: applied.verification } : null,
         preview: previewDmarcRemediation(zone.name),
       };
     }),
@@ -108,7 +129,11 @@ export async function POST(req: NextRequest) {
       try {
         const record = await recordApplied({ orgId, provider: PROVIDER, target, action: ACTION, handle: result.handle, appliedBy: auth.ctx!.user.id });
         operationalLog("info", "integrations.remediation_applied_by_customer", { provider: PROVIDER, orgId, target, action: ACTION });
-        return NextResponse.json({ applied: true, summary: result.summary, remediation: { id: record.id, appliedAt: record.appliedAt } });
+        // Checked immediately, which usually reads as not-yet-observed: DNS
+        // propagation takes minutes. That is the honest answer at this moment,
+        // and PATCH lets the operator ask again once it has spread.
+        const verification = await postChangeCheck(record.id, target);
+        return NextResponse.json({ applied: true, summary: result.summary, remediation: { id: record.id, appliedAt: record.appliedAt, verification } });
       } catch (persistenceError) {
         try {
           await rollbackRemediation(result.handle, { token, actorId: auth.ctx!.user.id });
@@ -126,6 +151,43 @@ export async function POST(req: NextRequest) {
       { status: error instanceof CapacityError ? 409 : 400 },
     );
   }
+}
+
+/**
+ * Re-run the post-change check on demand. Separate from POST because a change
+ * is applied once but may need observing several times: public DNS does not
+ * update the instant the provider accepts the write.
+ */
+export async function PATCH(req: NextRequest) {
+  if (!(await rateLimit(`integrations:verify:${clientIdentity(req)}`, 20, 60_000)).ok) {
+    return NextResponse.json({ error: "Too many attempts. Try again shortly." }, { status: 429 });
+  }
+
+  let body: { orgId?: string; target?: string };
+  try {
+    body = (await readLimitedJson(req, 4_000)) as typeof body;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof RequestBodyError ? error.message : "Invalid request." }, { status: 400 });
+  }
+
+  const orgId = String(body.orgId ?? "");
+  let target: string;
+  try {
+    target = registrableDomain(normalizeDomain(String(body.target ?? "")));
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof InvalidTargetError ? error.message : "Invalid domain." }, { status: 400 });
+  }
+  const auth = await gate(orgId, target);
+  if (auth.error) return auth.error;
+
+  const active = await activeRemediation(orgId, PROVIDER, target, ACTION);
+  if (!active) return NextResponse.json({ error: "Nothing has been applied for this domain." }, { status: 404 });
+
+  const verification = await postChangeCheck(active.id, target);
+  if (!verification) {
+    return NextResponse.json({ error: "The check could not be completed right now. The applied change is unaffected." }, { status: 503 });
+  }
+  return NextResponse.json({ verification });
 }
 
 /** Roll the record back — removes exactly what OUTSIDE created. */
