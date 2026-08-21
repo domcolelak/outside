@@ -7,7 +7,7 @@
     "npm": ">=11.16.0 <12"
   },
   "private": true,
-  "description": "Evidence-first external visibility for teams and agencies: passive discovery, verified assessments, continuous monitoring, BYOK intelligence, and one controlled Cloudflare DMARC remediation flow.",
+  "description": "Evidence-first external exposure management that watches change, explains impact, guides remediation, and verifies the result.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
