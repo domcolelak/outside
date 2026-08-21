@@ -64,3 +64,26 @@ export async function verifyDmarcRemediation(target: string, expected: string, s
   // edit made outside OUTSIDE. Report what is actually served, not what we hoped.
   return { status: "mismatch", observed: policies[0] ?? null, checkedAt };
 }
+
+export type RemediationVerifier = (target: string, expected: string, signal?: AbortSignal) => Promise<RemediationCheck>;
+
+/**
+ * The external check belonging to each remediation capability.
+ *
+ * A capability that declares verifySupported must have an entry here, and the
+ * registry test fails if it does not. That is what keeps "verified" from
+ * becoming a claim with no code behind it: adding a remediation without its
+ * verifier breaks the build rather than shipping an unverifiable fix.
+ */
+const VERIFIERS: Readonly<Record<string, RemediationVerifier>> = {
+  "REM-CF-DMARC-MONITORING": verifyDmarcRemediation,
+};
+
+export function verifierFor(capabilityId: string): RemediationVerifier | null {
+  return VERIFIERS[capabilityId] ?? null;
+}
+
+/** Capability ids that can be checked from outside — the registry test cross-checks this. */
+export function verifiableCapabilityIds(): string[] {
+  return Object.keys(VERIFIERS);
+}

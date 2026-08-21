@@ -39,7 +39,13 @@ vi.mock("@/lib/integrations/remediate", () => ({
 }));
 
 const check = vi.hoisted(() => ({ verify: vi.fn() }));
-vi.mock("@/lib/integrations/verification", () => ({ verifyDmarcRemediation: (...a: unknown[]) => check.verify(...a) }));
+// The route resolves its verifier through the capability, so that is what the
+// mock has to provide — a capability with no verifier is a case of its own,
+// covered in the registry test.
+vi.mock("@/lib/integrations/verification", () => ({
+  verifierFor: () => (...a: unknown[]) => check.verify(...a),
+  verifiableCapabilityIds: () => ["REM-CF-DMARC-MONITORING"],
+}));
 
 vi.mock("@/lib/security/ratelimit", () => ({ rateLimit: async () => ({ ok: true }), clientIdentity: () => "test" }));
 vi.mock("@/lib/http/body", () => ({

@@ -4,7 +4,7 @@ import { authorizedTargetOrg } from "@/lib/auth/target-access";
 import { getConnectionSummary, getConnectionToken } from "@/lib/integrations/connections";
 import { previewDmarcRemediation, applyDmarcRemediation, rollbackRemediation } from "@/lib/integrations/remediate";
 import { recordApplied, activeRemediation, markRolledBack, recordVerification } from "@/lib/integrations/applied";
-import { verifyDmarcRemediation, type RemediationCheck } from "@/lib/integrations/verification";
+import { verifierFor, type RemediationCheck } from "@/lib/integrations/verification";
 import { readLimitedJson, RequestBodyError } from "@/lib/http/body";
 import { clientIdentity, rateLimit } from "@/lib/security/ratelimit";
 import { operationalLog } from "@/lib/observability/log";
@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
 
 const PROVIDER = "cloudflare" as const;
 const ACTION = "add_dmarc_monitoring";
+/** The remediation capability this route implements, in the coverage registry. */
+const CAPABILITY = "REM-CF-DMARC-MONITORING";
 
 /**
  * Applying a remediation writes to the customer's live DNS, so it is gated four
@@ -49,8 +51,13 @@ async function gate(orgId: string, target?: string) {
  */
 async function postChangeCheck(recordId: string, target: string): Promise<RemediationCheck | null> {
   try {
+    // Resolved through the capability rather than imported directly: a remediation
+    // that declares it can be verified must have a verifier registered for it, and
+    // one that does not simply cannot claim a verified result.
+    const verify = verifierFor(CAPABILITY);
+    if (!verify) return null;
     const expected = previewDmarcRemediation(target).record.content;
-    const check = await verifyDmarcRemediation(target, expected, AbortSignal.timeout(5_000));
+    const check = await verify(target, expected, AbortSignal.timeout(5_000));
     await recordVerification(recordId, check);
     return check;
   } catch (error) {
